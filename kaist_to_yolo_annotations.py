@@ -12,89 +12,112 @@
 """
 import untangle
 import yaml
-import os
+import os, errno
+from pathlib import Path
 import shutil
 
+sets_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/imageSets/"
 annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
-images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/img/"
+images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
+yolo_dataset_path = "/home/quique/umh/yolo/kaist_yolo/"
+
 lwir = "/lwir/"
 visible = "/visible/"
+
 label_folder = "/labels/"
 images_folder = "/images/"
 
-object_class = {}
-obj_index = 0
-processed_files = 0
 
 # TO check against default yolo, classes have to match the coco128.yaml
 class_data_coco = {  'person': 0,  'cyclist': 80, 'people': 81 } # people does not exist in coco dataset, use 80 as tag
 
+def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
+    with open(xml_path) as xml:
+        txt_data = ""
+        doc = untangle.parse(xml)
+        if hasattr(doc.annotation, "object"):
+            for object in doc.annotation.object:
+                obj_name = object.name.cdata.replace("?","")
+                                
+                img_width = float(doc.annotation.size.width.cdata)
+                img_height = float(doc.annotation.size.height.cdata)
 
-## Move all imags to 'iamge' folder. Just done once to reorder the dataset
-# for subdir, dirs, files in os.walk(images_path):
-#     # print(subdir)
-    
-#     for file in files:
-#         if ".jpg" in file and images_folder not in subdir:
-#             if not os.path.exists(subdir + images_folder): os.makedirs(subdir + images_folder)
-#             if not os.path.exists(subdir + label_folder): os.makedirs(subdir + label_folder)
-#             file_path = subdir + "/" + file
-#             new_file_path = subdir + images_folder + file.replace(".jpg", ".png")
-#             shutil.move(file_path, new_file_path)
-#             print(f"[{processed_files}]Processed {file_path}")
-#             processed_files += 1
+                x_centered = float(object.bndbox.x.cdata) + float(object.bndbox.w.cdata) / 2.0
+                y_centered = float(object.bndbox.y.cdata) + float(object.bndbox.h.cdata) / 2.0
+
+                x_normalized = x_centered / img_width
+                y_normalized = y_centered / img_height
+                w_normalized = float(object.bndbox.w.cdata) / img_width
+                h_normalized = float(object.bndbox.h.cdata) / img_height
+                
+                if obj_name == "people":
+                    obj_name = "person"
+                    
+                # Only processes person for now 
+                if obj_name == "person":
+                    txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
+            
+            for file in output_paths:
+                with open(file, 'w+') as output:
+                    output.write(txt_data)
 
 
-processed_files = 0
-for subdir, dirs, files in os.walk(annotation_path):
-    # print(f"{subdir = }; {dirs = }; {len(files) = }")
-    # If its not the lower path with imag just continue
-    if len(files) == 0:
-        continue
 
-    lwir_label_path = images_path + subdir.replace(annotation_path, "") + lwir + label_folder
-    visible_label_path = images_path + subdir.replace(annotation_path, "") + visible + label_folder
-    
-    # print(f"Procesing images from {subdir}, sotoring annotations to {lwir_path} and {visible_path}.")
-    try: 
-        print("-------")
-        for file in files:
-            annotation_file = subdir + "/" + file
-            print(f"[{processed_files}] From {annotation_file}")
-            processed_files += 1
-            out_path = (lwir_label_path + file.replace(".xml", ".txt"), visible_label_path + file.replace(".xml", ".txt"))
-            with open(annotation_file) as xml:
-                txt_data = ""
-                doc = untangle.parse(xml)
-                if hasattr(doc.annotation, "object"):
-                    for object in doc.annotation.object:
-                        obj_name = object.name.cdata.replace("?","")
-                        # print(f"Detected {obj_name} in (x,y) = ({object.bndbox.x.cdata},{object.bndbox.y.cdata}) with (w,h) = ({object.bndbox.w.cdata},{object.bndbox.h.cdata})")
-                        if obj_name not in object_class:
-                            object_class[obj_name] = obj_index
-                            obj_index += 1
-                        
-                        img_width = float(doc.annotation.size.width.cdata)
-                        img_height = float(doc.annotation.size.height.cdata)
+label_files_created = 0
+dataset_processed = 0
 
-                        x_centered = float(object.bndbox.x.cdata) + float(object.bndbox.w.cdata) / 2.0
-                        y_centered = float(object.bndbox.y.cdata) + float(object.bndbox.h.cdata) / 2.0
+# Goes to imageSets folder an iterate through the images an processes all image sets
+for file in os.listdir(sets_path):
+    file_path = os.path.join(sets_path, file)
+    if os.path.isfile(file_path):
+        data_set_name = file.replace(".txt", "")
+        print(f"[{dataset_processed}] Processing dataset {data_set_name}")
 
-                        x_normalized = x_centered / img_width
-                        y_normalized = y_centered / img_height
-                        w_normalized = float(object.bndbox.w.cdata) / img_width
-                        h_normalized = float(object.bndbox.h.cdata) / img_height
+        # Create new folder structure
+        new_dataset_label_paths = (yolo_dataset_path + data_set_name + lwir + label_folder,
+                             yolo_dataset_path + data_set_name + visible + label_folder)
+        new_dataset_images_paths = (yolo_dataset_path + data_set_name + lwir + images_folder,
+                             yolo_dataset_path + data_set_name + visible + images_folder)
+        
+        for folder in (new_dataset_label_paths + new_dataset_images_paths):
+            # print(folder)
+            Path(folder).mkdir(parents=True, exist_ok=True)
 
-                        txt_data += f"{class_data_coco[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
-                    # print(out_path)
-                    # print(txt_data)
-                    for file in out_path:
-                        with open(file, 'w+') as output:
-                            output.write(txt_data)
+        # Process all lines in imageSet file to create labelling in the new folder structure
+        with open(file_path, 'r') as file:
+            for count, line in enumerate(file):
+                for data_type in (lwir, visible):
+                    line = line.replace("\n", "")
+                    path = line.split("/")
+                    path = (path[0], path[1], data_type, path[2])
+                    root_label_path = annotation_path + line + ".xml"
+                    # print(root_label_path)
 
-        print("-------")
-    except Exception as e:
-        print(f"Exception catched processing {annotation_file} with message: {e}")
+                    # labelling
+
+                    root_label_path = f"{annotation_path}/{line}.xml"
+                    output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
+                    # print(output_paths)
+                    processXML(root_label_path, output_paths)
+
+                    # Create images
+                    root_image_path = images_path + "/".join(path) + ".jpg"
+                    new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
+                    # print(new_image_path)
+                    # Create or update symlink if already exists
+                    try:
+                        os.symlink(root_image_path, new_image_path)
+                    except OSError as e:
+                        if e.errno == errno.EEXIST:
+                            os.remove(new_image_path)
+                            os.symlink(root_image_path, new_image_path)
+                        else:
+                            raise e
+            print(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
+        dataset_processed += 1
+                    
+print(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
+exit()
 
 yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
 with open(yaml_data_path, "w+") as file:
