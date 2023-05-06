@@ -1,4 +1,4 @@
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 # encoding: utf-8
 """
     Kaist iterates over Kaist folder plotting label and detection over the images
