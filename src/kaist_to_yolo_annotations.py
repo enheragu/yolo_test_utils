@@ -50,7 +50,7 @@ def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
                 w_normalized = float(object.bndbox.w.cdata) / img_width
                 h_normalized = float(object.bndbox.h.cdata) / img_height
                 
-                if obj_name == "people":
+                if obj_name == "people" or obj_name == "cyclist":
                     obj_name = "person"
                     
                 # Only processes person for now 

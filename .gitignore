@@ -1,3 +1,21 @@
+# YOLO models and datasets
+*.pt
+datasets/
+kaist_yolo/
+kaist_laveled_imags/
+
+# Temporal files
+tmp_kaist.yaml
+test_cache_run.yaml
+summary_data.csv
+
+# Log files
+*.log
+
+# Venv and ultralitisc repo
+yolo_env/
+ultralitics_yolov5/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
