@@ -1,0 +1,3 @@
+[submodule "ultralitics_yolov8"]
+	path = ultralitics_yolov8
+	url = https://github.com/enheragu/ultralytics_yolov8.git
