@@ -15,10 +15,11 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 
-sets_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/imageSets/"
+from config import annotation_path, images_path
+
 annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
 images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
-labeled_images = "/home/quique/umh/yolo/kaist_labeled_images/"
+labeled_images = "./kaist_labeled_images/"
 
 lwir = "/lwir/"
 visible = "/visible/"

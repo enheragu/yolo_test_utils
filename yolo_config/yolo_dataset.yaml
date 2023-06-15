@@ -83,7 +83,7 @@ names: # Tuned to match coco (model trained with coco originally)
   # 80: cyclist
   # 81: people
   
-path: /home/quique/umh/yolo/kaist_yolo
+path: /home/arvc/eeha/kaist-yolo-annotated/
 test:
   - test-all-01/visible/
   # - test-all-01-Seq/visible/

@@ -9,11 +9,9 @@ from yaml.loader import SafeLoader
 import cv2 as cv
 import numpy as np
 
+from config import dataset_config_yaml, yolo_dataset_path, yolo_val_output
 
 
-dataset_config_yaml = 'yolo_config/yolo_dataset.yaml'
-yolo_dataset_path = "/home/quique/umh/yolo/kaist_yolo/"
-yolo_val_output = "/home/quique/umh/yolo/ultralitics_yolov8/runs/detect/"
 
 iou_threshold = 0.5
 score_threshold = 0.5

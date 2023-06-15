@@ -16,10 +16,7 @@ import os, errno
 from pathlib import Path
 import shutil
 
-sets_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/imageSets/"
-annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
-images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
-yolo_dataset_path = "/home/quique/umh/yolo/kaist_yolo/"
+from config import sets_path, annotation_path, images_path, yolo_dataset_path
 
 lwir = "/lwir/"
 visible = "/visible/"

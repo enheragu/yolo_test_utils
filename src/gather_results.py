@@ -16,7 +16,8 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 
-test_path = "ultralitics_yolov5/runs/val/"
+from config import yolo_val_output as test_path
+
 data_file_name = "results.yaml"
 
 # CSV list of rows

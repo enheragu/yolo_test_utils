@@ -31,12 +31,13 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
+
+from config import dataset_config_yaml, yolo_dataset_path
+
 # python3 ultralitics-yolov5/val.py --weights yolov5s.pt --dataset_config_data dataset_config/yolo_obj_classes.yaml --img 640 --save-txt --verbose --save-conf --save-hybrid
-MODEL_TO_RUN = ('yolov8s.pt')#, 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt')
-dataset_config_yaml = 'yolo_config/yolo_dataset.yaml'
-default_yolo_config_yaml = 'yolo_config/yolo_params.yaml'
+MODEL_TO_RUN = ('yolov8x.pt') #('yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt')
 dataset_config_yaml_tmp = 'tmp_dataset_config.yaml'
-MAX_FILE_PROCESS = 800
+MAX_FILE_PROCESS = 60000
 
 
 DATASET_STATUS = {True:'processed', False:'ignored'}
@@ -65,6 +66,7 @@ if __name__ == '__main__':
 
     # Parse dataset path to get dataset_config_data information
     dataset_config_data = parseYaml(dataset_config_yaml)
+    dataset_config_data['path'] = yolo_dataset_path
     dataset_path = dataset_config_data['path']
     
     # Remove option so that yolo arg parser does not fail
@@ -131,7 +133,7 @@ if __name__ == '__main__':
                 with open(dataset_config_yaml_tmp, "w+") as tmp_file:
                     yaml.dump(dataset_config_data, tmp_file)
 
-                args = {} #parseYaml(default_yolo_config_yaml)
+                args = {} 
                 # args['project'] = 'detection'
                 args['name'] = path_name
                 args['mode'] = 'val'
@@ -142,6 +144,7 @@ if __name__ == '__main__':
                 args['verbose'] = True
                 args['save_conf'] = True
                 args['save_json'] = True
+                args['device'] = '0'
                 # args['save_hybrid'] = True -> PROBLEMS WITH TENSOR SIZE
 
                 args = get_cfg(cfg=DEFAULT_CFG, overrides=args)
@@ -154,19 +157,20 @@ if __name__ == '__main__':
                 # YOLO(yolo_model).val(**args)
                 # YOLO(yolo_model).val(data = dataset_config_yaml_tmp)
 
-                print(f"[{yolo_model}][test {dataset_num}]Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
+                print(f"[{yolo_model}][test {dataset_num}] Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
                 print("-------------------------------------------------")
                 status = DATASET_STATUS[True]
 
-            # Update the already run instances
-            already_run[status].add(path_name)
-            with open(already_run_yaml, "w+") as file:
-                yaml.dump(already_run, file) # cast to set to remove duplicates
+                # Update the already run instances
+                already_run[status].add(path_name)
+                with open(already_run_yaml, "w+") as file:
+                    yaml.dump(already_run, file) # cast to set to remove duplicates
+                    # print(f"stored data in already_run_file ({already_run_yaml}); {already_run}")
 
-            # Check that tmp file exist and clears it
-            if os.path.isfile(dataset_config_yaml_tmp):
-                os.remove(dataset_config_yaml_tmp)
-            # print(f"[{yolo_model}][test {dataset_num}]Processed {dataset_num} datasets and took {datetime.now() - start_time} (h/min/s)")
+                # Check that tmp file exist and clears it
+                if os.path.isfile(dataset_config_yaml_tmp):
+                    os.remove(dataset_config_yaml_tmp)
+                # print(f"[{yolo_model}][test {dataset_num}]Processed {dataset_num} datasets and took {datetime.now() - start_time} (h/min/s)")
 
     print()
     print(f"Processed {dataset_num} datasets and took {datetime.now() - start_time} (h/min/s)")
