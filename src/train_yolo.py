@@ -81,7 +81,7 @@ if __name__ == '__main__':
         args['batch'] = 16
         # args['save'] = False
         args['device'] = '0'
-        args['cache'] = True
+        args['cache'] = 'ram'
         args['save_txt'] = True
         args['verbose'] = True
         args['save_conf'] = True
@@ -95,5 +95,5 @@ if __name__ == '__main__':
         
         log(f"Training and validation of model for {dataset} took {datetime.now() - dataset_start_time} (h/min/s)")
     
-    log()
+    log("")
     log(f"Training process took {datetime.now() - start_time} (h/min/s)")
