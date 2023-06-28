@@ -29,8 +29,15 @@ def parseYaml(file_path):
 
 
 def gatherCSVAllTests():
+    global row_list
     for folder in os.listdir(test_path): # for each model named folder
+        if not os.path.isdir(f"{test_path}/{folder}"):
+            continue
+
         for sub_folder in os.listdir(f"{test_path}/{folder}"): # folder with each of the tests
+            if not os.path.isdir(f"{test_path}/{folder}/{sub_folder}"):
+                continue
+
             if data_file_name in os.listdir(f"{test_path}/{folder}/{sub_folder}"):
                 path = os.path.join(test_path, folder, sub_folder, data_file_name)
                 # print(f"File found in {path}")
@@ -40,7 +47,6 @@ def gatherCSVAllTests():
                 creation_date = datetime.fromtimestamp(os.path.getctime(path))
                 for class_type, data in data_parsed['data'].items():
                     print(data)
-                    # print(data)
                     model = folder#.replace(".pt", "")
                     date_tag = creation_date.strftime('%Y-%m-%d_%H:%M:%S')
                     test_title = f'{model}_{sub_folder}_{date_tag}_{class_type}'
@@ -59,7 +65,7 @@ def gatherCSVAllTests():
 
 
 def plot_curve(func):
-    def wrapper_plot_curve(py, labels, save_dir, xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
+    def wrapper_plot_curve(py, labels, save_dir, title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
         # Precision-recall curve
         fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
         for py, color, label in zip(py, ('red', 'green', 'grey'), labels):
@@ -70,7 +76,7 @@ def plot_curve(func):
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
-        ax.set_title(f'{ylabel}-{xlabel} Curve')
+        ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
         fig.savefig(save_dir, dpi=250)
         print(f"Stored new diagram in {save_dir}")
         plt.close(fig)
@@ -84,34 +90,38 @@ def plot_pr_curve(ax, px, py, ap, index, color, label, names=()):
 def plot_mc_curve(ax, px, py, index, color, label, names=()):
     ax.plot(px, py, linewidth=1, label=f'{label} {names[index]}', color=color)  # plot(confidence, metric)
 
-def plot_data(px, py, ap, f1, p, r, names, labels, path):
+def plot_data(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
         plot_pr_curve(px = px,  py = py, ap = ap,
                       save_dir = f"{path}_combined_pr_curve.png",
-                      names = names, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
+                      names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
         plot_mc_curve(px = px, py = f1, save_dir = f'{path}_F1_curve.png', 
-                      names = names, ylabel='F1', labels = labels)
+                      names = names, title_name = title_name, ylabel='F1', labels = labels)
         plot_mc_curve(px = px, py = p, save_dir = f'{path}_P_curve.png', 
-                      names = names, ylabel='Precision', labels = labels)
+                      names = names, title_name = title_name, ylabel='Precision', labels = labels)
         plot_mc_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
-                      names = names, ylabel='Recall', labels = labels)
+                      names = names, title_name = title_name, ylabel='Recall', labels = labels)
 
 
 def plotCombinedCurves():
+    plot_pairs = {}
     for folder in os.listdir(test_path): # for each model named folder
+        if not os.path.isdir(f"{test_path}/{folder}"):
+            continue
         # Filter only folders in given path
         performed_tests = [subfolder for subfolder in os.listdir(f"{test_path}/{folder}") if os.path.isdir(f"{test_path}/{folder}/{subfolder}")]
-        # print(performed_tests)
-        plot_pairs = {}
+        
         for test in performed_tests:
             key = folder + "/" + test.split("_")[0]
             test = f"{test_path}/{folder}/{test}"
             plot_pairs[key] = ([test] + plot_pairs[key]) if key in plot_pairs else [test]
 
+    print(f"Plot pairs are: {plot_pairs}")
     for key, value in plot_pairs.items():
         if len(value) <2:
             print(f"[ERROR] Seems that {key} test has only one version performed: {value}")
             continue
-
+        
+        # print(f"Plotting compared data from {value[0]} and {value[1]}")
         lwir_data = parseYaml(f"{value[0]}/{data_file_name}")
         visual_data = parseYaml(f"{value[1]}/{data_file_name}")
 
@@ -125,9 +135,11 @@ def plotCombinedCurves():
                   r = (lwir_data['pr_data']['r'], visual_data['pr_data']['r']),
                   names = lwir_data['pr_data']['names'],
                   labels = labels,
-                  path = path)
+                  path = path,
+                  title_name = f"{key}  -  ")
 
 if __name__ == '__main__':
+    print(f"Process results from {test_path}")
     gatherCSVAllTests()   
     plotCombinedCurves()
     
