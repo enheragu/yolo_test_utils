@@ -86,12 +86,12 @@ names: # Tuned to match coco (model trained with coco originally)
 path: /home/arvc/eeha/kaist-yolo-annotated/
 test:
 train: 
-  - train-night-02/visible/
-  - train-night-04/visible/
-  - train-night-20/visible/
+  - train-day-02/hsvt/
+  - train-day-04/hsvt/
+  - train-day-20/hsvt/
 val: 
-  - test-night-01/visible/
-  - test-night-20/visible/
+  - test-day-01/hsvt/
+  - test-day-20/hsvt/
 
 
 
