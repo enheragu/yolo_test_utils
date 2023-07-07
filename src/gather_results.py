@@ -121,26 +121,29 @@ def plotCombinedCurves():
             print(f"[ERROR] Seems that {key} test has only one version performed: {value}")
             continue
         
-        # print(f"Plotting compared data from {value[0]} and {value[1]}")
-        lwir_data = parseYaml(f"{value[0]}/{data_file_name}")
-        visual_data = parseYaml(f"{value[1]}/{data_file_name}")
-
+        # Get all dataset yaml configuration
+        data = []
+        labels = []
+        for test in value:
+            data += [parseYaml(f"{test}/{data_file_name}")]
+            labels += [test.split("/")[-1].split("_")[-1]]
+            
         path = f"{test_path}/{key}"
-        labels = ("(lwir)", "(RGB)")
-        plot_data(px = lwir_data['pr_data']['px'], 
-                  py = (lwir_data['pr_data']['py'], visual_data['pr_data']['py']),
-                  ap = lwir_data['pr_data']['ap'],
-                  f1 = (lwir_data['pr_data']['f1'],  visual_data['pr_data']['f1']),
-                  p = (lwir_data['pr_data']['p'],  visual_data['pr_data']['p']),
-                  r = (lwir_data['pr_data']['r'], visual_data['pr_data']['r']),
-                  names = lwir_data['pr_data']['names'],
+        labels = set(labels)
+        plot_data(px = data[0]['pr_data']['px'], 
+                  py = [test['pr_data']['py'] for test in data],
+                  ap = data[0]['pr_data']['ap'],
+                  f1 = [test['pr_data']['f1'] for test in data],
+                  p = [test['pr_data']['p'] for test in data],
+                  r = [test['pr_data']['r'] for test in data],
+                  names = data[0]['pr_data']['names'],
                   labels = labels,
                   path = path,
                   title_name = f"{key}  -  ")
 
 if __name__ == '__main__':
     print(f"Process results from {test_path}")
-    gatherCSVAllTests()   
+    # gatherCSVAllTests()   
     plotCombinedCurves()
     
     

@@ -32,7 +32,7 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from config import dataset_config_yaml, yolo_dataset_path, dataset_config_path, dataset_config_list, yolo_val_output, log
+from config import yolo_dataset_path, dataset_config_path, dataset_config_list, yolo_val_output, log
 
 # python3 ultralitics-yolov5/val.py --weights yolov5s.pt --dataset_config_data dataset_config/yolo_obj_classes.yaml --img 640 --save-txt --verbose --save-conf --save-hybrid
 MODEL_TO_RUN = ('yolov8x.pt') #('yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt')
@@ -125,8 +125,6 @@ if __name__ == '__main__':
             validator = yolo_detc.DetectionValidator(args=args)
             validator(model=args.model)
 
-            # YOLO(yolo_model).val(**args)
-            # YOLO(yolo_model).val(data = dataset_config_yaml_tmp)
 
             log(f"[{yolo_model}][test {validation_iteration}] - Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
             log("-------------------------------------------------")
