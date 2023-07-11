@@ -64,42 +64,90 @@ def gatherCSVAllTests():
         writer.writerows(row_list)
 
 
-def plot_curve(func):
-    def wrapper_plot_curve(py, labels, save_dir, title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
-        # Precision-recall curve
-        fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
-        for py, color, label in zip(py, ('red', 'green', 'grey'), labels):
-            for i, y in enumerate(py):
-                func(*args, **kwargs, ax = ax, py = y, index = i, color = color, label = label)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
-        ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
-        fig.savefig(save_dir, dpi=250)
-        print(f"Stored new diagram in {save_dir}")
-        plt.close(fig)
-    return wrapper_plot_curve
+# def plot_curve(func):
+#     def wrapper_plot_curve(py, labels, save_dir, title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
+#         # Precision-recall curve
+#         fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
+#         for py, color, label in zip(py, ('red', 'green', 'grey', 'blue'), labels):
+#             for i, y in enumerate(py):
+#                 func(*args, **kwargs, ax = ax, py = y, index = i, color = color, label = label)
+#         ax.set_xlabel(xlabel)
+#         ax.set_ylabel(ylabel)
+#         ax.set_xlim(0, 1)
+#         ax.set_ylim(0, 1)
+#         ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+#         ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
+#         fig.savefig(save_dir, dpi=250)
+#         print(f"Stored new diagram in {save_dir}")
+#         plt.close(fig)
+#     return wrapper_plot_curve
 
-@plot_curve
-def plot_pr_curve(ax, px, py, ap, index, color, label, names=()):
-    ax.plot(px, py, linewidth=1, label=f'{label} {names[index]} (ap = {ap[0][index]:.3f})', color=color)  # plot(recall, precision)
+# @plot_curve
+# def plot_pr_curve(ax, px, py, ap, index, color, label, names=()):
+#     # TBD handle ap list correctly
+#     ax.plot(px, py, linewidth=1, label=f'{label} {names[index]} (ap = {ap[0][0][index]:.3f})', color=color)  # plot(recall, precision)
 
-@plot_curve
-def plot_mc_curve(ax, px, py, index, color, label, names=()):
-    ax.plot(px, py, linewidth=1, label=f'{label} {names[index]}', color=color)  # plot(confidence, metric)
+# @plot_curve
+# def plot_mc_curve(ax, px, py, index, color, label, names=()):
+#     ax.plot(px, py, linewidth=1, label=f'{label} {names[index]}', color=color)  # plot(confidence, metric)
+
+
+# def plot_curve(px, py, names, ap = [], labels = [], save_dir = "", title_name = "", xlabel = 'Confidence', ylabel = 'Metric'):
+#     # Precision-recall curve
+#     # print(f"Plot {save_dir}")
+#     ap_labels = ap
+#     if not ap_labels:
+#         ap_labels = ""*len(labels)
+
+#     fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
+    
+#     for py, color, label, ap, name in zip(py, ('red', 'green', 'grey', 'blue'), labels, ap_labels, names):
+#         for i, y in enumerate(py):
+#             ap_text = f" (ap = {ap[0][i]:.3f})" if ap != "" else ""
+#             ax.plot(px, y, linewidth=1, label=f'{label} {name}{ap_text}', color=color)
+#     ax.set_xlabel(xlabel)
+#     ax.set_ylabel(ylabel)
+#     ax.set_xlim(0, 1)
+#     ax.set_ylim(0, 1)
+#     ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+#     ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
+#     fig.savefig(save_dir, dpi=250)
+#     print(f"Stored new diagram in {save_dir}")
+#     plt.close(fig)
+
+
+
+def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
+    # Precision-recall curve
+    ap_labels = ap
+    if ap_labels == []:
+        ap_labels = [""]*len(labels)
+
+    fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
+    for py_list, color, label, ap_iter in zip(py, ('red', 'green', 'grey', 'blue'), labels, ap_labels):
+        for i, y in enumerate(py_list):
+            ap_text = f" (ap = {ap_iter[0][i]:.3f})" if ap_iter != "" else ""
+            ax.plot(px, y, linewidth=1, label=f'{label} {names[i]}', color=color)  # plot(confidence, metric)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+    ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
+    fig.savefig(save_dir, dpi=250)
+    print(f"Stored new diagram in {save_dir}")
+    plt.close(fig)
 
 def plot_data(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
-        plot_pr_curve(px = px,  py = py, ap = ap,
-                      save_dir = f"{path}_combined_pr_curve.png",
-                      names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
-        plot_mc_curve(px = px, py = f1, save_dir = f'{path}_F1_curve.png', 
-                      names = names, title_name = title_name, ylabel='F1', labels = labels)
-        plot_mc_curve(px = px, py = p, save_dir = f'{path}_P_curve.png', 
-                      names = names, title_name = title_name, ylabel='Precision', labels = labels)
-        plot_mc_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
-                      names = names, title_name = title_name, ylabel='Recall', labels = labels)
+    plot_curve(px = px,  py = py, ap = ap,
+                    save_dir = f"{path}_combined_pr_curve.png",
+                    names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
+    plot_curve(px = px, py = f1, save_dir = f'{path}_F1_curve.png', 
+                    names = names, title_name = title_name, ylabel='F1', labels = labels)
+    plot_curve(px = px, py = p, save_dir = f'{path}_P_curve.png', 
+                    names = names, title_name = title_name, ylabel='Precision', labels = labels)
+    plot_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
+                    names = names, title_name = title_name, ylabel='Recall', labels = labels)
 
 
 def plotCombinedCurves():
@@ -107,15 +155,24 @@ def plotCombinedCurves():
     for folder in os.listdir(test_path): # for each model named folder
         if not os.path.isdir(f"{test_path}/{folder}"):
             continue
+    
         # Filter only folders in given path
-        performed_tests = [subfolder for subfolder in os.listdir(f"{test_path}/{folder}") if os.path.isdir(f"{test_path}/{folder}/{subfolder}")]
+        performed_tests = [subfolder for subfolder in os.listdir(f"{test_path}/{folder}") if os.path.isdir(f"{test_path}/{folder}/{subfolder}") and data_file_name in os.listdir(f"{test_path}/{folder}/{subfolder}")]
         
         for test in performed_tests:
             key = folder + "/" + test.split("_")[0]
             test = f"{test_path}/{folder}/{test}"
             plot_pairs[key] = ([test] + plot_pairs[key]) if key in plot_pairs else [test]
+            # Ensure same order so graphis use same colours
+            plot_pairs[key].sort()
 
-    print(f"Plot pairs are: {plot_pairs}")
+    print(f"Plot pairs are:")
+    for key, value_list in plot_pairs.items():
+        print(f"\t· {key}:")
+        for value in value_list:
+            print(f"\t\t - {value}")
+    print()
+
     for key, value in plot_pairs.items():
         if len(value) <2:
             print(f"[ERROR] Seems that {key} test has only one version performed: {value}")
@@ -123,27 +180,24 @@ def plotCombinedCurves():
         
         # Get all dataset yaml configuration
         data = []
-        labels = []
         for test in value:
             data += [parseYaml(f"{test}/{data_file_name}")]
-            labels += [test.split("/")[-1].split("_")[-1]]
             
         path = f"{test_path}/{key}"
-        labels = set(labels)
         plot_data(px = data[0]['pr_data']['px'], 
                   py = [test['pr_data']['py'] for test in data],
-                  ap = data[0]['pr_data']['ap'],
+                  ap = [test['pr_data']['ap'] for test in data],
                   f1 = [test['pr_data']['f1'] for test in data],
                   p = [test['pr_data']['p'] for test in data],
                   r = [test['pr_data']['r'] for test in data],
                   names = data[0]['pr_data']['names'],
-                  labels = labels,
+                  labels = [test['test'].split("/")[-1].split("_")[-1] for test in data],
                   path = path,
                   title_name = f"{key}  -  ")
 
 if __name__ == '__main__':
     print(f"Process results from {test_path}")
-    # gatherCSVAllTests()   
+    gatherCSVAllTests()   
     plotCombinedCurves()
     
     
