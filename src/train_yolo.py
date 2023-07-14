@@ -62,7 +62,7 @@ if __name__ == '__main__':
         log(f"[{yolo_model}][test {train_iteration}] - Train with {images} images")
         
         images = 0
-        for val_dataset in data['val']:
+        for val_dataset in data['test']:
             data_path = f"{yolo_dataset_path}/{val_dataset}/images"
             images += len(glob.glob1(data_path,"*.png"))
         log(f"[{yolo_model}][test {train_iteration}] - Validate with {images} images")
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
         args = {}
         args['mode'] = 'train'
-        args['name'] = 'train_based_yolo8x.pt/' + dataset.replace(".yaml","").replace("dataset_","")
+        args['name'] = 'train_based_yolo8x.pt/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
         # args['pretrained']
         args['data'] = dataset
         args['pretrained'] = True

@@ -25,11 +25,11 @@ yolo_output_path = f"{repo_path}/runs/detect"
 #       Dinamic CFG stuff       #
 #################################
 
-condition_list = ('day', 'night', 'all')
-option_list = ('visible', 'lwir', 'hsvt', 'rgbt')
+condition_list = ['all'] #('day', 'night', 'all')
+option_list = ['visible', 'lwir', 'hsvt', 'rgbt']
 
 
-def generateCFGFiles(condition_list = condition_list, option_list = option_list):
+def generateCFGFiles(condition_list = condition_list, option_list = option_list, data_path = yolo_dataset_path):
     from jinja2 import Template
     
     cfg_generated_files = []
@@ -42,7 +42,7 @@ def generateCFGFiles(condition_list = condition_list, option_list = option_list)
 
     for condition in condition_list:
         for option in option_list:
-            data = template.render(condition=condition, option=option)
+            data = template.render(condition=condition, option=option, data_path=data_path)
 
             file_path = f"{tmp_cfg_path}/dataset_{condition}_{option}.yaml"
             with open(file_path, mode='w') as f:
@@ -84,3 +84,5 @@ class bcolors:
 
 def log(msg = "", color = bcolors.OKCYAN):
     print(f"{color}{msg}{bcolors.ENDC}")
+
+generateCFGFiles()

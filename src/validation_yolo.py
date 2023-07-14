@@ -79,7 +79,7 @@ if __name__ == '__main__':
         for dataset in dataset_config_list:
             validation_iteration += 1
 
-            path_name = yolo_model + "/" + dataset.replace(".yaml","").replace("dataset_","") + "/"
+            path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + "/"
                     
             # If theres a cache file, check if this run was already performed and ignore it
             if os.path.isfile(already_run_yaml):
@@ -95,7 +95,7 @@ if __name__ == '__main__':
             log("--------------------------------------------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
             data = parseYaml(dataset)
-            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")
+            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['test']}")
             
             images = 0
             for val_dataset in data['val']:
@@ -108,7 +108,7 @@ if __name__ == '__main__':
             args = {} 
             # args['project'] = 'detection'
             args['mode'] = 'val'
-            args['name'] = "validate_" + path_name
+            args['name'] = path_name
             args['model'] = yolo_model
             args['data'] = dataset
             # args['imgsz'] = 640

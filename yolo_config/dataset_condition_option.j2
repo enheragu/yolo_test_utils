@@ -83,30 +83,30 @@ names: # Tuned to match coco (model trained with coco originally)
   # 80: cyclist
   # 81: people
   
-path: /home/arvc/eeha/kaist-yolo-annotated/
+path: {{data_path}}
 test:
-  {% if condition == "all" %}
+  {% if condition == "all" -%}
   - test-all-01/{{option}}/
-  {# - test-all-01-Seq/{{option}}/ #}
+  {# - test-all-01-Seq/{{option}}/ -#}
   - test-all-20/{{option}}/
-  {% elif condition == "day" %}
+  {% elif condition == "day" -%}
   - test-day-01/{{option}}/
   - test-day-20/{{option}}/
-  {% elif condition == "night" %}
+  {% elif condition == "night" -%}
   - test-night-01/{{option}}/
   - test-night-20/{{option}}/
   {% endif %}
 train: 
-  {% if condition == "all" %}
+  {% if condition == "all" -%}
   - train-all-01/{{option}}/
   - train-all-02/{{option}}/
   - train-all-04/{{option}}/
   - train-all-20/{{option}}/
-  {% elif condition == "day" %}
+  {% elif condition == "day" -%}
   - train-day-02/{{option}}/
   - train-day-04/{{option}}/
   - train-day-20/{{option}}/
-  {% elif condition == "night" %}
+  {% elif condition == "night" -%}
   - train-night-02/{{option}}/
   - train-night-04/{{option}}/
   - train-night-20/{{option}}/
