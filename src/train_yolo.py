@@ -62,11 +62,16 @@ if __name__ == '__main__':
         log(f"[{yolo_model}][test {train_iteration}] - Train with {images} images")
         
         images = 0
-        for val_dataset in data['test']:
+        for test_dataset in data['test']:
+            data_path = f"{yolo_dataset_path}/{test_dataset}/images"
+            images += len(glob.glob1(data_path,"*.png"))
+        log(f"[{yolo_model}][test {train_iteration}] - Test with {images} images")
+
+        images = 0
+        for val_dataset in data['val']:
             data_path = f"{yolo_dataset_path}/{val_dataset}/images"
             images += len(glob.glob1(data_path,"*.png"))
-        log(f"[{yolo_model}][test {train_iteration}] - Validate with {images} images")
-
+        log(f"[{yolo_model}][test {train_iteration}] - Validation with {images} images")
 
         dataset_start_time = datetime.now()
 

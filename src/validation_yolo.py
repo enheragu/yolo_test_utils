@@ -95,7 +95,7 @@ if __name__ == '__main__':
             log("--------------------------------------------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
             data = parseYaml(dataset)
-            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['test']}")
+            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")
             
             images = 0
             for val_dataset in data['val']:
