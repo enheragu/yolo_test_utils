@@ -9,7 +9,7 @@ from yaml.loader import SafeLoader
 import cv2 as cv
 import numpy as np
 
-from config import dataset_config_yaml, yolo_dataset_path, yolo_val_output
+from config_utils import dataset_config_yaml, yolo_dataset_path, yolo_output_path
 
 
 
@@ -120,7 +120,7 @@ def displayYoloLabel(image, label, dataset_config = dataset_config_yaml):
 
 if __name__ == '__main__':
     
-    for root, dirs, files in os.walk(yolo_val_output, topdown=False):
+    for root, dirs, files in os.walk(yolo_output_path, topdown=False):
         # When in labels path process all txt
         if 'labels' in root and dirs == []:
             print(f"Process {root} path")
@@ -129,7 +129,7 @@ if __name__ == '__main__':
                 if '.txt' not in file:
                     continue
                 
-                current_test = "/".join(root.replace(yolo_val_output, '').split('/')[1:]).replace("_","/")
+                current_test = "/".join(root.replace(yolo_output_path, '').split('/')[1:]).replace("_","/")
                 original_label_path = yolo_dataset_path + current_test
                 # print(f"{original_label_path = }; {file = }")
                 

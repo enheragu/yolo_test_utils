@@ -16,7 +16,7 @@ import os, errno
 from pathlib import Path
 import shutil
 
-from config import sets_path, annotation_path, images_path, yolo_dataset_path
+from config_utils import sets_path, annotation_path, images_path, yolo_dataset_path
 
 lwir = "/lwir/"
 visible = "/visible/"

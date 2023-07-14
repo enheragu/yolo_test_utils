@@ -32,14 +32,14 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from config import yolo_dataset_path, dataset_config_path, dataset_config_list, yolo_val_output, log
+from config_utils import yolo_dataset_path, generateCFGFiles, clearCFGFIles, yolo_output_path, log
 
 # python3 ultralitics-yolov5/val.py --weights yolov5s.pt --dataset_config_data dataset_config/yolo_obj_classes.yaml --img 640 --save-txt --verbose --save-conf --save-hybrid
 MODEL_TO_RUN = ('yolov8x.pt') #('yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt')
 
 
 DATASET_STATUS = {True:'processed', False:'ignored'}
-already_run_yaml = f"{yolo_val_output}/test_cache_run.yaml"
+already_run_yaml = f"{yolo_output_path}/test_cache_run.yaml"
 already_run = {} # Initialize data
 for status in DATASET_STATUS.values():
     already_run[status] = set()
@@ -74,6 +74,7 @@ if __name__ == '__main__':
 
     start_time = datetime.now()
 
+    dataset_config_list = generateCFGFiles()
     for yolo_model in MODEL_TO_RUN: 
         for dataset in dataset_config_list:
             validation_iteration += 1
@@ -93,7 +94,7 @@ if __name__ == '__main__':
             dataset_start_time = datetime.now()
             log("--------------------------------------------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
-            data = parseYaml(dataset_config_path + dataset)
+            data = parseYaml(dataset)
             log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")
             
             images = 0
@@ -109,7 +110,7 @@ if __name__ == '__main__':
             args['mode'] = 'val'
             args['name'] = "validate_" + path_name
             args['model'] = yolo_model
-            args['data'] = dataset_config_path + dataset
+            args['data'] = dataset
             # args['imgsz'] = 640
             args['save_txt'] = True
             args['verbose'] = True
@@ -138,5 +139,6 @@ if __name__ == '__main__':
 
             # log(f"[{yolo_model}][test {validation_iteration}]Processed {validation_iteration} datasets and took {datetime.now() - start_time} (h/min/s)")
 
+    clearCFGFIles(dataset_config_list)
     log()
     log(f"Processed {validation_iteration} datasets and took {datetime.now() - start_time} (h/min/s)")

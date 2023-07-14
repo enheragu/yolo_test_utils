@@ -17,7 +17,7 @@ from functools import partial
 import numpy as np
 import cv2 
 
-from config import yolo_dataset_path, log
+from config_utils import yolo_dataset_path, log
 
 lwir = "/lwir/"
 visible = "/visible/"
