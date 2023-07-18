@@ -21,16 +21,24 @@ yolo_architecture_path = f"{dataset_config_path}/yolo_eeha_n.yaml"
 yolo_output_path = f"{repo_path}/runs/detect"
 
 
+
 #################################
 #       Dinamic CFG stuff       #
 #################################
 
-condition_list = ['all'] #('day', 'night', 'all')
-option_list = ['visible', 'lwir', 'hsvt', 'rgbt']
+condition_list_default = ['all','day', 'night']
+option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt'] # 4ch
+model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 
 
-def generateCFGFiles(condition_list = condition_list, option_list = option_list, data_path = yolo_dataset_path):
+def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None):
     from jinja2 import Template
+
+    global condition_list_default, option_list_default, yolo_dataset_path
+    
+    condition_list = condition_list_in if condition_list_in is not None else condition_list_default
+    option_list = option_list_in if option_list_in is not None else option_list_default
+    data_path = data_path_in if data_path_in is not None else yolo_dataset_path
     
     cfg_generated_files = []
     
@@ -65,6 +73,37 @@ def clearCFGFIles(cfg_generated_files):
         print(f"Catched exception removing tmf folder: {e}")
 
 
+###################################
+#     Argument input handling     #
+###################################
+from argparse import ArgumentParser
+
+def handleArguments():
+    global condition_list_default, option_list_default, model_list_default
+    arg_dict = {}
+    parser = ArgumentParser(description="Handle operations with YOLOv8, both Validation and Training. Tests will be executed iteratively from all combinations of the configurations provided (condition, option and model).")
+    parser.add_argument('-c', '--condition', action='store', dest='clist',
+                        type=str, nargs='*', default=condition_list_default,
+                        help=f"Condition from which datasets to use while training. Available options are {condition_list_default}. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-o', '--option', action='store', dest='olist',
+                        type=str, nargs='*', default=option_list_default,
+                        help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-m', '--model', action='store', dest='mlist',
+                        type=str, nargs='*', default=model_list_default,
+                        help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
+    opts = parser.parse_args()
+
+    condition_list_default = list(opts.clist)
+    option_list_default = list(opts.olist)
+    model_list_default = list(opts.mlist)
+
+    print(f"Options parsed: condition_list: {condition_list_default}; option_list: {option_list_default}; model_list: {model_list_default};")
+    # Remove option so that yolo arg parser does not fail
+    # if '--clear_cache' in sys.argv:
+    #     sys.argv.remove('--clear_cache')
+    
+    return condition_list_default, option_list_default, model_list_default
+
 
 ################################
 #     Format Logging stuff     #
@@ -85,4 +124,13 @@ class bcolors:
 def log(msg = "", color = bcolors.OKCYAN):
     print(f"{color}{msg}{bcolors.ENDC}")
 
-generateCFGFiles()
+
+################################
+#      YAML parsing stuff      #
+################################
+
+import yaml
+from yaml.loader import SafeLoader
+def parseYaml(file_path):
+    with open(file_path) as file:
+        return yaml.load(file, Loader=SafeLoader)
