@@ -5,6 +5,7 @@
     Creates different approachs of mixing RGB with Thermal images
     hsvt -> combines v + t and reescalate that channel
     rgbt -> averages each chanel with thermal data (r+t/2)
+    4ch -> Stores ndarray with all foru channels as [b,g,r,t]
 """
 
 import os
@@ -27,7 +28,7 @@ images_folder = "/images/"
 
 # non_stop = True  # Set to false to visualize each image generated
 
-def combine_hsvt(visible_image, thermal_image):
+def combine_hsvt(visible_image, thermal_image, path):
     h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
     th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
 
@@ -43,10 +44,12 @@ def combine_hsvt(visible_image, thermal_image):
 
     hsvt_image = cv2.merge([h, s, intensity])
     hsvt_image = cv2.cvtColor(hsvt_image, cv2.COLOR_HSV2BGR)
-
+    
+    cv2.imwrite(path, hsvt_image)
     return hsvt_image
-                
-def combine_rgbt(visible_image, thermal_image):
+      
+              
+def combine_rgbt(visible_image, thermal_image, path):
     b,g,r = cv2.split(visible_image)
     th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
     th_channel = th_channel.astype(np.float64)
@@ -58,7 +61,17 @@ def combine_rgbt(visible_image, thermal_image):
 
     rgbt_image = cv2.merge([b,g,r])
     
+    cv2.imwrite(path, rgbt_image)
     return rgbt_image
+
+def combine_4ch(visible_image, thermal_image, path):
+    b,g,r = cv2.split(visible_image)
+    th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
+
+    ch4_image = cv2.merge([b,g,r,th_channel])
+
+    np.save(path.replace('.png',''), ch4_image)
+    return ch4_image
 
 def process_image(folder, combine_method, option_path, image):
     # global non_stop
@@ -70,11 +83,8 @@ def process_image(folder, combine_method, option_path, image):
     rgb_img = cv2.imread(rgb_image_path)
     th_img = cv2.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
 
-    image_combined = combine_method(rgb_img, th_img)
+    image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
     
-    # log(f"Store new image into {option_path}/{image}")
-    cv2.imwrite(f"{option_path}/{image}", image_combined)
-
     # if not non_stop:
     #     cv2.imshow(f"image {option}", image_combined)            
     
@@ -110,4 +120,5 @@ if __name__ == '__main__':
             continue
         
         # make_dataset(folder, 'hsvt', combine_hsvt)
-        make_dataset(folder, 'rgbt', combine_rgbt)
+        # make_dataset(folder, 'rgbt', combine_rgbt)
+        make_dataset(folder, '4ch', combine_4ch)
