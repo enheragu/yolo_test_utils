@@ -36,7 +36,7 @@ validation_iteration = 0
     
 if __name__ == '__main__':
 
-    condition_list, option_list, model_list = handleArguments()
+    condition_list, option_list, model_list, device, cache, pretrained = handleArguments()
 
     start_time = datetime.now()
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
             args['verbose'] = True
             args['save_conf'] = True
             args['save_json'] = True
-            args['device'] = 'cpu' #'0'
+            args['device'] = device
             # args['save_hybrid'] = True -> PROBLEMS WITH TENSOR SIZE
 
             args = get_cfg(cfg=DEFAULT_CFG, overrides=args)

@@ -91,6 +91,16 @@ def handleArguments():
     parser.add_argument('-m', '--model', action='store', dest='mlist',
                         type=str, nargs='*', default=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-d', '--device', dest='device',
+                        type = str, default= "0", 
+                        help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
+    parser.add_argument('-ca', '--cache', dest='cache',
+                        type = str, default= "ram", 
+                        help="True/ram, disk or False. Use cache for data loading. To load '.npy' files disk option is needed.")
+    parser.add_argument('-p', '--pretrained', dest='pretrained',
+                        type = bool, default= False, 
+                        help="Whether to use a pretrained model.")
+    
     opts = parser.parse_args()
 
     condition_list_default = list(opts.clist)
@@ -102,8 +112,7 @@ def handleArguments():
     # if '--clear_cache' in sys.argv:
     #     sys.argv.remove('--clear_cache')
     
-    return condition_list_default, option_list_default, model_list_default
-
+    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained
 
 ################################
 #     Format Logging stuff     #

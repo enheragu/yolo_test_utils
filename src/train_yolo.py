@@ -35,7 +35,7 @@ train_iteration = 0
 
 if __name__ == '__main__':
 
-    condition_list, option_list, model_list = handleArguments()
+    condition_list, option_list, model_list, device, cache, pretrained = handleArguments()
 
     start_time = datetime.now()
 
@@ -44,8 +44,10 @@ if __name__ == '__main__':
         for dataset in dataset_config_list:
             train_iteration += 1
 
+            # Check if is a path or just a model name
+            yolo_model_name = yolo_model.split("/")[-1].replace(".yaml","")
             log("--------------------------------------------------------------------------")
-            log(f"[{yolo_model}][test {train_iteration}] - Train based on {dataset} dataset:")
+            log(f"[{yolo_model_name}][test {train_iteration}] - Train based on {dataset} dataset:")
             data = parseYaml(dataset)
             log(f"\t · Train datasets: {data['train']} \n\t · Validation datasets: {data['val']} \n\t · Test datasets: {data['test']}")
             
@@ -55,26 +57,26 @@ if __name__ == '__main__':
                     for dataset_list in data[model_option]:
                         data_path = f"{data['path']}/{dataset_list}/images"
                         images += len(glob.glob1(data_path,"*.png"))
-                    log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images} images")
+                    log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images} images")
             
             dataset_start_time = datetime.now()
 
             args = {}
             args['mode'] = 'train'
-            args['name'] = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
-            # args['pretrained']
+            args['name'] = f'train_based_{yolo_model_name}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
             args['data'] = dataset
-            args['pretrained'] = True
             args['model'] = yolo_model 
             # args['imgsz'] = 32
             args['epochs'] = 300
             args['batch'] = 16
             # args['save'] = False
-            args['cache'] = 'ram'
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True
-            args['device'] = 'cpu' #'0'
+
+            args['device'] = device
+            args['cache'] = cache
+            args['pretrained'] = pretrained
             
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
