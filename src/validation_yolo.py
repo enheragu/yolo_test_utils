@@ -51,13 +51,20 @@ if __name__ == '__main__':
             log("--------------------------------------------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
             data = parseYaml(dataset)
-            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")
+            log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")      
             
-            images = 0
+            images_png = 0
+            images_npy = 0
             for val_dataset in data['val']:
                 data_path = f"{data['path']}/{val_dataset}/images"
-                images += len(glob.glob1(data_path,"*.png"))
-            log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images} images")        
+                images_png += len(glob.glob1(data_path,"*.png"))
+                images_npy += len(glob.glob1(data_path,"*.npy"))
+            if images_png:
+                log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_png} png images")
+            if images_npy:
+                log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")
+            
+
 
             args = {} 
             # args['project'] = 'detection'

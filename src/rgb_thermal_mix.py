@@ -70,6 +70,7 @@ def combine_4ch(visible_image, thermal_image, path):
 
     ch4_image = cv2.merge([b,g,r,th_channel])
 
+    # cv2.imwrite(path, ch4_image)
     np.save(path.replace('.png',''), ch4_image)
     return ch4_image
 

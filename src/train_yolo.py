@@ -52,12 +52,17 @@ if __name__ == '__main__':
             log(f"\t · Train datasets: {data['train']} \n\t · Validation datasets: {data['val']} \n\t · Test datasets: {data['test']}")
             
             for model_option in ('train', 'test', 'val'):
-                images = 0
+                images_png = 0
+                images_npy = 0
                 if data[model_option]:
                     for dataset_list in data[model_option]:
                         data_path = f"{data['path']}/{dataset_list}/images"
-                        images += len(glob.glob1(data_path,"*.png"))
-                    log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images} images")
+                        images_png += len(glob.glob1(data_path,"*.png"))
+                        images_npy += len(glob.glob1(data_path,"*.npy"))
+                    if images_png:
+                        log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images_png} png images")
+                    if images_npy:
+                        log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images_npy} npy images")
             
             dataset_start_time = datetime.now()
 
