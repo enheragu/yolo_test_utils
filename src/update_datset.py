@@ -63,16 +63,15 @@ def checkKaistDataset(options = []):
         log(f"Kaist dataset found in {kaist_path}, no need to re-download.")
     
     # Check that YOLO version exists or create it
-    if not os.path.exists(f"{yolo_dataset_path}/test-all-01"):
+    setfolders = [ f.path for f in os.scandir(yolo_dataset_path) if f.is_dir() ]
+    options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ]
+    if 'lwir' not in options_found and 'visible' not in options_found:
         log(f"Kaist-YOLO dataset could not be found in {yolo_dataset_path}. Generating new labeling.")
         kaistToYolo()
     else:
         log(f"Kaist-YOLO dataset found in {yolo_dataset_path}, no need to re-label it.")
 
     # Check that needed versions exist or create them
-    setfolders = [ f.path for f in os.scandir(yolo_dataset_path) if f.is_dir() ]
-    options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ]
-
     for option in options:
         if option not in options_found:
             log(f"Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
