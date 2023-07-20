@@ -29,7 +29,7 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from config_utils import yolo_architecture_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
+from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
 
 train_iteration = 0
 
@@ -44,10 +44,8 @@ if __name__ == '__main__':
         for dataset in dataset_config_list:
             train_iteration += 1
 
-            # Check if is a path or just a model name
-            yolo_model_name = yolo_model.split("/")[-1].replace(".yaml","")
             log("--------------------------------------------------------------------------")
-            log(f"[{yolo_model_name}][test {train_iteration}] - Train based on {dataset} dataset:")
+            log(f"[{yolo_model}][test {train_iteration}] - Train based on {dataset} dataset:")
             data = parseYaml(dataset)
             log(f"\t · Train datasets: {data['train']} \n\t · Validation datasets: {data['val']} \n\t · Test datasets: {data['test']}")
             
@@ -60,17 +58,17 @@ if __name__ == '__main__':
                         images_png += len(glob.glob1(data_path,"*.png"))
                         images_npy += len(glob.glob1(data_path,"*.npy"))
                     if images_png:
-                        log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images_png} png images")
+                        log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images_png} png images")
                     if images_npy:
-                        log(f"[{yolo_model_name}][test {train_iteration}] - {model_option.title()} with {images_npy} npy images")
+                        log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images_npy} npy images")
             
             dataset_start_time = datetime.now()
 
             args = {}
             args['mode'] = 'train'
-            args['name'] = f'train_based_{yolo_model_name}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
+            args['name'] = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
             args['data'] = dataset
-            args['model'] = yolo_model 
+            args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
             args['epochs'] = 300
             args['batch'] = 16
