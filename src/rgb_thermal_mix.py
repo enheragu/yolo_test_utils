@@ -26,12 +26,6 @@ visible = "/visible/"
 label_folder = "/labels/"
 images_folder = "/images/"
 
-# Dict with tag-function to be used
-dataset_options = {
-                    'hsvt': combine_hsvt,
-                    'rgbt': combine_rgbt,
-                    '4ch': combine_4ch
-                }
 # non_stop = True  # Set to false to visualize each image generated
 
 def combine_hsvt(visible_image, thermal_image, path):
@@ -103,7 +97,17 @@ def process_image(folder, combine_method, option_path, image):
     #     cv2.destroyAllWindows()
     #     non_stop = True
 
-def make_dataset(option, combine_method):
+
+
+
+# Dict with tag-function to be used
+dataset_options = {
+                    'hsvt': combine_hsvt,
+                    'rgbt': combine_rgbt,
+                    '4ch': combine_4ch
+                }
+
+def make_dataset(option):
 
     # Iterate each of the datasets
     for folder in os.listdir(yolo_dataset_path):
@@ -122,12 +126,13 @@ def make_dataset(option, combine_method):
         # Iterate images multiprocessing
         with Pool() as pool:
             images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
-            func = partial(process_image, folder, combine_method, option_path)
+            func = partial(process_image, folder, dataset_options[option], option_path)
             pool.map(func, images_list)
         
+
 if __name__ == '__main__':
     for key, function in dataset_options.items():
-        make_dataset(key, function)
+        make_dataset(key)
 
     # make_dataset('hsvt', dataset_options['hsvt'])
     # make_dataset('rgbt', dataset_options['rgbt'])

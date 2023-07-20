@@ -3,3 +3,6 @@ untangle
 opencv-python
 tqdm
 PyYAML
+jinja2
+xtarfile
+clint

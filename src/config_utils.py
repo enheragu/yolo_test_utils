@@ -13,11 +13,10 @@ kaist_path = f"{home}/eeha/kaist-cvpr15"
 sets_path = f"{kaist_path}/imageSets/"
 annotation_path = f"{kaist_path}/annotations-xml-new/"
 images_path = f"{kaist_path}/images/"
-yolo_dataset_path = f"{home}//eeha/kaist-yolo-annotated/"
+yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
 
 dataset_config_path = f"{repo_path}/yolo_config/"
 cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
-yolo_architecture_path = f"{dataset_config_path}/yolo_eeha_n.yaml"
 yolo_output_path = f"{repo_path}/runs/detect"
 
 
