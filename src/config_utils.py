@@ -110,25 +110,25 @@ def handleArguments():
     global condition_list_default, option_list_default, model_list_default
     arg_dict = {}
     parser = ArgumentParser(description="Handle operations with YOLOv8, both Validation and Training. Tests will be executed iteratively from all combinations of the configurations provided (condition, option and model).")
-    parser.add_argument('-c', '--condition', action='store', dest='clist',
+    parser.add_argument('-c', '--condition', action='store', dest='clist', metavar='CONDITION',
                         type=str, nargs='*', default=condition_list_default,
                         help=f"Condition from which datasets to use while training. Available options are {condition_list_default}. Usage: -c item1 item2, -c item3")
-    parser.add_argument('-o', '--option', action='store', dest='olist',
+    parser.add_argument('-o', '--option', action='store', dest='olist', metavar='OPTION',
                         type=str, nargs='*', default=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
-    parser.add_argument('-m', '--model', action='store', dest='mlist',
+    parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
                         type=str, nargs='*', default=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-d', '--device', dest='device',
                         type=str, default="0", 
                         help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
-                        type=str, default="ram", 
+                        type=str, default="ram",
                         help="True/ram, disk or False. Use cache for data loading. To load '.npy' files disk option is needed.")
     parser.add_argument('-p', '--pretrained', dest='pretrained',
                         type=bool, default=False, 
                         help="Whether to use a pretrained model.")
-    parser.add_argument('-rm','--run-mode', dest='run_mode',
+    parser.add_argument('-rm','--run-mode', dest='run_mode', metavar='MODE',
                         type=str, nargs='*', default=['val', 'train'],
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     

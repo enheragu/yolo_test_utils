@@ -2,7 +2,66 @@
 
 Collection of helper scripts and configuration files to run different tests with YOLO along with dataset manipulation.
 
-## Python scripts:
+## Usage
+
+### Docker 
+Make sure docker is installed:
+``` sh
+sudo apt-get install docker.io
+```
+
+#### Download Docker image
+
+#### Run Docker image
+
+``` sh
+# Need to share paths as volumes in Docker container
+export DATASET_PATH=$HOME/eeha/
+export RUN_TEST_PATH=/home/arvc/eeha/yolo_test_utils/runs
+docker run -it \
+    --volume="$DATASET_PATH:/eeha/kaist-cvpr15" \
+    --volume="$RUN_TEST_PATH:/eeha/yolo_test_utils/runs" \
+    enheragu/yolo_tests
+```
+
+#### Build Docker image
+
+To be able to use docker without `sudo` permission run the following:
+``` sh
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker 
+```
+
+Build the docker image:
+``` sh
+docker build -t enheragu/yolo_tests .
+```
+> Note: Note that each image is cached. Make sure the reposiroty inside the Image is updated with latest content!
+
+#### Run Docker image
+
+### Download raw repository
+> Note: Clone with submodules! git clone --recurse-submodule
+
+> Note: Commands asume your have a terminal oppened and you are located in the root of the repository.
+
+Install requirements from both root and YOLO repo:
+``` sh
+pip install -r requirements
+pip install -r ultralitics_yolov8/requirements.txt
+```
+
+Install in editable mode YOLO code (in case you need to edit further stuff):
+``` sh
+cd ultralitics_yolov8
+pip install --editable .
+```
+
+Check in config_utils.py to setup the paths to your convinience.
+
+## Content
+### Python scripts:
 - [ ] src/update_dataset.py -> Checks whether Kaist dataset is downloaded and formated in the YOLO way. Also checks for a given options to generate different mix of channels (see rgb_thermal_mix.py)
 - [ ] src/validation_yolo.py -> Runs YOLO validation test based on a set of models an set of datasets.
 - [ ] src/train_yolo.py -> Runs YOLO training (and validation if test datasets are provided) based on a set of models an set of datasets.
@@ -12,10 +71,10 @@ Collection of helper scripts and configuration files to run different tests with
 - [ ] src/gather_results.py -> Gathers results from simple_test into a table an composed precission-recall graphs.
 - [ ] src/config_utils.py -> Stores common paths and data to be imported form the rest of the scripts. Also has different methods and utils to be used across different scripts.
 
-## Shell scripts:
+### Shell scripts:
 - [ ] scripts/train_val.sh -> Script to run validation/train with detached logging to file. Launch from tmux session.
 
-## Configuration files:
+### Configuration files:
 - [ ] yolo_config/dataset_condition_option.j2 -> yaml configuration template file with collection of sets from Kaist configured for yolo to train and validate based on coco configuration. To be compiled with a given condition (all, day, night) and option (lwir, visible, ...).
 - [ ] yolo_config/yolo_dataset.yaml -> Generic configuration files, as previous.
 - [ ] yolo_config/yoloCh4.yaml -> YOLO architecture configuration with four channels to be used.
