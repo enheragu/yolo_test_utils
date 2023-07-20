@@ -3,6 +3,8 @@
 datasets/
 kaist_yolo/
 kaist_laveled_imags/
+runs
+tmp_cfg
 
 # Temporal files
 tmp_kaist.yaml
