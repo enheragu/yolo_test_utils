@@ -16,9 +16,9 @@ from ultralytics import YOLO
 
 from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
 
-train_iteration = 0
 
 def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained):
+    train_iteration = 0
 
     start_time = datetime.now()
 

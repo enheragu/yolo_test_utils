@@ -21,7 +21,7 @@ export DATASET_ANNOTATED_PATH=${HOME}/eeha/kaist-yolo-annotated
 export RUN_TEST_PATH=${HOME}/eeha/yolo_test_utils/runs
 docker run -it \
     --volume="$DATASET_ORIGINAL_PATH:/root/eeha/kaist-cvpr15" \
-    --volume="$DATASET_ANNOTATED_PATH:root/eeha/kaist-yolo-annotated" \
+    --volume="$DATASET_ANNOTATED_PATH:/root/eeha/kaist-yolo-annotated" \
     --volume="$RUN_TEST_PATH:/root/eeha/yolo_test_utils/runs" \
     enheragu/yolo_tests -c 'all'
 ```

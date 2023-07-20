@@ -75,10 +75,10 @@ def checkKaistDataset(options = []):
 
     for option in options:
         if option not in options_found:
-            log("Option {option} requested but not found in dataset folders. Generating it.")
+            log(f"Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
             make_dataset(option)
         else:
-            log("Option {option} requested is already in dataset folder.")
+            log(f"Custom dataset for option {option} requested is already in dataset folder.")
             
 if __name__ == '__main__':
     parser = ArgumentParser(description="Checks if kaist dataset exists in expected location and generates it if not (download, extract, reformat or regenerate).")
