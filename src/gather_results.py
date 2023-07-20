@@ -17,6 +17,7 @@ import csv
 import matplotlib.pyplot as plt
 
 from config_utils import yolo_output_path as test_path
+from configu_utils import log
 
 data_file_name = "results.yaml"
 
@@ -40,13 +41,13 @@ def gatherCSVAllTests():
 
             if data_file_name in os.listdir(f"{test_path}/{folder}/{sub_folder}"):
                 path = os.path.join(test_path, folder, sub_folder, data_file_name)
-                # print(f"File found in {path}")
+                # log(f"File found in {path}")
                 
                 dataset_type = sub_folder.split("_")
                 data_parsed = parseYaml(path)
                 creation_date = datetime.fromtimestamp(os.path.getctime(path))
                 for class_type, data in data_parsed['data'].items():
-                    print(data)
+                    log(data)
                     model = folder#.replace(".pt", "")
                     date_tag = creation_date.strftime('%Y-%m-%d_%H:%M:%S')
                     test_title = f'{model}_{sub_folder}_{date_tag}_{class_type}'
@@ -57,9 +58,9 @@ def gatherCSVAllTests():
                                     "{:.4f}".format(data['R']), 
                                     "{:.4f}".format(data['mAP50']), 
                                     "{:.4f}".format(data['mAP50-95'])]]
-                print(f"Found {data_file_name} in {folder = }; {sub_folder = }")
+                log(f"Found {data_file_name} in {folder = }; {sub_folder = }")
 
-    with open('summary_data.csv', 'w', newline='') as file:
+    with open(f'{test_path}/summary_data.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(row_list)
 
@@ -78,7 +79,7 @@ def gatherCSVAllTests():
 #         ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
 #         ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
 #         fig.savefig(save_dir, dpi=250)
-#         print(f"Stored new diagram in {save_dir}")
+#         log(f"Stored new diagram in {save_dir}")
 #         plt.close(fig)
 #     return wrapper_plot_curve
 
@@ -94,7 +95,7 @@ def gatherCSVAllTests():
 
 # def plot_curve(px, py, names, ap = [], labels = [], save_dir = "", title_name = "", xlabel = 'Confidence', ylabel = 'Metric'):
 #     # Precision-recall curve
-#     # print(f"Plot {save_dir}")
+#     # log(f"Plot {save_dir}")
 #     ap_labels = ap
 #     if not ap_labels:
 #         ap_labels = ""*len(labels)
@@ -112,7 +113,7 @@ def gatherCSVAllTests():
 #     ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
 #     ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
 #     fig.savefig(save_dir, dpi=250)
-#     print(f"Stored new diagram in {save_dir}")
+#     log(f"Stored new diagram in {save_dir}")
 #     plt.close(fig)
 
 
@@ -135,7 +136,7 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
     ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
     ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
     fig.savefig(save_dir, dpi=250)
-    print(f"Stored new diagram in {save_dir}")
+    log(f"Stored new diagram in {save_dir}")
     plt.close(fig)
 
 def plot_data(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
@@ -166,16 +167,15 @@ def plotCombinedCurves():
             # Ensure same order so graphis use same colours
             plot_pairs[key].sort()
 
-    print(f"Plot pairs are:")
+    log(f"Plot pairs are:")
     for key, value_list in plot_pairs.items():
-        print(f"\t· {key}:")
+        log(f"\t· {key}:")
         for value in value_list:
-            print(f"\t\t - {value}")
-    print()
+            log(f"\t\t - {value}")
 
     for key, value in plot_pairs.items():
         if len(value) <2:
-            print(f"[ERROR] Seems that {key} test has only one version performed: {value}")
+            log(f"[ERROR] Seems that {key} test has only one version performed: {value}")
             continue
         
         # Get all dataset yaml configuration
@@ -196,7 +196,7 @@ def plotCombinedCurves():
                   title_name = f"{key}  -  ")
 
 if __name__ == '__main__':
-    print(f"Process results from {test_path}")
+    log(f"Process results from {test_path}")
     gatherCSVAllTests()   
     plotCombinedCurves()
     
