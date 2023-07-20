@@ -20,6 +20,35 @@ cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
 yolo_output_path = f"{repo_path}/runs/detect"
 
 
+################################
+#     Format Logging stuff     #
+################################
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
+def log(msg = "", color = bcolors.OKCYAN):
+    print(f"{color}{msg}{bcolors.ENDC}")
+
+
+################################
+#      YAML parsing stuff      #
+################################
+
+import yaml
+from yaml.loader import SafeLoader
+def parseYaml(file_path):
+    with open(file_path) as file:
+        return yaml.load(file, Loader=SafeLoader)
 
 #################################
 #       Dinamic CFG stuff       #
@@ -69,7 +98,7 @@ def clearCFGFIles(cfg_generated_files):
         tmp_cfg_path = os.getcwd() + "/tmp_cfg/"
         os.rmdir(tmp_cfg_path)
     except Exception as e:
-        print(f"Catched exception removing tmf folder: {e}")
+        log(f"Catched exception removing tmf folder: {e}")
 
 
 ###################################
@@ -91,14 +120,17 @@ def handleArguments():
                         type=str, nargs='*', default=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-d', '--device', dest='device',
-                        type = str, default= "0", 
+                        type=str, default="0", 
                         help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
-                        type = str, default= "ram", 
+                        type=str, default="ram", 
                         help="True/ram, disk or False. Use cache for data loading. To load '.npy' files disk option is needed.")
     parser.add_argument('-p', '--pretrained', dest='pretrained',
-                        type = bool, default= False, 
+                        type=bool, default=False, 
                         help="Whether to use a pretrained model.")
+    parser.add_argument('-rm','--run-mode', dest='run_mode',
+                        type=str, nargs='*', default=['val', 'train'],
+                        help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     
     opts = parser.parse_args()
 
@@ -106,39 +138,6 @@ def handleArguments():
     option_list_default = list(opts.olist)
     model_list_default = list(opts.mlist)
 
-    print(f"Options parsed: condition_list: {condition_list_default}; option_list: {option_list_default}; model_list: {model_list_default};")
-    # Remove option so that yolo arg parser does not fail
-    # if '--clear_cache' in sys.argv:
-    #     sys.argv.remove('--clear_cache')
-    
-    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained
-
-################################
-#     Format Logging stuff     #
-################################
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
-def log(msg = "", color = bcolors.OKCYAN):
-    print(f"{color}{msg}{bcolors.ENDC}")
-
-
-################################
-#      YAML parsing stuff      #
-################################
-
-import yaml
-from yaml.loader import SafeLoader
-def parseYaml(file_path):
-    with open(file_path) as file:
-        return yaml.load(file, Loader=SafeLoader)
+    log(f"Options parsed: condition_list: {condition_list_default}; option_list: {option_list_default}; model_list: {model_list_default};")
+        
+    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts

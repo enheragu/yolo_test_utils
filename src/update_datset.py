@@ -16,8 +16,8 @@ from tqdm import tqdm
 
 from argparse import ArgumentParser
 
-from kaist_to_yolo_annotations import kaistToYolo
-from rgb_thermal_mix import dataset_options, make_dataset
+from Dataset.kaist_to_yolo_annotations import kaistToYolo
+from Dataset.rgb_thermal_mix import dataset_options, make_dataset
 
 from config_utils import kaist_path, yolo_dataset_path, log
 

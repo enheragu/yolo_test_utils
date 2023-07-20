@@ -1,28 +1,13 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
-import os
-import sys
-
-ultralitics_rel_path = (os.path.dirname(os.path.abspath(__file__)) + '/../ultralitics_yolov8/ultralytics/',
-                        os.path.dirname(os.path.abspath(__file__)) + '/../ultralitics_yolov8/',
-                        os.path.dirname(os.path.abspath(__file__)) + '/../'
-                        )
-
-for add_path in ultralitics_rel_path:
-    try:
-        sys.path.index(add_path) # Or os.getcwd() for this directory
-    except ValueError:
-        sys.path.append(add_path) # Or os.getcwd() for this directory
-
+"""
+    Encapsulates YOLO training funtionality with custom dataset and logging handling
+"""
 
 from pathlib import Path
-import logging
-import argparse
 import glob
-
 from datetime import datetime
-
 
 from yolo.utils import DEFAULT_CFG
 import yolo.v8.detect as yolo_detc
@@ -33,9 +18,7 @@ from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, 
 
 train_iteration = 0
 
-if __name__ == '__main__':
-
-    condition_list, option_list, model_list, device, cache, pretrained = handleArguments()
+def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained):
 
     start_time = datetime.now()
 
@@ -93,3 +76,8 @@ if __name__ == '__main__':
     clearCFGFIles(dataset_config_list)
     log("")
     log(f"Training process took {datetime.now() - start_time} (h/min/s)")
+
+
+if __name__ == '__main__':
+    condition_list, option_list, model_list, device, cache, pretrained, _ = handleArguments()
+    TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)
