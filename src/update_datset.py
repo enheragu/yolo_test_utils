@@ -56,14 +56,14 @@ def checkKaistDataset(options = []):
         options = [options]
 
     # Check if kaist dataset is already in the system
-    if not os.path.exists(kaist_path):
+    if not os.path.exists(f"{kaist_path}/images"):
         log(f"Kaist dataset could not be found in {kaist_path}. Downloading it from scratch.")
         getKaistData()
     else:
         log(f"Kaist dataset found in {kaist_path}, no need to re-download.")
     
     # Check that YOLO version exists or create it
-    if not os.path.exists(yolo_dataset_path):
+    if not os.path.exists(f"{yolo_dataset_path}/test-all-01"):
         log(f"Kaist-YOLO dataset could not be found in {yolo_dataset_path}. Generating new labeling.")
         kaistToYolo()
     else:

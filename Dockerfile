@@ -19,6 +19,7 @@ RUN cd eeha/yolo_test_utils/ultralitics_yolov8 && pip install --editable .
 
 # Creates folder with kaist and runs subfolders to be shared with host when run
 RUN mkdir -p eeha/kaist-cvpr15
+RUN mkdir -p eeha/kaist-yolo-annotated
 RUN mkdir -p eeha/yolo_test_utils/runs
 
 # Ensure git repo is updated every time Docker Image is updated!!
