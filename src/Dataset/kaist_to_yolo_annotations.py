@@ -16,7 +16,7 @@ import os, errno
 from pathlib import Path
 import shutil
 
-from config_utils import sets_path, annotation_path, images_path, yolo_dataset_path
+from config_utils import sets_path, annotation_path, images_path, yolo_dataset_path, log
 
 lwir = "/lwir/"
 visible = "/visible/"
@@ -66,7 +66,7 @@ def kaistToYolo():
         file_path = os.path.join(sets_path, file)
         if os.path.isfile(file_path):
             data_set_name = file.replace(".txt", "")
-            print(f"[{dataset_processed}] Processing dataset {data_set_name}")
+            log(f"[{dataset_processed}] Processing dataset {data_set_name}")
 
             # Create new folder structure
             new_dataset_label_paths = (yolo_dataset_path + data_set_name + lwir + label_folder,
@@ -75,7 +75,7 @@ def kaistToYolo():
                                 yolo_dataset_path + data_set_name + visible + images_folder)
             
             for folder in (new_dataset_label_paths + new_dataset_images_paths):
-                # print(folder)
+                # log(folder)
                 Path(folder).mkdir(parents=True, exist_ok=True)
 
             # Process all lines in imageSet file to create labelling in the new folder structure
@@ -86,19 +86,19 @@ def kaistToYolo():
                         path = line.split("/")
                         path = (path[0], path[1], data_type, path[2])
                         root_label_path = annotation_path + line + ".xml"
-                        # print(root_label_path)
+                        # log(root_label_path)
 
                         # labelling
 
                         root_label_path = f"{annotation_path}/{line}.xml"
                         output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
-                        # print(output_paths)
+                        # log(output_paths)
                         processXML(root_label_path, output_paths)
 
                         # Create images
                         root_image_path = images_path + "/".join(path) + ".jpg"
                         new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
-                        # print(new_image_path)
+                        # log(new_image_path)
                         # Create or update symlink if already exists
                         try:
                             os.symlink(root_image_path, new_image_path)
@@ -108,21 +108,20 @@ def kaistToYolo():
                                 os.symlink(root_image_path, new_image_path)
                             else:
                                 raise e
-                print(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
+                log(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
             dataset_processed += 1
                         
-    print(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
-    exit()
+    log(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
+    
+    # yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
+    # with open(yaml_data_path, "w+") as file:
+    #     # Swap key and value to access by number later
+    #     yaml_data = {"path": images_path, "train": "#TBD", "val": "#TBD", "test": "#TBD",
+    #                 "names": {v: k for k, v in class_data_coco.items()}}
+    #     yaml.dump(yaml_data, file)
 
-    yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
-    with open(yaml_data_path, "w+") as file:
-        # Swap key and value to access by number later
-        yaml_data = {"path": images_path, "train": "#TBD", "val": "#TBD", "test": "#TBD",
-                    "names": {v: k for k, v in class_data_coco.items()}}
-        yaml.dump(yaml_data, file)
-
-    print(f"Dumped data about classes in: {yaml_data_path}. \nData is: \t\n{yaml_data}")
-    print(f"Processed files: {processed_files}")
+    # log(f"Dumped data about classes in: {yaml_data_path}. \nData is: \t\n{yaml_data}")
+    # log(f"Processed files: {processed_files}")
 
 
 if __name__ == '__main__':
