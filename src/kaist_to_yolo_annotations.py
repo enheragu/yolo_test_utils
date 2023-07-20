@@ -59,69 +59,71 @@ def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
                     output.write(txt_data)
 
 
+def kaistToYolo():
+    dataset_processed = 0
+    # Goes to imageSets folder an iterate through the images an processes all image sets
+    for file in os.listdir(sets_path):
+        file_path = os.path.join(sets_path, file)
+        if os.path.isfile(file_path):
+            data_set_name = file.replace(".txt", "")
+            print(f"[{dataset_processed}] Processing dataset {data_set_name}")
 
-label_files_created = 0
-dataset_processed = 0
+            # Create new folder structure
+            new_dataset_label_paths = (yolo_dataset_path + data_set_name + lwir + label_folder,
+                                yolo_dataset_path + data_set_name + visible + label_folder)
+            new_dataset_images_paths = (yolo_dataset_path + data_set_name + lwir + images_folder,
+                                yolo_dataset_path + data_set_name + visible + images_folder)
+            
+            for folder in (new_dataset_label_paths + new_dataset_images_paths):
+                # print(folder)
+                Path(folder).mkdir(parents=True, exist_ok=True)
 
-# Goes to imageSets folder an iterate through the images an processes all image sets
-for file in os.listdir(sets_path):
-    file_path = os.path.join(sets_path, file)
-    if os.path.isfile(file_path):
-        data_set_name = file.replace(".txt", "")
-        print(f"[{dataset_processed}] Processing dataset {data_set_name}")
+            # Process all lines in imageSet file to create labelling in the new folder structure
+            with open(file_path, 'r') as file:
+                for count, line in enumerate(file):
+                    for data_type in (lwir, visible):
+                        line = line.replace("\n", "")
+                        path = line.split("/")
+                        path = (path[0], path[1], data_type, path[2])
+                        root_label_path = annotation_path + line + ".xml"
+                        # print(root_label_path)
 
-        # Create new folder structure
-        new_dataset_label_paths = (yolo_dataset_path + data_set_name + lwir + label_folder,
-                             yolo_dataset_path + data_set_name + visible + label_folder)
-        new_dataset_images_paths = (yolo_dataset_path + data_set_name + lwir + images_folder,
-                             yolo_dataset_path + data_set_name + visible + images_folder)
-        
-        for folder in (new_dataset_label_paths + new_dataset_images_paths):
-            # print(folder)
-            Path(folder).mkdir(parents=True, exist_ok=True)
+                        # labelling
 
-        # Process all lines in imageSet file to create labelling in the new folder structure
-        with open(file_path, 'r') as file:
-            for count, line in enumerate(file):
-                for data_type in (lwir, visible):
-                    line = line.replace("\n", "")
-                    path = line.split("/")
-                    path = (path[0], path[1], data_type, path[2])
-                    root_label_path = annotation_path + line + ".xml"
-                    # print(root_label_path)
+                        root_label_path = f"{annotation_path}/{line}.xml"
+                        output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
+                        # print(output_paths)
+                        processXML(root_label_path, output_paths)
 
-                    # labelling
-
-                    root_label_path = f"{annotation_path}/{line}.xml"
-                    output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
-                    # print(output_paths)
-                    processXML(root_label_path, output_paths)
-
-                    # Create images
-                    root_image_path = images_path + "/".join(path) + ".jpg"
-                    new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
-                    # print(new_image_path)
-                    # Create or update symlink if already exists
-                    try:
-                        os.symlink(root_image_path, new_image_path)
-                    except OSError as e:
-                        if e.errno == errno.EEXIST:
-                            os.remove(new_image_path)
+                        # Create images
+                        root_image_path = images_path + "/".join(path) + ".jpg"
+                        new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
+                        # print(new_image_path)
+                        # Create or update symlink if already exists
+                        try:
                             os.symlink(root_image_path, new_image_path)
-                        else:
-                            raise e
-            print(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
-        dataset_processed += 1
-                    
-print(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
-exit()
+                        except OSError as e:
+                            if e.errno == errno.EEXIST:
+                                os.remove(new_image_path)
+                                os.symlink(root_image_path, new_image_path)
+                            else:
+                                raise e
+                print(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
+            dataset_processed += 1
+                        
+    print(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
+    exit()
 
-yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
-with open(yaml_data_path, "w+") as file:
-    # Swap key and value to access by number later
-    yaml_data = {"path": images_path, "train": "#TBD", "val": "#TBD", "test": "#TBD",
-                 "names": {v: k for k, v in class_data_coco.items()}}
-    yaml.dump(yaml_data, file)
+    yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
+    with open(yaml_data_path, "w+") as file:
+        # Swap key and value to access by number later
+        yaml_data = {"path": images_path, "train": "#TBD", "val": "#TBD", "test": "#TBD",
+                    "names": {v: k for k, v in class_data_coco.items()}}
+        yaml.dump(yaml_data, file)
 
-print(f"Dumped data about classes in: {yaml_data_path}. \nData is: \t\n{yaml_data}")
-print(f"Processed files: {processed_files}")
+    print(f"Dumped data about classes in: {yaml_data_path}. \nData is: \t\n{yaml_data}")
+    print(f"Processed files: {processed_files}")
+
+
+if __name__ == '__main__':
+    kaistToYolo()

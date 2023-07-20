@@ -26,6 +26,12 @@ visible = "/visible/"
 label_folder = "/labels/"
 images_folder = "/images/"
 
+# Dict with tag-function to be used
+dataset_options = {
+                    'hsvt': combine_hsvt,
+                    'rgbt': combine_rgbt,
+                    '4ch': combine_4ch
+                }
 # non_stop = True  # Set to false to visualize each image generated
 
 def combine_hsvt(visible_image, thermal_image, path):
@@ -97,29 +103,32 @@ def process_image(folder, combine_method, option_path, image):
     #     cv2.destroyAllWindows()
     #     non_stop = True
 
-def make_dataset(folder, option, combine_method):
+def make_dataset(option, combine_method):
 
-    # Images as new dataset option to new path with its labels
-    option_path = f"{yolo_dataset_path}/{folder}/{option}/{images_folder}/".replace("//", "/")
-    Path(option_path).mkdir(parents=True, exist_ok=True)
-    shutil.copytree(f"{yolo_dataset_path}/{folder}/{lwir}/{label_folder}", 
-                    f"{yolo_dataset_path}/{folder}/{option}/{label_folder}", 
-                    dirs_exist_ok=True)
-
-    log(f"Process {folder} dataset, output images will be stored in {option_path}")
-
-    # Iterate images multiprocessing
-    with Pool() as pool:
-        images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
-        func = partial(process_image, folder, combine_method, option_path)
-        pool.map(func, images_list)
-        
-if __name__ == '__main__':
     # Iterate each of the datasets
     for folder in os.listdir(yolo_dataset_path):
         if not os.path.isdir(f"{yolo_dataset_path}/{folder}"):
-            continue
+             continue
         
-        # make_dataset(folder, 'hsvt', combine_hsvt)
-        # make_dataset(folder, 'rgbt', combine_rgbt)
-        make_dataset(folder, '4ch', combine_4ch)
+        # Images as new dataset option to new path with its labels
+        option_path = f"{yolo_dataset_path}/{folder}/{option}/{images_folder}/".replace("//", "/")
+        Path(option_path).mkdir(parents=True, exist_ok=True)
+        shutil.copytree(f"{yolo_dataset_path}/{folder}/{lwir}/{label_folder}", 
+                        f"{yolo_dataset_path}/{folder}/{option}/{label_folder}", 
+                        dirs_exist_ok=True)
+
+        log(f"Process {folder} dataset, output images will be stored in {option_path}")
+
+        # Iterate images multiprocessing
+        with Pool() as pool:
+            images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
+            func = partial(process_image, folder, combine_method, option_path)
+            pool.map(func, images_list)
+        
+if __name__ == '__main__':
+    for key, function in dataset_options.items():
+        make_dataset(key, function)
+
+    # make_dataset('hsvt', dataset_options['hsvt'])
+    # make_dataset('rgbt', dataset_options['rgbt'])
+    # make_dataset('4ch', dataset_options['4ch'])
