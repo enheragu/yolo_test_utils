@@ -120,7 +120,7 @@ def handleArguments():
                         type=str, nargs='*', default=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-d', '--device', dest='device',
-                        type=str, default="0", 
+                        type=str, default="cpu", 
                         help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
                         type=str, default="ram",
