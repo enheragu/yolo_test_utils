@@ -16,4 +16,9 @@ RUN pip install -r eeha/yolo_test_utils/requirements
 RUN mkdir -p eeha/kaist-cvpr15
 RUN mkdir -p eeha/yolo_test_utils/runs
 
+# Ensure git repo is updated every time Docker Image is updated!!
+# Change is at the end so not to repeat the whole build process but the last layer
+RUN cd eeha/yolo_test_utils && git pull --recurse-submodules
+
 ENTRYPOINT ["python3", "eeha/yolo_test_utils/src/run_yolo_test.py"]
+CMD ["--help"]
