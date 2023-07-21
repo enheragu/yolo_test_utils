@@ -6,6 +6,13 @@
     hsvt -> combines v + t and reescalate that channel
     rgbt -> averages each chanel with thermal data (r+t/2)
     4ch -> Stores ndarray with all foru channels as [b,g,r,t]
+    vths -> Intensiti from visible, Thermal and HS compressed in one channel (4 bits of each channel).
+        It seems that most of the relevant information is on Intensity channels, and pretty little in the color part. 
+        So color is compressed in one channel.
+        4 bits shifted to the right (same as 16 division, but faster)
+        8 7 6 5 4 3 2 1 -> Keeps from 8 to 5 bits from both images
+        8h 7h 6h 5h 8v 7v 6v 5v -> shifts one of the channels back and adds them
+    vt -> Removes color information having one channel for Intensity from visual image, Thermal channel and the average of both in the third channel.
 """
 
 import os, errno
@@ -32,7 +39,6 @@ def combine_hsvt(visible_image, thermal_image, path):
     h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
     th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
 
-
     # Cast to 32S to avoid saturation when both channels are added
     v = v.astype(np.float64)
     th_channel = th_channel.astype(np.float64)
@@ -47,7 +53,7 @@ def combine_hsvt(visible_image, thermal_image, path):
     
     cv2.imwrite(path, hsvt_image)
     return hsvt_image
-      
+
               
 def combine_rgbt(visible_image, thermal_image, path):
     b,g,r = cv2.split(visible_image)
@@ -64,6 +70,7 @@ def combine_rgbt(visible_image, thermal_image, path):
     cv2.imwrite(path, rgbt_image)
     return rgbt_image
 
+
 def combine_4ch(visible_image, thermal_image, path):
     b,g,r = cv2.split(visible_image)
     th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
@@ -73,6 +80,36 @@ def combine_4ch(visible_image, thermal_image, path):
     # cv2.imwrite(path, ch4_image)
     np.save(path.replace('.png',''), ch4_image)
     return ch4_image
+
+
+def combine_vths(visible_image, thermal_image, path):
+    h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
+    th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
+         
+    h_shifted = h >> 4
+    s_shifted = s >> 4
+    hs = h_shifted & (s_shifted << 4)
+
+    # print(f"{v.shape =}; {th_channel.shape =}; {hs.shape =}; ")
+    vths_image = cv2.merge([v,th_channel,hs])
+    
+    cv2.imwrite(path, vths_image)
+    return vths_image
+
+
+def combine_vt(visible_image, thermal_image, path):
+    h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
+    th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
+    
+    averaged = v.astype(np.float64)
+    averaged = (averaged + th_channel.astype(np.float64)) / 2
+    averaged = averaged.astype(np.uint8)
+
+    vt_image = cv2.merge([v,th_channel,averaged])
+    
+    cv2.imwrite(path, vt_image)
+    return vt_image
+
 
 def process_image(folder, combine_method, option_path, image):
     # global non_stop
@@ -86,25 +123,14 @@ def process_image(folder, combine_method, option_path, image):
 
     image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
     
-    # if not non_stop:
-    #     cv2.imshow(f"image {option}", image_combined)            
-    
-    # key = cv2.pollKey()
-    # if key == ord('q') or key == ord('Q') or key == 27:
-    #     cv2.destroyAllWindows()
-    #     exit()
-    # elif key == ord('c') or key == ord('C'):
-    #     cv2.destroyAllWindows()
-    #     non_stop = True
-
-
-
 
 # Dict with tag-function to be used
 dataset_options = {
                     'hsvt': combine_hsvt,
                     'rgbt': combine_rgbt,
-                    '4ch': combine_4ch
+                    '4ch': combine_4ch,
+                    'vths' : combine_vths,
+                    'vt' : combine_vt
                 }
 
 
