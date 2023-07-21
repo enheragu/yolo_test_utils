@@ -16,6 +16,9 @@ import os, errno
 from pathlib import Path
 import shutil
 
+from multiprocessing.pool import Pool
+from functools import partial
+
 from config_utils import sets_path, annotation_path, images_path, yolo_dataset_path, log
 
 lwir = "/lwir/"
@@ -58,15 +61,45 @@ def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
                 with open(file, 'w+') as output:
                     output.write(txt_data)
 
+# Process line from dataset file so to paralelice process
+def processLine(new_dataset_label_paths, data_set_name, line):
+    for data_type in (lwir, visible):
+        line = line.replace("\n", "")
+        path = line.split("/")
+        path = (path[0], path[1], data_type, path[2])
+        root_label_path = annotation_path + line + ".xml"
+        # log(root_label_path)
 
+        # labelling
+
+        root_label_path = f"{annotation_path}/{line}.xml"
+        output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
+        # log(output_paths)
+        processXML(root_label_path, output_paths)
+
+        # Create images
+        root_image_path = images_path + "/".join(path) + ".jpg"
+        new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
+        # log(new_image_path)
+        # Create or update symlink if already exists
+        try:
+            os.symlink(root_image_path, new_image_path)
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                os.remove(new_image_path)
+                os.symlink(root_image_path, new_image_path)
+            else:
+                raise e
+            
 def kaistToYolo():
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets
+    log("[KaistToYolo::KaistToYolo] Kaist To Yolo formatting:")
     for file in os.listdir(sets_path):
         file_path = os.path.join(sets_path, file)
         if os.path.isfile(file_path):
             data_set_name = file.replace(".txt", "")
-            log(f"[{dataset_processed}] Processing dataset {data_set_name}")
+            # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
 
             # Create new folder structure
             new_dataset_label_paths = (yolo_dataset_path + data_set_name + lwir + label_folder,
@@ -80,38 +113,15 @@ def kaistToYolo():
 
             # Process all lines in imageSet file to create labelling in the new folder structure
             with open(file_path, 'r') as file:
-                for count, line in enumerate(file):
-                    for data_type in (lwir, visible):
-                        line = line.replace("\n", "")
-                        path = line.split("/")
-                        path = (path[0], path[1], data_type, path[2])
-                        root_label_path = annotation_path + line + ".xml"
-                        # log(root_label_path)
-
-                        # labelling
-
-                        root_label_path = f"{annotation_path}/{line}.xml"
-                        output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
-                        # log(output_paths)
-                        processXML(root_label_path, output_paths)
-
-                        # Create images
-                        root_image_path = images_path + "/".join(path) + ".jpg"
-                        new_image_path = f"{yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
-                        # log(new_image_path)
-                        # Create or update symlink if already exists
-                        try:
-                            os.symlink(root_image_path, new_image_path)
-                        except OSError as e:
-                            if e.errno == errno.EEXIST:
-                                os.remove(new_image_path)
-                                os.symlink(root_image_path, new_image_path)
-                            else:
-                                raise e
-                log(f"[{dataset_processed}] Processed {count} files XML (and x2 images) in {data_set_name} dataset")
+                lines_list = [line.rstrip() for line in file]
+                with Pool() as pool:
+                    func = partial(processLine, new_dataset_label_paths, data_set_name)
+                    pool.map(func, lines_list)
+                    
+                log(f"\t· [{dataset_processed}] Processed {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
             dataset_processed += 1
                         
-    log(f"Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
+    log(f"[KaistToYolo::KaistToYolo] Finished procesing {dataset_processed} datasets. Output datasests are located in {yolo_dataset_path}")
     
     # yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
     # with open(yaml_data_path, "w+") as file:

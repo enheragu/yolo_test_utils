@@ -30,7 +30,7 @@ def getKaistData():
     # make sure that kaist path exists
     Path(kaist_path).mkdir(parents=True, exist_ok=True)
 
-    log(f"Getting Kaist dataset from source. Downloading it to {download_path}. (Note that it can take quite some time).")
+    log(f"[UpdateDataset::getKaistData] Getting Kaist dataset from source. Downloading it to {download_path}. (Note that it can take quite some time).")
     r = requests.get(url, stream=True)
     with open(download_path, 'wb') as f:
         total_length = int(r.headers.get('content-length'))
@@ -40,7 +40,7 @@ def getKaistData():
                 f.flush()
 
 
-    log(f"Extracting data from {download_path}. (Note that it can take up to 10-20 minutes).")
+    log(f"[UpdateDataset::getKaistData] Extracting data from {download_path}. (Note that it can take up to 10-20 minutes).")
     # with tarfile.open(download_path, 'r') as archive:
     #     archive.extractall()
 
@@ -57,27 +57,27 @@ def checkKaistDataset(options = []):
 
     # Check if kaist dataset is already in the system
     if not os.path.exists(f"{kaist_path}/images"):
-        log(f"Kaist dataset could not be found in {kaist_path}. Downloading it from scratch.")
+        log(f"[UpdateDataset::checkKaistDataset] Kaist dataset could not be found in {kaist_path}. Downloading it from scratch.")
         getKaistData()
     else:
-        log(f"Kaist dataset found in {kaist_path}, no need to re-download.")
+        log(f"[UpdateDataset::checkKaistDataset] Kaist dataset found in {kaist_path}, no need to re-download.")
     
     # Check that YOLO version exists or create it
     setfolders = [ f.path for f in os.scandir(yolo_dataset_path) if f.is_dir() ]
-    options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ]
+    options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     if 'lwir' not in options_found and 'visible' not in options_found:
-        log(f"Kaist-YOLO dataset could not be found in {yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
+        log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
         kaistToYolo()
     else:
-        log(f"Kaist-YOLO dataset found in {yolo_dataset_path}, no need to re-label it.")
+        log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset found in {yolo_dataset_path}, no need to re-label it.")
 
     # Check that needed versions exist or create them
     for option in options:
         if option not in options_found:
-            log(f"Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
+            log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
             make_dataset(option)
         else:
-            log(f"Custom dataset for option {option} requested is already in dataset folder.")
+            log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
             
 if __name__ == '__main__':
     parser = ArgumentParser(description="Checks if kaist dataset exists in expected location and generates it if not (download, extract, reformat or regenerate).")

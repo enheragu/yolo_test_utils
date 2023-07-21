@@ -8,7 +8,7 @@
     4ch -> Stores ndarray with all foru channels as [b,g,r,t]
 """
 
-import os
+import os, errno
 from pathlib import Path
 import shutil
 
@@ -107,9 +107,13 @@ dataset_options = {
                     '4ch': combine_4ch
                 }
 
-def make_dataset(option):
 
+def make_dataset(option):
+    symlink_created = 0
+    processed_images = {}
+    dataset_processed = 0
     # Iterate each of the datasets
+    log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
     for folder in os.listdir(yolo_dataset_path):
         if not os.path.isdir(f"{yolo_dataset_path}/{folder}"):
              continue
@@ -121,14 +125,33 @@ def make_dataset(option):
                         f"{yolo_dataset_path}/{folder}/{option}/{label_folder}", 
                         dirs_exist_ok=True)
 
-        log(f"Process {folder} dataset, output images will be stored in {option_path}")
-
+        images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
+        images_list_create = [image for image in images_list if image not in processed_images]
+        images_list_symlink = [image for image in images_list if image in processed_images]
+        
         # Iterate images multiprocessing
         with Pool() as pool:
-            images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
             func = partial(process_image, folder, dataset_options[option], option_path)
-            pool.map(func, images_list)
+            pool.map(func, images_list_create)
         
+        # Symlink
+        for image in images_list_symlink:
+            symlink_created +=1
+            try:
+                os.symlink(processed_images[image], f"{option_path}/{image}")
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    os.remove(f"{option_path}/{image}")
+                    os.symlink(processed_images[image], f"{option_path}/{image}")
+                else:
+                    raise e
+        log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
+
+        dataset_processed += 1
+        processed_images = {**processed_images, **{image: f"{option_path}/{image}" for image in images_list_create}}
+        # log(f"Not creating images as they already exist, creating symlink to previous generated image: {images_list_symlink}")
+        
+    log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
 
 if __name__ == '__main__':
     for key, function in dataset_options.items():

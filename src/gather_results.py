@@ -17,7 +17,7 @@ import csv
 import matplotlib.pyplot as plt
 
 from config_utils import yolo_output_path as test_path
-from configu_utils import log
+from config_utils import log
 
 data_file_name = "results.yaml"
 
