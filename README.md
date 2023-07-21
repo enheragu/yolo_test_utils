@@ -7,22 +7,29 @@ Collection of helper scripts and configuration files to run different tests with
 ### Docker 
 Make sure docker is installed:
 ``` sh
-sudo apt-get install docker.io
+# Instructions from https://docs.docker.com/engine/install/ubuntu/
+sudo apt-get update && sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-To be able to use the NVIDIA GPUs an extra package is needed to interface with Docker (instructions from NVIDIA web):
+To be able to use the NVIDIA GPUs an extra package is needed to interface with Docker:
 ``` sh
-#Setup the package repository and the GPG key:
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
-      && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-      && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
-            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-            sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-# Configure the Docker daemon to recognize the NVIDIA Container Runtime:
-sudo nvidia-ctk runtime configure --runtime=docker
+curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | sudo apt-key add -
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list |\
+    sudo tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+sudo apt-get update
+sudo apt-get install nvidia-container-runtime
 # Restart the Docker daemon to complete the installation after setting the default runtime:
-sudo systemctl restart docker
+sudo systemctl stop docker
+sudo systemctl start docker
 ```
 
 GPU access from Docker can be checked with the following command:
