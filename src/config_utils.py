@@ -137,7 +137,8 @@ def handleArguments():
     condition_list_default = list(opts.clist)
     option_list_default = list(opts.olist)
     model_list_default = list(opts.mlist)
+    run_modes = list(opts.run_mode)
 
     log(f"Options parsed: condition_list: {condition_list_default}; option_list: {option_list_default}; model_list: {model_list_default};")
-        
+    log(f"Run {run_modes} tests")
     return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts
