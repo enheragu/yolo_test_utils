@@ -135,6 +135,10 @@ dataset_options = {
 
 
 def make_dataset(option):
+    if option not in dataset_options:
+        log(f"Option not found in dataset generation options. Not generating.")
+        return
+    
     symlink_created = 0
     processed_images = {}
     dataset_processed = 0
