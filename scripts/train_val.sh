@@ -11,17 +11,17 @@ SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 source $SCRIPT_PATH/../../venv/bin/activate
 
-LOG_PATH=$SCRIPT_PATH/../runs/detect/
+
+now=`date +"%Y_%m_%d-%H_%M"`
+
+LOG_PATH=$SCRIPT_PATH/../runs/
 mkdir -p $LOG_PATH
-echo "Logging execution to $LOG_PATH" 
-(cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a $LOG_PATH/test_yolo.log)
-
-# -c 'day' 'night' \
-# -o 'visible' 'lwir' 'rgbt' \
-# -m 'yolov8x.pt' \
-# -rm 'train' 'val' --pretrained True
+echo "Logging execution to $LOG_PATH/${now}_test_yolo.log" 
+(cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a $LOG_PATH/${now}_test_yolo.log)
+echo "Logged execution to $LOG_PATH/${now}_test_yolo.log. All YOLO output can be found in $LOG_PATH/detect/"
 
 
+# -c 'day' 'night' -o 'visible' 'lwir' 'rgbt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
 # -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
 
 
