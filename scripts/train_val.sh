@@ -14,14 +14,24 @@ source $SCRIPT_PATH/../../venv/bin/activate
 LOG_PATH=$SCRIPT_PATH/../runs/detect/
 mkdir -p $LOG_PATH
 echo "Logging execution to $LOG_PATH" 
-# (cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py -c 'all' 'day' 'night' -o 'visible' 'lwir' 'hsvt' 'rgbt' -m 'yolov8x.pt -rm 'train' 'val' --pretrained True 2>&1 | tee -a $LOG_PATH/test_yolo.log)
+(cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a $LOG_PATH/test_yolo.log)
 
-(cd $SCRIPT_PATH/.. && time \
-./src/run_yolo_test.py -c 'night' \
-                    -o '4ch' \
-                    -m 'yoloCh4x.yaml' \
-                    --device 'cpu' \
-                    --cache 'disk' \
-                    --pretrained False \
-                    --rm 'train' \
- 2>&1)
+# -c 'day' 'night' \
+# -o 'visible' 'lwir' 'rgbt' \
+# -m 'yolov8x.pt' \
+# -rm 'train' 'val' --pretrained True
+
+
+# -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
+
+
+    
+# (cd $SCRIPT_PATH/.. && time \
+# ./src/run_yolo_test.py -c 'night' \
+#                     -o '4ch' \
+#                     -m 'yoloCh4x.yaml' \
+#                     --device 'cpu' \
+#                     --cache 'disk' \
+#                     --pretrained False \
+#                     --rm 'train' \
+#  2>&1)

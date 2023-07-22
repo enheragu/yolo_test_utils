@@ -55,7 +55,7 @@ def parseYaml(file_path):
 #################################
 
 condition_list_default = ['all','day', 'night']
-option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt'] # 4ch
+option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt', 'vths', 'vt', '4ch'] # 4ch
 model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 
 
