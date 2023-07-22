@@ -67,6 +67,7 @@ def checkKaistDataset(options = []):
 
     # Check that YOLO version exists or create it
     setfolders = [ f.path for f in os.scandir(yolo_dataset_path) if f.is_dir() ]
+    options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     if 'lwir' not in options_found and 'visible' not in options_found:
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
         kaistToYolo()

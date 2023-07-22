@@ -12,7 +12,7 @@ SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 source $SCRIPT_PATH/../../venv/bin/activate
 
 
-now=`date +"%Y_%m_%d-%H_%M"`
+now=`date +"%Y_%m_%d-%H_%M_%S"`
 
 LOG_PATH=$SCRIPT_PATH/../runs/
 mkdir -p $LOG_PATH
