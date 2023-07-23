@@ -12,13 +12,31 @@ SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 source $SCRIPT_PATH/../../venv/bin/activate
 
 
-now=`date +"%Y_%m_%d-%H_%M_%S"`
+NOW=`date +"%Y_%m_%d-%H_%M_%S"`
+LOG_PATH=$SCRIPT_PATH/../runs/exec_log
+LOG_FILENAME="${LOG_PATH}/${NOW}_test_yolo.log"
 
-LOG_PATH=$SCRIPT_PATH/../runs/
+# if file already exists ${LOG_PATH}/../now_executing${REPEATED}.log
+if [ ! -L "${LOG_PATH}/../now_executing.log" ]; then 
+REPEATED=''
+else
+echo "Another process is already running, shortcut to log to a different name"
+REPEATED='_1'
+fi
+
+# Ensure path and file exists and make shortcut. If theres already one test being executed
+# add a surname to file shortcut names 
 mkdir -p $LOG_PATH
-echo "Logging execution to $LOG_PATH/${now}_test_yolo.log" 
-(cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a $LOG_PATH/${now}_test_yolo.log)
-echo "Logged execution to $LOG_PATH/${now}_test_yolo.log. All YOLO output can be found in $LOG_PATH/detect/"
+touch ${LOG_FILENAME}
+ln -s ${LOG_FILENAME} ${LOG_PATH}/../now_executing${REPEATED}.log
+
+echo "Logging execution to ${LOG_FILENAME}" 
+(cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a ${LOG_FILENAME})
+echo "Logged execution to ${LOG_FILENAME}. All YOLO output can be found in $LOG_PATH/detect/"
+
+# Remove previous shortcut and make new one
+ln -s ${LOG_FILENAME} ${LOG_PATH}/../latest${REPEATED}.log
+rm ${LOG_PATH}/../executing${REPEATED}.log
 
 
 # -c 'day' 'night' -o 'visible' 'lwir' 'rgbt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
