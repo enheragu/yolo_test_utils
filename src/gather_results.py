@@ -16,21 +16,51 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 
+from multiprocessing.pool import Pool, ThreadPool
+from functools import partial
+
 from config_utils import yolo_output_path as test_path
 from config_utils import log
 
 data_file_name = "results.yaml"
 
 # CSV list of rows
-row_list = [['Title', 'Date', 'Model', 'Dataset', 'Condition', 'Type', 'Class', 'Images', 'Instances', 'P', 'R', 'mAP50', 'mAP50-95']]
+row_list = [['Title', 'Model', 'Condition', 'Type', 'P', 'R', 'Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Date']]
 
 def parseYaml(file_path):
     with open(file_path) as file:
         return yaml.load(file, Loader=SafeLoader)
 
+# Split the data processin into a separate function to apply multiprocessing
+def gatherData(data): 
+    folder, sub_folder, path = data
+    row_list = []
 
+    dataset_type = sub_folder.split("_")
+    data_parsed = parseYaml(path)
+    creation_date = datetime.fromtimestamp(os.path.getctime(path))
+    for class_type, data in data_parsed['data'].items():
+        # log(f"\t {data}")
+        model = folder#.replace(".pt", "")
+        date_tag = creation_date.strftime('%Y-%m-%d_%H:%M:%S')
+        test_title = f'{model}_{sub_folder}_{date_tag}_{class_type}'
+        condition = 'night' if 'night' in dataset_type[0] else 'day'
+        row_list += [[test_title, model, condition, dataset_type[1], 
+                        "{:.4f}".format(data['P']), 
+                        "{:.4f}".format(data['R']), 
+                        data['Images'], 
+                        data['Instances'], 
+                        "{:.4f}".format(data['mAP50']), 
+                        "{:.4f}".format(data['mAP50-95']), 
+                        class_type, 
+                        dataset_type[0], 
+                        creation_date]]
+            
+    return row_list
+    
 def gatherCSVAllTests():
     global row_list
+    data = []
     for folder in os.listdir(test_path): # for each model named folder
         if not os.path.isdir(f"{test_path}/{folder}"):
             continue
@@ -40,31 +70,20 @@ def gatherCSVAllTests():
                 continue
 
             if data_file_name in os.listdir(f"{test_path}/{folder}/{sub_folder}"):
-                path = os.path.join(test_path, folder, sub_folder, data_file_name)
-                # log(f"File found in {path}")
-                
-                dataset_type = sub_folder.split("_")
-                data_parsed = parseYaml(path)
-                creation_date = datetime.fromtimestamp(os.path.getctime(path))
-                for class_type, data in data_parsed['data'].items():
-                    log(data)
-                    model = folder#.replace(".pt", "")
-                    date_tag = creation_date.strftime('%Y-%m-%d_%H:%M:%S')
-                    test_title = f'{model}_{sub_folder}_{date_tag}_{class_type}'
-                    condition = 'night' if 'night' in dataset_type[0] else 'day'
-                    row_list += [[test_title, creation_date, model, dataset_type[0], condition, dataset_type[1], 
-                                    class_type, data['Images'], data['Instances'], 
-                                    "{:.4f}".format(data['P']), 
-                                    "{:.4f}".format(data['R']), 
-                                    "{:.4f}".format(data['mAP50']), 
-                                    "{:.4f}".format(data['mAP50-95'])]]
-                log(f"Found {data_file_name} in {folder = }; {sub_folder = }")
+                data += [[folder, sub_folder, os.path.join(test_path, folder, sub_folder, data_file_name)]]
+                log(f"Found {data_file_name} in {folder = }; {sub_folder = }:")
+    
+    log(f"Parse and gather all data into a single list")
+    with Pool() as pool:
+        for result in pool.map(gatherData, data):
+            row_list += result
 
     with open(f'{test_path}/summary_data.csv', 'w', newline='') as file:
+        log(f"Summary CVS data in stored {test_path}/summary_data.csv")
         writer = csv.writer(file)
         writer.writerows(row_list)
 
-
+"""
 # def plot_curve(func):
 #     def wrapper_plot_curve(py, labels, save_dir, title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
 #         # Precision-recall curve
@@ -115,7 +134,7 @@ def gatherCSVAllTests():
 #     fig.savefig(save_dir, dpi=250)
 #     log(f"Stored new diagram in {save_dir}")
 #     plt.close(fig)
-
+"""
 
 
 def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_name = "", xlabel = 'Confidence', ylabel = 'Metric', *args, **kwargs):
@@ -125,10 +144,10 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
         ap_labels = [""]*len(labels)
 
     fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
-    for py_list, color, label, ap_iter in zip(py, ('red', 'green', 'grey', 'blue'), labels, ap_labels):
+    for py_list, label, ap_iter in zip(py, labels, ap_labels):
         for i, y in enumerate(py_list):
             ap_text = f" (ap = {ap_iter[0][i]:.3f})" if ap_iter != "" else ""
-            ax.plot(px, y, linewidth=1, label=f'{label} {names[i]}', color=color)  # plot(confidence, metric)
+            ax.plot(px, y, linewidth=1, label=f'{label} {names[i]}')  # plot(confidence, metric)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_xlim(0, 1)
@@ -139,7 +158,7 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
     log(f"Stored new diagram in {save_dir}")
     plt.close(fig)
 
-def plot_data(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
+def plot_data_graphs(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
     plot_curve(px = px,  py = py, ap = ap,
                     save_dir = f"{path}_combined_pr_curve.png",
                     names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
@@ -150,6 +169,31 @@ def plot_data(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
     plot_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
                     names = names, title_name = title_name, ylabel='Recall', labels = labels)
 
+# Encapsulate in separate function to make it paralel
+def plotData(plot_pair):
+    key, value = plot_pair
+    if len(value) <2:
+        log(f"[ERROR] Seems that {key} test has only one version performed: {value}")
+        return
+    
+    # Get all dataset yaml configuration
+    data = []
+    yaml_files = [f"{test}/{data_file_name}" for test in value]
+    with ThreadPool() as pool:
+        for result in pool.map(parseYaml, yaml_files):
+            data += [result]
+        
+    path = f"{test_path}/{key}"
+    plot_data_graphs(px = data[0]['pr_data']['px'], 
+                py = [test['pr_data']['py'] for test in data],
+                ap = [test['pr_data']['ap'] for test in data],
+                f1 = [test['pr_data']['f1'] for test in data],
+                p = [test['pr_data']['p'] for test in data],
+                r = [test['pr_data']['r'] for test in data],
+                names = data[0]['pr_data']['names'],
+                labels = [test['test'].split("/")[-1].split("_")[-1] for test in data],
+                path = path,
+                title_name = f"{key}  -  ")
 
 def plotCombinedCurves():
     plot_pairs = {}
@@ -164,7 +208,7 @@ def plotCombinedCurves():
             key = folder + "/" + test.split("_")[0]
             test = f"{test_path}/{folder}/{test}"
             plot_pairs[key] = ([test] + plot_pairs[key]) if key in plot_pairs else [test]
-            # Ensure same order so graphis use same colours
+            # Ensure same order so graphics use same colours
             plot_pairs[key].sort()
 
     log(f"Plot pairs are:")
@@ -173,27 +217,10 @@ def plotCombinedCurves():
         for value in value_list:
             log(f"\t\t - {value}")
 
-    for key, value in plot_pairs.items():
-        if len(value) <2:
-            log(f"[ERROR] Seems that {key} test has only one version performed: {value}")
-            continue
-        
-        # Get all dataset yaml configuration
-        data = []
-        for test in value:
-            data += [parseYaml(f"{test}/{data_file_name}")]
-            
-        path = f"{test_path}/{key}"
-        plot_data(px = data[0]['pr_data']['px'], 
-                  py = [test['pr_data']['py'] for test in data],
-                  ap = [test['pr_data']['ap'] for test in data],
-                  f1 = [test['pr_data']['f1'] for test in data],
-                  p = [test['pr_data']['p'] for test in data],
-                  r = [test['pr_data']['r'] for test in data],
-                  names = data[0]['pr_data']['names'],
-                  labels = [test['test'].split("/")[-1].split("_")[-1] for test in data],
-                  path = path,
-                  title_name = f"{key}  -  ")
+
+    # Iterate image generation multiprocessing
+    with Pool() as pool:
+        pool.map(plotData, list(plot_pairs.items()))        
 
 if __name__ == '__main__':
     log(f"Process results from {test_path}")
