@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+echo "\n\n\n---------------------------------------------------------------------------"
 ## Path of current file
 SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -31,25 +31,21 @@ touch ${LOG_FILENAME}
 ln -s ${LOG_FILENAME} ${LOG_PATH}/../now_executing${REPEATED}.log
 
 echo "Logging execution to ${LOG_FILENAME}" 
+echo "Executing: $0 $@" >> ${LOG_FILENAME}
 (cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a ${LOG_FILENAME})
-echo "Logged execution to ${LOG_FILENAME}. All YOLO output can be found in $LOG_PATH/detect/"
+echo "Logged execution to ${LOG_FILENAME}. All YOLO output can be found in $LOG_PATH/"
 
 # Remove previous shortcut and make new one
 ln -s ${LOG_FILENAME} ${LOG_PATH}/../latest${REPEATED}.log
 rm ${LOG_PATH}/../executing${REPEATED}.log
 
 
+echo "---------------------------------------------------------------------------\n\n\n"
 # -c 'day' 'night' -o 'visible' 'lwir' 'rgbt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
 # -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'train' 'val' --pretrained True
 
 
-    
-# (cd $SCRIPT_PATH/.. && time \
-# ./src/run_yolo_test.py -c 'night' \
-#                     -o '4ch' \
-#                     -m 'yoloCh4x.yaml' \
-#                     --device 'cpu' \
-#                     --cache 'disk' \
-#                     --pretrained False \
-#                     --rm 'train' \
-#  2>&1)
+# Executed:
+# source scripts/train_val.sh -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'val' 'train' --pretrained True
+# source scripts/train_val.sh -c 'day' 'night' -o 'visible' 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True; \
+# source scripts/train_val.sh -c 'day' 'night' -o 'rgbt' -m 'yolov8x.pt' -rm 'val' 'train' --pretrained True

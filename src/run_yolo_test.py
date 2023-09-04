@@ -23,7 +23,7 @@ from update_datset import checkKaistDataset
 
 
 if __name__ == '__main__':
-    log(f"\n\n\n{'#'*30}\n [START TEST EXECUTION]")
+    log(f"\n\n\n{'#'*30}\n[START TEST EXECUTION]")
     condition_list, option_list, model_list, device, cache, pretrained, opts = handleArguments()
 
     checkKaistDataset(option_list)
@@ -34,4 +34,4 @@ if __name__ == '__main__':
         elif mode == 'train':
             TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)
     
-    log(f"\n\n\n{'#'*30}\n [CLEAN FINISH TEST EXECUTION]")
+    log(f"\n\n\n{'#'*30}\n[CLEAN FINISH TEST EXECUTION]")

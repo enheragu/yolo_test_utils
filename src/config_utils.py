@@ -128,7 +128,7 @@ def handleArguments():
     parser.add_argument('-p', '--pretrained', dest='pretrained',
                         type=bool, default=False, 
                         help="Whether to use a pretrained model.")
-    parser.add_argument('-rm','--run-mode', dest='run_mode', metavar='MODE',
+    parser.add_argument('-rm','--run-mode', action='store', dest='run_mode', metavar='MODE',
                         type=str, nargs='*', default=['val', 'train'],
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     
@@ -139,6 +139,6 @@ def handleArguments():
     model_list_default = list(opts.mlist)
     run_modes = list(opts.run_mode)
 
-    log(f"Options parsed: condition_list: {condition_list_default}; option_list: {option_list_default}; model_list: {model_list_default};")
-    log(f"Run {run_modes} tests")
+    log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};")
+    log(f"\t· run {run_modes} tests")
     return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts
