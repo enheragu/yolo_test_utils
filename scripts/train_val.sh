@@ -37,7 +37,7 @@ echo "Logged execution to ${LOG_FILENAME}. All YOLO output can be found in $LOG_
 
 # Remove previous shortcut and make new one
 ln -s ${LOG_FILENAME} ${LOG_PATH}/../latest${REPEATED}.log
-rm ${LOG_PATH}/../executing${REPEATED}.log
+rm ${LOG_PATH}/../now_executing${REPEATED}.log
 
 
 echo "---------------------------------------------------------------------------\n\n\n"
