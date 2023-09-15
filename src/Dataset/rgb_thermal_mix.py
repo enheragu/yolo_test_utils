@@ -126,11 +126,11 @@ def process_image(folder, combine_method, option_path, image):
 
 # Dict with tag-function to be used
 dataset_options = {
-                    'hsvt': combine_hsvt,
-                    'rgbt': combine_rgbt,
-                    '4ch': combine_4ch,
-                    'vths' : combine_vths,
-                    'vt' : combine_vt
+                    'hsvt': {'merge': combine_hsvt, 'extension': '.png' },
+                    'rgbt': {'merge': combine_rgbt, 'extension': '.png' },
+                    '4ch': {'merge': combine_4ch, 'extension': '.npy' },
+                    'vths' : {'merge': combine_vths, 'extension': '.png' },
+                    'vt' : {'merge': combine_vt, 'extension': '.png' }
                 }
 
 
@@ -161,18 +161,20 @@ def make_dataset(option):
         
         # Iterate images multiprocessing
         with Pool() as pool:
-            func = partial(process_image, folder, dataset_options[option], option_path)
+            func = partial(process_image, folder, dataset_options[option]['merge'], option_path)
             pool.map(func, images_list_create)
         
         # Symlink
         for image in images_list_symlink:
             symlink_created +=1
+            current_image = processed_images[image].replace('.png', dataset_options[option]['extension'])
+            img_path = f"{option_path}/{image}".replace('.png', dataset_options[option]['extension'])
             try:
-                os.symlink(processed_images[image], f"{option_path}/{image}")
+                os.symlink(current_image, img_path)
             except OSError as e:
                 if e.errno == errno.EEXIST:
-                    os.remove(f"{option_path}/{image}")
-                    os.symlink(processed_images[image], f"{option_path}/{image}")
+                    os.remove(img_path)
+                    os.symlink(current_image, img_path)
                 else:
                     raise e
         log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
