@@ -31,11 +31,12 @@ touch ${LOG_FILENAME}
 ln -s ${LOG_FILENAME} ${LOG_PATH}/../now_executing${REPEATED}.log
 
 echo "Logging execution to ${LOG_FILENAME}" 
-echo "Executing: $0 $@" >> ${LOG_FILENAME}
+echo "Executing with options: $@" >> ${LOG_FILENAME}
 (cd $SCRIPT_PATH/.. && time ./src/run_yolo_test.py $@ 2>&1 | tee -a ${LOG_FILENAME})
 echo "Logged execution to ${LOG_FILENAME}. All YOLO output can be found in $LOG_PATH/"
 
 # Remove previous shortcut and make new one
+rm ${LOG_PATH}/../latest.log; rm ${LOG_PATH}/../latest${REPEATED}.LOG
 ln -s ${LOG_FILENAME} ${LOG_PATH}/../latest${REPEATED}.log
 rm ${LOG_PATH}/../now_executing${REPEATED}.log
 
