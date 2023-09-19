@@ -20,7 +20,7 @@ from multiprocessing.pool import Pool, ThreadPool
 from functools import partial
 
 from config_utils import yolo_output_path as test_path
-from config_utils import log
+from config_utils import log, bcolors
 
 data_file_name = "results.yaml"
 
@@ -61,6 +61,7 @@ def gatherData(data):
 def gatherCSVAllTests():
     global row_list
     data = []
+    log(f"Check for {data_file_name} to gather data:")
     for folder in os.listdir(test_path): # for each model named folder
         if not os.path.isdir(f"{test_path}/{folder}"):
             continue
@@ -71,7 +72,7 @@ def gatherCSVAllTests():
 
             if data_file_name in os.listdir(f"{test_path}/{folder}/{sub_folder}"):
                 data += [[folder, sub_folder, os.path.join(test_path, folder, sub_folder, data_file_name)]]
-                log(f"Found {data_file_name} in {folder = }; {sub_folder = }:")
+                log(f"\t· Found {data_file_name} in {folder}/{sub_folder}")
     
     log(f"Parse and gather all data into a single list")
     with Pool() as pool:
@@ -173,7 +174,7 @@ def plot_data_graphs(px, py, ap, f1, p, r, names, labels, path, title_name = "")
 def plotData(plot_pair):
     key, value = plot_pair
     if len(value) <2:
-        log(f"[ERROR] Seems that {key} test has only one version performed: {value}")
+        log(f"[WARNING] Seems that {key} test has only one version performed: {value}", bcolors.WARNING)
         return
     
     # Get all dataset yaml configuration
