@@ -20,16 +20,20 @@ from multiprocessing.pool import Pool, ThreadPool
 from functools import partial
 
 from config_utils import yolo_output_path as test_path
-from config_utils import log, bcolors
+from config_utils import log, bcolors, parseYaml
+
+## CONFIGURATION
+gather_csv_data = False
+plot_pr = True
+plot_f1 = False
+plot_p = False
+plot_r = False
+
 
 data_file_name = "results.yaml"
 
 # CSV list of rows
 row_list = [['Title', 'Model', 'Condition', 'Type', 'P', 'R', 'Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Date']]
-
-def parseYaml(file_path):
-    with open(file_path) as file:
-        return yaml.load(file, Loader=SafeLoader)
 
 # Split the data processin into a separate function to apply multiprocessing
 def gatherData(data): 
@@ -143,7 +147,8 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
     ap_labels = ap
     if ap_labels == []:
         ap_labels = [""]*len(labels)
-
+    
+    # with plt.xkcd():
     fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
     for py_list, label, ap_iter in zip(py, labels, ap_labels):
         for i, y in enumerate(py_list):
@@ -160,15 +165,19 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
     plt.close(fig)
 
 def plot_data_graphs(px, py, ap, f1, p, r, names, labels, path, title_name = ""):
-    plot_curve(px = px,  py = py, ap = ap,
-                    save_dir = f"{path}_combined_pr_curve.png",
-                    names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
-    plot_curve(px = px, py = f1, save_dir = f'{path}_F1_curve.png', 
-                    names = names, title_name = title_name, ylabel='F1', labels = labels)
-    plot_curve(px = px, py = p, save_dir = f'{path}_P_curve.png', 
-                    names = names, title_name = title_name, ylabel='Precision', labels = labels)
-    plot_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
-                    names = names, title_name = title_name, ylabel='Recall', labels = labels)
+    if plot_pr:
+        plot_curve(px = px,  py = py, ap = ap,
+                        save_dir = f"{path}_combined_pr_curve.png",
+                        names = names, title_name = title_name, xlabel = 'Recall', ylabel = 'Precision', labels = labels)
+    if plot_f1:
+        plot_curve(px = px, py = f1, save_dir = f'{path}_F1_curve.png', 
+                        names = names, title_name = title_name, ylabel='F1', labels = labels)
+    if plot_p: 
+        plot_curve(px = px, py = p, save_dir = f'{path}_P_curve.png', 
+                        names = names, title_name = title_name, ylabel='Precision', labels = labels)
+    if plot_r:
+        plot_curve(px = px, py = r, save_dir = f'{path}_R_curve.png', 
+                        names = names, title_name = title_name, ylabel='Recall', labels = labels)
 
 # Encapsulate in separate function to make it paralel
 def plotData(plot_pair):
@@ -225,7 +234,10 @@ def plotCombinedCurves():
 
 if __name__ == '__main__':
     log(f"Process results from {test_path}")
-    gatherCSVAllTests()   
-    plotCombinedCurves()
+    log(f"{gather_csv_data = }; {plot_pr = }; {plot_f1 = }; {plot_p = }; {plot_r = };")
+    if gather_csv_data:
+        gatherCSVAllTests()   
+    if plot_pr or plot_f1 or plot_p or plot_r:
+        plotCombinedCurves()
     
     
