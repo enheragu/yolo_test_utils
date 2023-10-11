@@ -159,7 +159,8 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
     ax.set_ylabel(ylabel)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+    # ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+    ax.legend()
     ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
     fig.savefig(save_dir, dpi=450)
     log(f"Stored new diagram in {save_dir}")
@@ -202,7 +203,7 @@ def plotData(plot_pair):
                 p = [test['pr_data']['p'] for test in data],
                 r = [test['pr_data']['r'] for test in data],
                 names = data[0]['pr_data']['names'],
-                labels = [test['test'].split("/")[-1].split("_")[-1] + f" ({test['model']})" for test in data],
+                labels = [test['test'].split("/")[-1].split("_")[-1] + " (" + test['model'].split("/")[-1] + ")" for test in data],
                 path = path,
                 title_name = f"{key}  -  ")
 
