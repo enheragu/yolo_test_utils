@@ -154,13 +154,14 @@ def plot_curve(px, py, names = [], ap = [], labels = [], save_dir = "", title_na
         for i, y in enumerate(py_list):
             ap_text = f" (ap = {ap_iter[0][i]:.3f})" if ap_iter != "" else ""
             ax.plot(px, y, linewidth=1, label=f'{label} {names[i]}')  # plot(confidence, metric)
+            # ax.scatter(px, y, marker='x', label=f'{label} {names[i]}')  # plot(confidence, metric)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
     ax.set_title(f'{title_name} {ylabel}-{xlabel} Curve')
-    fig.savefig(save_dir, dpi=250)
+    fig.savefig(save_dir, dpi=450)
     log(f"Stored new diagram in {save_dir}")
     plt.close(fig)
 
@@ -192,7 +193,7 @@ def plotData(plot_pair):
     with ThreadPool() as pool:
         for result in pool.map(parseYaml, yaml_files):
             data += [result]
-        
+    
     path = f"{test_path}/{key}"
     plot_data_graphs(px = data[0]['pr_data']['px'], 
                 py = [test['pr_data']['py'] for test in data],
@@ -201,7 +202,7 @@ def plotData(plot_pair):
                 p = [test['pr_data']['p'] for test in data],
                 r = [test['pr_data']['r'] for test in data],
                 names = data[0]['pr_data']['names'],
-                labels = [test['test'].split("/")[-1].split("_")[-1] for test in data],
+                labels = [test['test'].split("/")[-1].split("_")[-1] + f" ({test['model']})" for test in data],
                 path = path,
                 title_name = f"{key}  -  ")
 
