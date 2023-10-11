@@ -9,7 +9,7 @@
 import sys
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 import os
@@ -29,9 +29,10 @@ def find_results_file(search_path = test_path, file_name = data_file_name):
             abs_path = os.path.join(root, file_name)
             if "validate" in abs_path: # Avoid validation tests, only training
                 continue
-            name = abs_path.split("/")[-2]
-            datasets[name] = abs_path
+            name = abs_path.split("/")[-3] + "/" + abs_path.split("/")[-2]
+            datasets[name] = {'name': abs_path.split("/")[-2], 'path': abs_path, 'model': abs_path.split("/")[-3]}
 
+    # # Order dataset by name
     myKeys = list(datasets.keys())
     myKeys.sort()
     datasets = {i: datasets[i] for i in myKeys}
@@ -48,29 +49,40 @@ class DataPlotter(QMainWindow):
 
         self.layout = QGridLayout()
 
-        # Create checkboxes in a grid
-        self.checkbox_matrix = []
+        # Check boxes grid configuration
         max_col = 4
         max_rows = int(len(datasets)/max_col + 0.5) # Round up
-        col = 0
-        row = 0
-        for iter, dataset_name in enumerate(datasets.keys()):
-            if row >= max_rows:
-                col += 1
-                row = 0
 
-            checkbox = QCheckBox(dataset_name)
-            self.checkbox_matrix.append(checkbox)
-            self.layout.addWidget(checkbox, row, col)
-            row += 1
+        # Create group boxes to group checkboxes
+        group_dict = {}
+        last_group = ""
+        grid = QGridLayout()
+        iter = 0
+        for dataset_name in datasets.keys():
+            group_name = datasets[dataset_name]['model']
+            test_name = datasets[dataset_name]['name']
+            if group_name != last_group:
+                iter = 0
+                last_group = group_name
+                group_dict[group_name] = QGroupBox(f"Model: {group_name}")
+                group_dict[group_name].setLayout(QGridLayout())
+                group_dict[group_name].setStyleSheet("font-weight: bold;")
+                self.layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
 
-        row = max_rows + 1
+            checkbox = QCheckBox(test_name)
+            checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
+            datasets[dataset_name]['checkbox'] = checkbox
+            row = iter % max_rows  # Divide en filas según max_rows
+            col = iter // max_rows  # Divide en columnas según max_rows
+            group_dict[group_name].layout().addWidget(checkbox, row, col)
+            iter += 1
+
+        row = row + 1
 
         ## Create a button to select all checkboxes
         self.select_all_button = QPushButton("Select All", self)
         self.layout.addWidget(self.select_all_button, row, 0, 1, int(max_col/2))
         self.select_all_button.clicked.connect(self.select_all_checkboxes)
-
 
         ## Create a button to deselect all checkboxes
         self.deselect_all_button = QPushButton("Deselect All", self)
@@ -117,36 +129,25 @@ class DataPlotter(QMainWindow):
 
         # Plotear los datos de los datasets seleccionados
         log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
-        for checkbox in self.checkbox_matrix:
-            if checkbox.isChecked():
-                dataset_name = checkbox.text()
-                
+        for key in datasets:
+            checkbox = datasets[key]['checkbox'] 
+            if checkbox.isChecked():                
                 # Avoid continuous memory reading
-                if not dataset_name in parsed:
-                    log(f"\t· Parse {dataset_name} data")
-                    data = parseYaml(datasets[dataset_name])
-                    parsed[dataset_name] = data
+                if not key in parsed:
+                    log(f"\t· Parse {key} data")
+                    data = parseYaml(datasets[key]['path'])
+                    parsed[key] = data
                 else:
-                    log(f"\t· Already parsed {dataset_name} data")
-                    data = parsed[dataset_name]
+                    log(f"\t· Already parsed {key} data")
+                    data = parsed[key]
 
                 px = data['pr_data']['px']
                 py = [data['pr_data']['py']]
-                ap = [data['pr_data']['ap']]
-                # f1 = [test['pr_data']['f1'] for test in data],
-                # p = [test['pr_data']['p'] for test in data],
-                # r = [test['pr_data']['r'] for test in data],
                 names = data['pr_data']['names']
-                labels = [data['test'].split("/")[-1].split("_")[-1]],
-                # path = path,
-                # title_name = f"{key}  -  "
-                ap_labels = ap
-                if ap_labels == []:
-                    ap_labels = [""]*len(labels)
-                
+                model = data['model'].split("/")[-1]
                 for py_list in py:
                     for i, y in enumerate(py_list):
-                        self.ax.plot(px, y, linewidth=1, label=f'{dataset_name} {names[i]}')  # plot(confidence, metric)
+                        self.ax.plot(px, y, linewidth=1, label=f"{datasets[key]['name']} ({model}) {names[i]}")  # plot(confidence, metric)
         
         self.ax.set_xlabel("Recall")
         self.ax.set_ylabel("Precision")
@@ -164,11 +165,13 @@ class DataPlotter(QMainWindow):
         self.canvas.draw()
 
     def select_all_checkboxes(self):
-        for checkbox in self.checkbox_matrix:
+        for key in datasets:
+            checkbox = datasets[key]['checkbox'] 
             checkbox.setChecked(True)
 
     def deselect_all_checkboxes(self):
-        for checkbox in self.checkbox_matrix:
+        for key in datasets:
+            checkbox = datasets[key]['checkbox'] 
             checkbox.setChecked(False)
 
 def main():
