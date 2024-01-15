@@ -25,6 +25,11 @@ from functools import partial
 import numpy as np
 import cv2 
 
+# Small hack so packages can be found
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+
 from config_utils import yolo_dataset_path, log
 
 lwir = "/lwir/"
@@ -33,7 +38,11 @@ visible = "/visible/"
 label_folder = "/labels/"
 images_folder = "/images/"
 
-# non_stop = True  # Set to false to visualize each image generated
+test = None
+test_plot = False
+
+from pca_fa_compression import options as fa_pca_options
+
 
 def combine_hsvt(visible_image, thermal_image, path):
     h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
@@ -112,7 +121,6 @@ def combine_vt(visible_image, thermal_image, path):
 
 
 def process_image(folder, combine_method, option_path, image):
-    # global non_stop
     # log(f"Processing image {image} from {folder} dataset")
 
     thermal_image_path = f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}/{image}"
@@ -122,7 +130,7 @@ def process_image(folder, combine_method, option_path, image):
     th_img = cv2.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
 
     image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
-    
+    # return image_combined
 
 # Dict with tag-function to be used
 dataset_options = {
@@ -132,11 +140,12 @@ dataset_options = {
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' }
                 }
+dataset_options.update(fa_pca_options)
 
 
 def make_dataset(option):
     if option not in dataset_options:
-        log(f"Option not found in dataset generation options. Not generating.")
+        log(f"Option {option} not found in dataset generation options. Not generating.")
         return
     
     symlink_created = 0
@@ -159,10 +168,27 @@ def make_dataset(option):
         images_list_create = [image for image in images_list if image not in processed_images]
         images_list_symlink = [image for image in images_list if image in processed_images]
         
-        # Iterate images multiprocessing
-        with Pool() as pool:
-            func = partial(process_image, folder, dataset_options[option]['merge'], option_path)
-            pool.map(func, images_list_create)
+        # Only N images to be faster during testing. They are displayed and computed one by one
+        if test:
+            images_list_create = images_list_create[:test]
+            for image in images_list_create[:test]:
+                # Creating visualization windows
+                process_image(folder, dataset_options[option]['merge'], option_path, image)
+                if test_plot:
+                    fused_image = cv2.imread(option_path + image)
+                    cv2.namedWindow("Image fussion", cv2.WINDOW_AUTOSIZE)
+                    cv2.imshow("Image fussion", fused_image)     # Display the resulting frame
+
+                    # check keystroke to exit (image window must be on focus)
+                    key = cv2.pollKey()
+                    # key = cv2.waitKey()
+                    if key == ord('q') or key == ord('Q') or key == 27:
+                        break
+        else:
+            # Iterate images multiprocessing
+            with Pool(processes = 5) as pool:
+                func = partial(process_image, folder, dataset_options[option]['merge'], option_path)
+                pool.map(func, images_list_create)
         
         # Symlink
         for image in images_list_symlink:
@@ -183,12 +209,33 @@ def make_dataset(option):
         processed_images = {**processed_images, **{image: f"{option_path}/{image}" for image in images_list_create}}
         # log(f"Not creating images as they already exist, creating symlink to previous generated image: {images_list_symlink}")
         
+        if test:
+            log(f"Test mode enabled for {test} images. Finished processing {folder}.")
+            break
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
 
 if __name__ == '__main__':
-    for key, function in dataset_options.items():
-        make_dataset(key)
+    
+    test = 500
+    test_plot = False
 
-    # make_dataset('hsvt', dataset_options['hsvt'])
-    # make_dataset('rgbt', dataset_options['rgbt'])
-    # make_dataset('4ch', dataset_options['4ch'])
+    from config_utils import option_list_default
+    from argparse import ArgumentParser
+
+    option_list_default = dataset_options.keys()
+    arg_dict = {}
+    parser = ArgumentParser(description="Dataset generation with fussed images between visual and thermal.")
+    parser.add_argument('-o', '--option', action='store', dest='olist', metavar='OPTION',
+                        type=str, nargs='*', default=option_list_default,
+                        help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
+    
+    opts = parser.parse_args()
+
+    dataset_generate = fa_pca_options.keys() # list(opts.olist)
+    log(f"Compute datasets for {dataset_generate} conditions.")
+    
+    if test:
+        log(f"Only computes subtest of {test} images for each dataset as test mode is enabled.")
+    
+    for option in dataset_generate:
+        make_dataset(option)
