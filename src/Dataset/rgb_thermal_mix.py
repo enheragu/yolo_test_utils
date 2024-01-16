@@ -30,7 +30,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from config_utils import yolo_dataset_path, log
+from config_utils import kaist_yolo_dataset_path, log
 
 lwir = "/lwir/"
 visible = "/visible/"
@@ -123,8 +123,8 @@ def combine_vt(visible_image, thermal_image, path):
 def process_image(folder, combine_method, option_path, image):
     # log(f"Processing image {image} from {folder} dataset")
 
-    thermal_image_path = f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}/{image}"
-    rgb_image_path = f"{yolo_dataset_path}/{folder}/{visible}/{images_folder}/{image}"
+    thermal_image_path = f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{images_folder}/{image}"
+    rgb_image_path = f"{kaist_yolo_dataset_path}/{folder}/{visible}/{images_folder}/{image}"
 
     rgb_img = cv2.imread(rgb_image_path)
     th_img = cv2.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
@@ -153,18 +153,18 @@ def make_dataset(option):
     dataset_processed = 0
     # Iterate each of the datasets
     log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
-    for folder in os.listdir(yolo_dataset_path):
-        if not os.path.isdir(f"{yolo_dataset_path}/{folder}"):
+    for folder in os.listdir(kaist_yolo_dataset_path):
+        if not os.path.isdir(f"{kaist_yolo_dataset_path}/{folder}"):
              continue
         
         # Images as new dataset option to new path with its labels
-        option_path = f"{yolo_dataset_path}/{folder}/{option}/{images_folder}/".replace("//", "/")
+        option_path = f"{kaist_yolo_dataset_path}/{folder}/{option}/{images_folder}/".replace("//", "/")
         Path(option_path).mkdir(parents=True, exist_ok=True)
-        shutil.copytree(f"{yolo_dataset_path}/{folder}/{lwir}/{label_folder}", 
-                        f"{yolo_dataset_path}/{folder}/{option}/{label_folder}", 
+        shutil.copytree(f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{label_folder}", 
+                        f"{kaist_yolo_dataset_path}/{folder}/{option}/{label_folder}", 
                         dirs_exist_ok=True)
 
-        images_list = os.listdir(f"{yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
+        images_list = os.listdir(f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
         images_list_create = [image for image in images_list if image not in processed_images]
         images_list_symlink = [image for image in images_list if image in processed_images]
         

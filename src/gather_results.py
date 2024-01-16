@@ -203,7 +203,7 @@ def plotData(plot_pair):
                 p = [test['pr_data']['p'] for test in data],
                 r = [test['pr_data']['r'] for test in data],
                 names = data[0]['pr_data']['names'],
-                labels = [test['test'].split("/")[-1].split("_")[-1] + " (" + test['model'].split("/")[-1] + ")" for test in data],
+                labels = ["_".join(test['test'].split("/")[-1].split("_")[1:]) + " (" + test['model'].split("/")[-1] + ")" for test in data],
                 path = path,
                 title_name = f"{key}  -  ")
 

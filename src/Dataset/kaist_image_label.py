@@ -15,10 +15,10 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 
-from config_utils import annotation_path, images_path
+from config_utils import kaist_annotation_path, kaist_images_path
 
-annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
-images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
+kaist_annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
+kaist_images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
 labeled_images = "./kaist_labeled_images/"
 
 lwir = "/lwir/"
@@ -91,12 +91,12 @@ if __name__ == '__main__':
     
     # Iterate XML folder to process it, gets image associated with the file and 
     # prepare output folder for iages
-    for subdir, dirs, files in os.walk(annotation_path):    
+    for subdir, dirs, files in os.walk(kaist_annotation_path):    
         # If its not the lower path with imag just continue
         if len(files) == 0:
             continue
 
-        test_path = subdir.replace(annotation_path, "")
+        test_path = subdir.replace(kaist_annotation_path, "")
         files_filtered  = list(filter(lambda file: ".xml" in file, files))
 
         print(f"Process {test_path} dataset:")
@@ -107,8 +107,8 @@ if __name__ == '__main__':
                 # print(xml_path)
 
                 for img_type in (lwir, visible):
-                    img_path = images_path + test_path + img_type
-                    output_image_path = img_path.replace(images_path,labeled_images)
+                    img_path = kaist_images_path + test_path + img_type
+                    output_image_path = img_path.replace(kaist_images_path,labeled_images)
                     
                     Path(output_image_path).mkdir(parents=True, exist_ok=True)
 

@@ -9,7 +9,7 @@ from yaml.loader import SafeLoader
 import cv2 as cv
 import numpy as np
 
-from config_utils import dataset_config_yaml, yolo_dataset_path, yolo_output_path
+from config_utils import dataset_config_yaml, kaist_yolo_dataset_path, yolo_output_path
 
 
 
@@ -130,7 +130,7 @@ if __name__ == '__main__':
                     continue
                 
                 current_test = "/".join(root.replace(yolo_output_path, '').split('/')[1:]).replace("_","/")
-                original_label_path = yolo_dataset_path + current_test
+                original_label_path = kaist_yolo_dataset_path + current_test
                 # print(f"{original_label_path = }; {file = }")
                 
                 false_positives.update(getFalsePositives(os.path.join(original_label_path, file),os.path.join(root, file)))

@@ -10,10 +10,10 @@ home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils/"
 
 kaist_path = f"{home}/eeha/kaist-cvpr15"
-sets_path = f"{kaist_path}/imageSets/"
-annotation_path = f"{kaist_path}/annotations-xml-new/"
-images_path = f"{kaist_path}/images/"
-yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
+kaist_sets_path = f"{kaist_path}/imageSets/"
+kaist_annotation_path = f"{kaist_path}/annotations-xml-new/"
+kaist_images_path = f"{kaist_path}/images/"
+kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
 
 dataset_config_path = f"{repo_path}/yolo_config/"
 cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
@@ -62,11 +62,11 @@ model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None):
     from jinja2 import Template
 
-    global condition_list_default, option_list_default, yolo_dataset_path
+    global condition_list_default, option_list_default, kaist_yolo_dataset_path
     
     condition_list = condition_list_in if condition_list_in is not None else condition_list_default
     option_list = option_list_in if option_list_in is not None else option_list_default
-    data_path = data_path_in if data_path_in is not None else yolo_dataset_path
+    data_path = data_path_in if data_path_in is not None else kaist_yolo_dataset_path
     
     cfg_generated_files = []
     
