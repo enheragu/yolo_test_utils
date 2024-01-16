@@ -9,7 +9,7 @@
 import sys
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 import os
@@ -50,8 +50,19 @@ class DataPlotter(QMainWindow):
         self.layout = QGridLayout()
 
         # Check boxes grid configuration
-        max_col = 4
+        max_col = 6
         max_rows = int(len(datasets)/max_col + 0.5) # Round up
+        row = 0
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
+        self.layout.addWidget(scroll_area, row, 0, 1, max_col)
+
+        # Crear un widget que contendrá los grupos de checkboxes
+        scroll_widget = QWidget()
+        scroll_area.setWidget(scroll_widget)
+        scroll_layout = QGridLayout(scroll_widget)
 
         # Create group boxes to group checkboxes
         group_dict = {}
@@ -67,7 +78,7 @@ class DataPlotter(QMainWindow):
                 group_dict[group_name] = QGroupBox(f"Model: {group_name}")
                 group_dict[group_name].setLayout(QGridLayout())
                 group_dict[group_name].setStyleSheet("font-weight: bold;")
-                self.layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
+                scroll_layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
 
             checkbox = QCheckBox(test_name)
             checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
@@ -111,6 +122,7 @@ class DataPlotter(QMainWindow):
         self.canvas = FigureCanvas(self.figure)
         self.layout.addWidget(self.canvas, row, 0, len(datasets), max_col) 
         self.central_widget.setLayout(self.layout)
+
 
     def save_plot(self):
         # Open a file dialog to select the saving location
