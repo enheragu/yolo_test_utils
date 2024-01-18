@@ -124,12 +124,6 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels =
     
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = True, path = path)
 
-    # If 2 channels add extra one (imwrite needs 1 or 3)
-    if output_channels == 2:
-        ch1, ch2 = cv2.split(image)
-        image = cv2.merge([ch1, ch2, np.zeros(ch1.shape)])
-
-    cv2.imwrite(path, image)
     return image
 
 
@@ -150,32 +144,38 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
     cov_mat, p_matrix = scipy.stats.spearmanr(data_vector, axis=0) # -> Spearman. axis whether columns (0) or rows (1) represent the features
 
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = False, path = path)
-    
-    # If 2 channels add extra one (imwrite needs 1 or 3)
-    if output_channels == 2:
-        ch1, ch2 = cv2.split(image)
-        image = cv2.merge([ch1, ch2, np.zeros(ch1.shape)])
 
-    cv2.imwrite(path, image)
     return image
 
 def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
-    return combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
+    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
+    cv2.imwrite(path, image)
+    return image
 
 def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
-    return combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
+    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
+    np.save(path.replace('.png',''), image)
+    return image    
 
 def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
-    return combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
+    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
+    np.save(path.replace('.png',''), image)
+    return image    
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
     return combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
+    cv2.imwrite(path, image)
+    return image    
 
 def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
-    return combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
+    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
+    np.save(path.replace('.png',''), image)
+    return image    
 
 def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
-    return combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
+    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
+    np.save(path.replace('.png',''), image)
+    return image    
 
 
 def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
@@ -192,15 +192,14 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = 3, standarice = True, path = path)
 
-    cv2.imwrite(path, image)
     return image
 
 
-options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.png' },
-           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.png' },
+options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
+           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
            'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
         #    'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
            'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' },
-           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.png' },
-           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.png' }
+           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
+           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
           }
