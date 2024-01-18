@@ -37,4 +37,5 @@ if __name__ == '__main__':
         elif mode == 'train':
             TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)
     
+    log(f"Options executed were:\n\t· condition_list: {condition_list}\n\t· option_list: {option_list}\n\t· model_list: {model_list};\n\t· run mode: {opts.run_mode}")
     log(f"\n\n\n{'#'*30}\n[CLEAN FINISH TEST EXECUTION]")

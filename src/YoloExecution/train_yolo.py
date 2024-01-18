@@ -59,6 +59,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True
+            args['patience'] = 20
 
             args['device'] = device
             args['cache'] = cache
@@ -75,7 +76,8 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
     
     clearCFGFIles(dataset_config_list)
     log("")
-    log(f"Training process took {datetime.now() - start_time} (h/min/s)")
+    log(f"Complete training process took {datetime.now() - start_time} (h/min/s)")
+    
 
 
 if __name__ == '__main__':

@@ -5,19 +5,25 @@
 import os
 from pathlib import Path
 
+from datetime import datetime
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils/"
+
+dataset_config_path = f"{repo_path}/yolo_config/"
+yolo_output_path = f"{repo_path}/runs/detect"
+
+####################################
+#     Datasets path and output     #
+####################################
 
 kaist_path = f"{home}/eeha/kaist-cvpr15"
 kaist_sets_path = f"{kaist_path}/imageSets/"
 kaist_annotation_path = f"{kaist_path}/annotations-xml-new/"
 kaist_images_path = f"{kaist_path}/images/"
-kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
+kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format
 
-dataset_config_path = f"{repo_path}/yolo_config/"
-cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
-yolo_output_path = f"{repo_path}/runs/detect"
+kaist_cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
 
 
 ################################
@@ -37,7 +43,8 @@ class bcolors:
 
 
 def log(msg = "", color = bcolors.OKCYAN):
-    print(f"{color}{msg}{bcolors.ENDC}")
+    timetag = datetime.utcnow().strftime('%F %T.%f')[:-3]
+    print(f"{color}[{timetag}] {msg}{bcolors.ENDC}")
 
 
 ################################
@@ -73,7 +80,7 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     tmp_cfg_path = os.getcwd() + "/tmp_cfg/"
     Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
 
-    with open(cfg_template) as file:
+    with open(kaist_cfg_template) as file:
         template = Template(file.read())
 
     for condition in condition_list:
@@ -139,6 +146,5 @@ def handleArguments():
     model_list_default = list(opts.mlist)
     run_modes = list(opts.run_mode)
 
-    log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};")
-    log(f"\t· run {run_modes} tests")
+    log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};\n\t· run mode: {run_modes}")
     return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts
