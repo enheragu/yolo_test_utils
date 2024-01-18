@@ -91,6 +91,8 @@ def processLine(new_dataset_label_paths, data_set_name, line):
             else:
                 raise e
             
+dataset_blacklist = []
+dataset_whitelist = ["train-all-04", "train-day-04", "train-night-04", "test-all-20", "test-day-20", "test-night-20"]
 def kaistToYolo():
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets
@@ -99,6 +101,14 @@ def kaistToYolo():
         file_path = os.path.join(kaist_sets_path, file)
         if os.path.isfile(file_path):
             data_set_name = file.replace(".txt", "")
+
+            if data_set_name not in dataset_whitelist:
+                log(f"\t· Dataset {data_set_name} is not in whitelist. Not processed")
+                continue
+            elif data_set_name in dataset_blacklist:
+                log(f"\t· Dataset {data_set_name} is in blacklist. Not processed")
+                continue
+
             # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
 
             # Create new folder structure
@@ -118,7 +128,7 @@ def kaistToYolo():
                     func = partial(processLine, new_dataset_label_paths, data_set_name)
                     pool.map(func, lines_list)
                     
-                log(f"\t· [{dataset_processed}] Processed {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
+                log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
             dataset_processed += 1
                         
     log(f"[KaistToYolo::KaistToYolo] Finished procesing {dataset_processed} datasets. Output datasests are located in {kaist_yolo_dataset_path}")
