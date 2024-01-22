@@ -87,7 +87,8 @@ def combine_4ch(visible_image, thermal_image, path):
     ch4_image = cv2.merge([b,g,r,th_channel])
 
     # cv2.imwrite(path, ch4_image)
-    np.save(path.replace('.png',''), ch4_image)
+    # np.save(path.replace('.png',''), ch4_image)
+    np.savez_compressed(path.replace('.png',''), image = ch4_image)
     return ch4_image
 
 
@@ -136,7 +137,7 @@ def process_image(folder, combine_method, option_path, image):
 dataset_options = {
                     'hsvt': {'merge': combine_hsvt, 'extension': '.png' },
                     'rgbt': {'merge': combine_rgbt, 'extension': '.png' },
-                    '4ch': {'merge': combine_4ch, 'extension': '.npy' },
+                    '4ch': {'merge': combine_4ch, 'extension': '.npz' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' }
                 }
@@ -186,7 +187,8 @@ def make_dataset(option):
                         break
         else:
             # Iterate images multiprocessing
-            with Pool(processes = 5) as pool:
+            # with Pool(processes = 5) as pool:
+            with Pool() as pool:    
                 func = partial(process_image, folder, dataset_options[option]['merge'], option_path)
                 pool.map(func, images_list_create)
         

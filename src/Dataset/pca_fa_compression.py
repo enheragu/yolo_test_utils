@@ -154,12 +154,12 @@ def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
 
 def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
-    np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image    
 
 def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
-    np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image    
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
@@ -169,12 +169,12 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
 
 def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
-    np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image    
 
 def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
-    np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image    
 
 
@@ -195,11 +195,11 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     return image
 
 
-options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
-           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
+options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
+           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npz' },
            'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
         #    'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
            'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' },
-           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
-           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
+           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npz' },
+           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' }
           }
