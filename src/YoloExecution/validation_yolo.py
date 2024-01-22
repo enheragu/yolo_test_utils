@@ -33,16 +33,18 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             
             images_png = 0
             images_npy = 0
+            yaml_data = {'n_images': {}}
             for val_dataset in data['val']:
                 data_path = f"{data['path']}/{val_dataset}/images"
                 images_png += len(glob.glob1(data_path,"*.png"))
                 images_npy += len(glob.glob1(data_path,"*.npy"))
+                images_npy += len(glob.glob1(data_path,"*.npz"))
             if images_png:
                 log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_png} png images")
             if images_npy:
-                log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")
-            
+                log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")            
 
+            yaml_data['n_images']['val'] = images_png + images_npy + images_npy
 
             args = {} 
             # args['project'] = 'detection'
@@ -65,6 +67,9 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             validator = yolo_detc.DetectionValidator(args=args)
             validator(model=args.model)
 
+            with open(Path(f'{yolo_output_path}/{path_name}') / f'results.yaml', 'a') as file:
+                import yaml
+                yaml.dump(yaml_data, file)
 
             log(f"[{yolo_model}][test {validation_iteration}] - Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
             log("-------------------------------------------------")

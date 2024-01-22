@@ -14,7 +14,7 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
+from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path
 
 
 def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained):
@@ -32,6 +32,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             data = parseYaml(dataset)
             log(f"\t · Train datasets: {data['train']} \n\t · Validation datasets: {data['val']} \n\t · Test datasets: {data['test']}")
             
+            yaml_data = {'n_images': {}}
             for model_option in ('train', 'test', 'val'):
                 images_png = 0
                 images_npy = 0
@@ -40,16 +41,21 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
                         data_path = f"{data['path']}/{dataset_list}/images"
                         images_png += len(glob.glob1(data_path,"*.png"))
                         images_npy += len(glob.glob1(data_path,"*.npy"))
+                        images_npy += len(glob.glob1(data_path,"*.npz"))
                     if images_png:
                         log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images_png} png images")
                     if images_npy:
                         log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images_npy} npy images")
-            
-            dataset_start_time = datetime.now()
+                    
+                    yaml_data['n_images'][model_option] = images_png + images_npy + images_npy
 
+            dataset_start_time = datetime.now()
+            
+            path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
+            
             args = {}
             args['mode'] = 'train'
-            args['name'] = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
+            args['name'] = path_name
             args['data'] = dataset
             args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
@@ -59,7 +65,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True
-            args['patience'] = 20
+            args['patience'] = 15
 
             args['device'] = device
             args['cache'] = cache
@@ -68,9 +74,14 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
                 trainer.train()
+                with open(Path(f'{yolo_output_path}/{path_name}') / f'results.yaml', 'a') as file:
+                    import yaml
+                    yaml.dump(yaml_data, file)
+
             except Exception as e:
                 log(f'Exception caught: {e}')
                 raise e
+            
             
             log(f"Training and validation of model for {dataset} took {datetime.now() - dataset_start_time} (h/min/s)")
     

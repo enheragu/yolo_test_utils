@@ -92,7 +92,7 @@ def processLine(new_dataset_label_paths, data_set_name, line):
                 raise e
             
 dataset_blacklist = []
-dataset_whitelist = ["train-all-04", "train-day-04", "train-night-04", "test-all-20", "test-day-20", "test-night-20"]
+dataset_whitelist = ["train-all-04", "train-day-04", "train-night-04", "test-all-20", "test-day-20", "test-night-20", "test-day-01", "test-night-01", "train-day-02", "train-night-02"]
 def kaistToYolo():
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets

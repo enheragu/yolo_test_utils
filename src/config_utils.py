@@ -131,7 +131,7 @@ def handleArguments():
                         help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
                         type=str, default="ram",
-                        help="True/ram, disk or False. Use cache for data loading. To load '.npy' files disk option is needed.")
+                        help="True/ram, disk or False. Use cache for data loading. To load '.npy' or '.npz' files disk option is needed.")
     parser.add_argument('-p', '--pretrained', dest='pretrained',
                         type=bool, default=False, 
                         help="Whether to use a pretrained model.")
