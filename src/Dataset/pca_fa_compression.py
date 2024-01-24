@@ -123,7 +123,8 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels =
     cov_mat = np.cov(data_vector, ddof = 1, rowvar = False) 
     
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = True, path = path)
-
+    image = image.astype(np.uint8) # Recast to image format type after all operations
+    
     return image
 
 
@@ -144,6 +145,7 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
     cov_mat, p_matrix = scipy.stats.spearmanr(data_vector, axis=0) # -> Spearman. axis whether columns (0) or rows (1) represent the features
 
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = False, path = path)
+    image = image.astype(np.uint8) # Recast to image format type after all operations
 
     return image
 
@@ -154,12 +156,14 @@ def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
 
 def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
-    np.savez_compressed(path.replace('.png',''), image = image)
+    # np.savez_compressed(path.replace('.png',''), image = image)
+    np.save(path.replace('.png',''), image)
     return image    
 
 def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
-    np.savez_compressed(path.replace('.png',''), image = image)
+    # np.savez_compressed(path.replace('.png',''), image = image)
+    np.save(path.replace('.png',''), image)
     return image    
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
@@ -169,12 +173,14 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
 
 def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
-    np.savez_compressed(path.replace('.png',''), image = image)
+    # np.savez_compressed(path.replace('.png',''), image = image)
+    np.save(path.replace('.png',''), image)
     return image    
 
 def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
-    np.savez_compressed(path.replace('.png',''), image = image)
+    # np.savez_compressed(path.replace('.png',''), image = image)
+    np.save(path.replace('.png',''), image)
     return image    
 
 
@@ -195,11 +201,11 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     return image
 
 
-options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
-           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npz' },
+options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
+           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
            'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
         #    'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
            'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' },
-           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npz' },
-           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' }
+           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
+           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
           }
