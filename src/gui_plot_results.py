@@ -9,7 +9,7 @@
 import sys
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 import os
@@ -116,12 +116,29 @@ class DataPlotter(QMainWindow):
 
         row += 1
 
-        # Create a Matplotlib widget
-        plt.rcParams.update({'font.size': 22})
-        self.figure, self.ax = plt.subplots()
-        self.canvas = FigureCanvas(self.figure)
-        self.layout.addWidget(self.canvas, row, 0, len(datasets), max_col) 
+        self.tab_canvas = {}
+        self.ax = {}
+        self.figure = {}
+        self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
+        self.tabs = QTabWidget(self.central_widget)
+        self.layout.addWidget(self.tabs, row, 0, len(self.tab_keys), max_col)
         self.central_widget.setLayout(self.layout)
+
+        # Crear pestañas para cada conjunto de datos
+        for key in self.tab_keys:
+            # Create a Matplotlib widget
+            plt.rcParams.update({'font.size': 22})
+            self.figure[key], self.ax[key] = plt.subplots()
+            self.tab_canvas[key] = FigureCanvas(self.figure[key])
+            # self.layout.addWidget(self.tab_canvas[key], row, 0, len(datasets), max_col) 
+            # self.central_widget.setLayout(self.layout)
+            
+            # Agregar el lienzo a la pestaña
+            tab = QWidget()
+            tab.layout = QVBoxLayout()
+            tab.layout.addWidget(self.tab_canvas[key] )
+            tab.setLayout(tab.layout)
+            self.tabs.addTab(tab, key)
 
 
     def save_plot(self):
@@ -130,51 +147,67 @@ class DataPlotter(QMainWindow):
         file_name, _ = QFileDialog.getSaveFileName(self, "Save Plot as PNG Image", "", "PNG Images (*.png);;All Files (*)", options=options)
 
         if file_name:
-            # Save the plot to the selected location as a PNG image
-            self.figure.savefig(file_name, format='png')
-            print(f"Plot saved to {file_name}")
+            for key in self.figure.keys():
+                # Save the plot to the selected location as a PNG image
+                self.figure[key].savefig(file_name + key.replace(" ", "_"), format='png')
+                print(f"Plot saved to {file_name}")
 
     def plot_data(self):
         global parsed
-        # Limpiar el gráfico anterior
-        self.ax.clear()
 
+        plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
+                     'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
+                     'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
+                     'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'}}
+        
         # Plotear los datos de los datasets seleccionados
         log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
-        for key in datasets:
-            checkbox = datasets[key]['checkbox'] 
-            if checkbox.isChecked():                
-                # Avoid continuous memory reading
-                if not key in parsed:
-                    log(f"\t· Parse {key} data")
-                    data = parseYaml(datasets[key]['path'])
-                    parsed[key] = data
-                else:
-                    log(f"\t· Already parsed {key} data")
-                    data = parsed[key]
+        for canvas_key in self.tab_keys:
+            # Limpiar el gráfico anterior
+            self.ax[canvas_key].clear()
+            for key in datasets:
+                checkbox = datasets[key]['checkbox'] 
+                if checkbox.isChecked():                
+                    # Avoid continuous memory reading
+                    if not key in parsed:
+                        log(f"\t· Parse {key} data")
+                        data = parseYaml(datasets[key]['path'])
+                        parsed[key] = data
+                    else:
+                        log(f"\t· Already parsed {key} data")
+                        data = parsed[key]
 
-                px = data['pr_data']['px']
-                py = [data['pr_data']['py']]
-                names = data['pr_data']['names']
-                model = data['model'].split("/")[-1]
-                for py_list in py:
-                    for i, y in enumerate(py_list):
-                        self.ax.plot(px, y, linewidth=1, label=f"{datasets[key]['name']} ({model}) {names[i]}")  # plot(confidence, metric)
-        
-        self.ax.set_xlabel("Recall")
-        self.ax.set_ylabel("Precision")
-        self.ax.set_xlim(0, 1)
-        self.ax.set_ylim(0, 1)
-        # self.ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
-        self.ax.set_title(f'Precision-Recall Curve')
-        
-        # Configurar leyenda
-        self.ax.legend()
+                    py_tag = plot_data[canvas_key]['py']
+                    last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
+                    last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
+
+                    best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+
+                    px = data[last_fit_tag]['px']
+                    py = [data[last_fit_tag][py_tag]]
+                    names = data[last_fit_tag]['names']
+                    model = data[last_val_tag]['model'].split("/")[-1]
+                    for py_list in py:
+                        for i, y in enumerate(py_list):
+                            self.ax[canvas_key].plot(px, y, linewidth=1, label=f"{datasets[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+            
+            xlabel = plot_data[canvas_key]['xlabel']
+            ylabel = plot_data[canvas_key]['ylabel']
+            self.ax[canvas_key].set_xlabel(xlabel)
+            self.ax[canvas_key].set_ylabel(ylabel)
+            self.ax[canvas_key].set_xlim(0, 1)
+            self.ax[canvas_key].set_ylim(0, 1)
+            # self.ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+            self.ax[canvas_key].set_title(f'{ylabel}-{xlabel} Curve')
+            
+            # Configurar leyenda
+            self.ax[canvas_key].legend()
+
+            # Actualizar el gráfico
+            self.tab_canvas[canvas_key].draw()
 
         log(f"Parsing and plot finished")
 
-        # Actualizar el gráfico
-        self.canvas.draw()
 
     def select_all_checkboxes(self):
         for key in datasets:
