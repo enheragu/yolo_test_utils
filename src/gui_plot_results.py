@@ -20,6 +20,9 @@ data_file_name = "results.yaml"
 datasets = {}
 parsed = {}
 
+# Flag to disable background load. It tries to load all data on startup
+background_load_all = True
+
 def find_results_file(search_path = test_path, file_name = data_file_name):
     log(f"Search all results.yaml files")
     global datasets
@@ -57,7 +60,7 @@ class DataPlotter(QMainWindow):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
-        self.layout.addWidget(scroll_area, row, 0, 1, max_col)
+        self.layout.addWidget(scroll_area, row, 0, 1, 4)
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
@@ -90,29 +93,35 @@ class DataPlotter(QMainWindow):
 
         row = row + 1
 
+
+        # Crear un widget que contendrá los grupos de checkboxes y los botones
+        buttons_widget = QWidget()
+        buttons_layout = QGridLayout(buttons_widget)
+
         ## Create a button to select all checkboxes
         self.select_all_button = QPushButton("Select All", self)
-        self.layout.addWidget(self.select_all_button, row, 0, 1, int(max_col/2))
         self.select_all_button.clicked.connect(self.select_all_checkboxes)
 
         ## Create a button to deselect all checkboxes
         self.deselect_all_button = QPushButton("Deselect All", self)
-        self.layout.addWidget(self.deselect_all_button, row, int(max_col/2), 1, int(max_col/2))
         self.deselect_all_button.clicked.connect(self.deselect_all_checkboxes)
-
-        row += 1
 
         ## Create a button to generate the plot
         self.plot_button = QPushButton("Generate Plot", self)
-        self.layout.addWidget(self.plot_button, row, 0, 1, max_col)
         self.plot_button.clicked.connect(self.plot_data)
-
-        row += 1
 
         ## Create a button to save the plot
         self.save_button = QPushButton("Save Plot", self)
-        self.layout.addWidget(self.save_button, row, 0, 1, max_col)
         self.save_button.clicked.connect(self.save_plot)
+
+        buttons_layout.addWidget(self.select_all_button, 0, 0, 1, 1)
+        buttons_layout.addWidget(self.deselect_all_button, 0, 1, 1, 1)
+        buttons_layout.addWidget(self.plot_button, 1, 0, 1, 2)
+        buttons_layout.addWidget(self.save_button, 2, 0, 1, 2)
+
+        # Agregar el widget de botones al contenedor
+        buttons_layout.addWidget(buttons_widget, row, max_col, 1, 1)
+        self.layout.addWidget(buttons_widget, 0, 4, 1, 2)
 
         row += 1
 
@@ -139,7 +148,26 @@ class DataPlotter(QMainWindow):
             tab.layout.addWidget(self.tab_canvas[key] )
             tab.setLayout(tab.layout)
             self.tabs.addTab(tab, key)
+        
+        if background_load_all:
+            # Load data in background
+            from concurrent.futures import ThreadPoolExecutor
+            import concurrent.futures
 
+            # Crear un ThreadPoolExecutor para cargar datos en segundo plano
+            self.executor = ThreadPoolExecutor(max_workers=12)
+            for key in datasets:
+                self.executor.submit(self.background_load_data, key)
+
+    def background_load_data(self, key):
+        global parsed
+        global datasets
+
+        if not key in parsed:
+            # log(f"\t· Parse {key} data")
+            data = parseYaml(datasets[key]['path'])
+            parsed[key] = data
+            log(f"\t· Parsed {key} data")
 
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -154,6 +182,7 @@ class DataPlotter(QMainWindow):
 
     def plot_data(self):
         global parsed
+        global datasets
 
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
@@ -164,6 +193,10 @@ class DataPlotter(QMainWindow):
         log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
             # Limpiar el gráfico anterior
+            xlabel = plot_data[canvas_key]['xlabel']
+            ylabel = plot_data[canvas_key]['ylabel']
+            log(f"Plotting {ylabel}-{xlabel} Curve")
+
             self.ax[canvas_key].clear()
             for key in datasets:
                 checkbox = datasets[key]['checkbox'] 
@@ -174,25 +207,28 @@ class DataPlotter(QMainWindow):
                         data = parseYaml(datasets[key]['path'])
                         parsed[key] = data
                     else:
-                        log(f"\t· Already parsed {key} data")
+                        # log(f"\t· Already parsed {key} data")
                         data = parsed[key]
 
                     py_tag = plot_data[canvas_key]['py']
-                    last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
-                    last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
 
-                    best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+                    try:
+                        last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
+                        last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
 
-                    px = data[last_fit_tag]['px']
-                    py = [data[last_fit_tag][py_tag]]
-                    names = data[last_fit_tag]['names']
-                    model = data[last_val_tag]['model'].split("/")[-1]
-                    for py_list in py:
-                        for i, y in enumerate(py_list):
-                            self.ax[canvas_key].plot(px, y, linewidth=1, label=f"{datasets[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
-            
-            xlabel = plot_data[canvas_key]['xlabel']
-            ylabel = plot_data[canvas_key]['ylabel']
+                        best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+
+                        px = data[last_fit_tag]['px']
+                        py = [data[last_fit_tag][py_tag]]
+                        names = data[last_fit_tag]['names']
+                        model = data[last_val_tag]['model'].split("/")[-1]
+                        for py_list in py:
+                            for i, y in enumerate(py_list):
+                                self.ax[canvas_key].plot(px, y, linewidth=1, label=f"{datasets[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+
+                    except KeyError as e:
+                        log(f"Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+
             self.ax[canvas_key].set_xlabel(xlabel)
             self.ax[canvas_key].set_ylabel(ylabel)
             self.ax[canvas_key].set_xlim(0, 1)
