@@ -12,6 +12,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+
+from concurrent.futures import ProcessPoolExecutor
+import concurrent.futures
+
 import os
 
 from config_utils import yolo_output_path as test_path
@@ -19,9 +23,6 @@ from config_utils import log, bcolors, parseYaml
 data_file_name = "results.yaml"
 datasets = {}
 parsed = {}
-
-# Flag to disable background load. It tries to load all data on startup
-background_load_all = True
 
 def find_results_file(search_path = test_path, file_name = data_file_name):
     log(f"Search all results.yaml files")
@@ -40,11 +41,17 @@ def find_results_file(search_path = test_path, file_name = data_file_name):
     myKeys.sort()
     datasets = {i: datasets[i] for i in myKeys}
 
+# Wrap function to be paralelized
+def background_load_data(key):
+    data = parseYaml(datasets[key]['path'])
+    log(f"\t· Parsed {key} data")
+    return data
+
 class DataPlotter(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Dataset Selector and Precision-Recall Plot")
+        self.setWindowTitle("Training result analyzer")
         self.setGeometry(100, 100, 1200, 900)
 
         self.central_widget = QWidget(self)
@@ -70,7 +77,6 @@ class DataPlotter(QMainWindow):
         # Create group boxes to group checkboxes
         group_dict = {}
         last_group = ""
-        grid = QGridLayout()
         iter = 0
         for dataset_name in datasets.keys():
             group_name = datasets[dataset_name]['model']
@@ -93,9 +99,9 @@ class DataPlotter(QMainWindow):
 
         row = row + 1
 
-
-        # Crear un widget que contendrá los grupos de checkboxes y los botones
-        buttons_widget = QWidget()
+        # Crear un widget que contendrá los grupos los botones
+        buttons_widget = QWidget(self.central_widget)
+        self.layout.addWidget(buttons_widget, 0, 4, 1, 2)
         buttons_layout = QGridLayout(buttons_widget)
 
         ## Create a button to select all checkboxes
@@ -120,8 +126,7 @@ class DataPlotter(QMainWindow):
         buttons_layout.addWidget(self.save_button, 2, 0, 1, 2)
 
         # Agregar el widget de botones al contenedor
-        buttons_layout.addWidget(buttons_widget, row, max_col, 1, 1)
-        self.layout.addWidget(buttons_widget, 0, 4, 1, 2)
+        # buttons_layout.addWidget(buttons_widget, row, max_col, 1, 1)
 
         row += 1
 
@@ -131,7 +136,6 @@ class DataPlotter(QMainWindow):
         self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
         self.tabs = QTabWidget(self.central_widget)
         self.layout.addWidget(self.tabs, row, 0, len(self.tab_keys), max_col)
-        self.central_widget.setLayout(self.layout)
 
         # Crear pestañas para cada conjunto de datos
         for key in self.tab_keys:
@@ -139,8 +143,6 @@ class DataPlotter(QMainWindow):
             plt.rcParams.update({'font.size': 22})
             self.figure[key], self.ax[key] = plt.subplots()
             self.tab_canvas[key] = FigureCanvas(self.figure[key])
-            # self.layout.addWidget(self.tab_canvas[key], row, 0, len(datasets), max_col) 
-            # self.central_widget.setLayout(self.layout)
             
             # Agregar el lienzo a la pestaña
             tab = QWidget()
@@ -149,26 +151,17 @@ class DataPlotter(QMainWindow):
             tab.setLayout(tab.layout)
             self.tabs.addTab(tab, key)
         
-        if background_load_all:
-            # Load data in background
-            from concurrent.futures import ThreadPoolExecutor
-            import concurrent.futures
 
-            # Crear un ThreadPoolExecutor para cargar datos en segundo plano
-            self.executor = ThreadPoolExecutor(max_workers=12)
-            for key in datasets:
-                self.executor.submit(self.background_load_data, key)
+        # Load data in background
+        # Crear un ThreadPoolExecutor para cargar datos en segundo plano
+        self.executor = ProcessPoolExecutor() # max_workers=12)
+        self.futures = {}
+        for key in datasets:
+            # log(f"\t· Launch background parsing for {key} data")
+            self.futures[key] = self.executor.submit(background_load_data, key)
 
-    def background_load_data(self, key):
-        global parsed
-        global datasets
-
-        if not key in parsed:
-            # log(f"\t· Parse {key} data")
-            data = parseYaml(datasets[key]['path'])
-            parsed[key] = data
-            log(f"\t· Parsed {key} data")
-
+        self.central_widget.setLayout(self.layout)
+    
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()
@@ -203,9 +196,14 @@ class DataPlotter(QMainWindow):
                 if checkbox.isChecked():                
                     # Avoid continuous memory reading
                     if not key in parsed:
-                        log(f"\t· Parse {key} data")
-                        data = parseYaml(datasets[key]['path'])
+                        log(f"\t· Retrieve {key} data parsed from process executor")
+                        data = self.futures[key].result() 
                         parsed[key] = data
+                        # remove this retrieved key from dic
+                        self.futures.pop(key)
+                        if not self.futures:
+                            # shutdown the process pool
+                            self.executor.shutdown() # blocks
                     else:
                         # log(f"\t· Already parsed {key} data")
                         data = parsed[key]
