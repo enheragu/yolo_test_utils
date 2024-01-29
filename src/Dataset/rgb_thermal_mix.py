@@ -133,13 +133,19 @@ def process_image(folder, combine_method, option_path, image):
     image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
     # return image_combined
 
+def combine_lwir_1ch(visible_image, thermal_image, path):
+    th_channel = cv2.cvtColor(thermal_image, cv2.COLOR_BGR2GRAY)
+    np.save(path.replace('.png',''), th_channel)
+    return th_channel
+
 # Dict with tag-function to be used
 dataset_options = {
                     'hsvt': {'merge': combine_hsvt, 'extension': '.png' },
                     'rgbt': {'merge': combine_rgbt, 'extension': '.png' },
                     '4ch': {'merge': combine_4ch, 'extension': '.npy' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
-                    'vt' : {'merge': combine_vt, 'extension': '.png' }
+                    'vt' : {'merge': combine_vt, 'extension': '.png' },
+                    'lwir_1ch' : {'merge': combine_lwir_1ch, 'extension': '.npy' }
                 }
 dataset_options.update(fa_pca_options)
 

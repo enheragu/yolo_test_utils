@@ -167,7 +167,7 @@ def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
     return image    
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
-    return combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
+    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
     cv2.imwrite(path, image)
     return image    
 
