@@ -6,17 +6,18 @@
 ## Also needs to install lib: sudo apt install libxcb-cursor0
 ## might need an update -> pip install --upgrade pip
 
+import os
 import sys
-import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+from datetime import datetime
 
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 
-import os
+import matplotlib.pyplot as plt
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from config_utils import yolo_output_path as test_path
 from config_utils import log, bcolors, parseYaml
@@ -60,14 +61,14 @@ class DataPlotter(QMainWindow):
         self.layout = QGridLayout()
 
         # Check boxes grid configuration
+        max_rows = 4 #int(len(datasets)/max_col + 0.5) # Round up
         max_col = 6
-        max_rows = int(len(datasets)/max_col + 0.5) # Round up
         row = 0
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
-        self.layout.addWidget(scroll_area, row, 0, 1, 4)
+        self.layout.addWidget(scroll_area, row, 0, 1, max_col - 2)
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
@@ -104,29 +105,37 @@ class DataPlotter(QMainWindow):
         self.layout.addWidget(buttons_widget, 0, 4, 1, 2)
         buttons_layout = QGridLayout(buttons_widget)
 
+        ## Create a button to select all checkboxes from a condition
+        self.select_all_day_button = QPushButton(" Select 'day' ", self)
+        self.select_all_day_button.clicked.connect(lambda: self.select_all_checkboxes_cond('day'))
+        self.select_all_night_button = QPushButton(" Select 'night' ", self)
+        self.select_all_night_button.clicked.connect(lambda: self.select_all_checkboxes_cond('night'))
+        self.select_all_all_button = QPushButton(" Select 'all' ", self)
+        self.select_all_all_button.clicked.connect(lambda: self.select_all_checkboxes_cond('all'))
+
         ## Create a button to select all checkboxes
-        self.select_all_button = QPushButton("Select All", self)
+        self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.clicked.connect(self.select_all_checkboxes)
 
         ## Create a button to deselect all checkboxes
-        self.deselect_all_button = QPushButton("Deselect All", self)
+        self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.clicked.connect(self.deselect_all_checkboxes)
 
         ## Create a button to generate the plot
-        self.plot_button = QPushButton("Generate Plot", self)
+        self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.clicked.connect(self.plot_data)
 
         ## Create a button to save the plot
-        self.save_button = QPushButton("Save Plot", self)
+        self.save_button = QPushButton(" Save Output ", self)
         self.save_button.clicked.connect(self.save_plot)
 
-        buttons_layout.addWidget(self.select_all_button, 0, 0, 1, 1)
-        buttons_layout.addWidget(self.deselect_all_button, 0, 1, 1, 1)
-        buttons_layout.addWidget(self.plot_button, 1, 0, 1, 2)
-        buttons_layout.addWidget(self.save_button, 2, 0, 1, 2)
-
-        # Agregar el widget de botones al contenedor
-        # buttons_layout.addWidget(buttons_widget, row, max_col, 1, 1)
+        buttons_layout.addWidget(self.select_all_day_button, 0, 0, 1, 1)
+        buttons_layout.addWidget(self.select_all_night_button, 0, 1, 1, 1)
+        buttons_layout.addWidget(self.select_all_all_button, 0, 2, 1, 1)
+        buttons_layout.addWidget(self.select_all_button, 1, 0, 1, 1)
+        buttons_layout.addWidget(self.deselect_all_button, 1, 1, 1, 2)
+        buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
+        buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
 
         row += 1
 
@@ -151,6 +160,24 @@ class DataPlotter(QMainWindow):
             tab.setLayout(tab.layout)
             self.tabs.addTab(tab, key)
         
+        # Tab for CSV data
+        self.csv_tab = QWidget()
+        self.tabs.addTab(self.csv_tab, "Table")
+
+        # Crear un QScrollArea dentro de la pestaña CSV
+        csv_scroll_area = QScrollArea()
+        csv_scroll_area.setWidgetResizable(True)
+        self.csv_tab.layout = QVBoxLayout()
+        self.csv_tab.layout.addWidget(csv_scroll_area)
+        self.csv_tab.setLayout(self.csv_tab.layout)
+
+        # Crear una tabla para mostrar datos CSV
+        self.csv_table = QTableWidget()
+        self.csv_table.setSortingEnabled(True)  # Habilitar la ordenación de columnas
+        # self.csv_table.setDragDropMode(QTableWidget.InternalMove)  # Habilitar la reordenación de filas
+        csv_scroll_area.setWidget(self.csv_table)
+
+        self.csv_data = [] # raw list to be filled with the data which should be stored in csv file
 
         # Load data in background
         # Crear un ThreadPoolExecutor para cargar datos en segundo plano
@@ -162,10 +189,11 @@ class DataPlotter(QMainWindow):
 
         self.central_widget.setLayout(self.layout)
     
+
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plot as PNG Image", "", "PNG Images (*.png);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)", options=options)
 
         if file_name:
             for key in self.figure.keys():
@@ -242,11 +270,99 @@ class DataPlotter(QMainWindow):
 
         log(f"Parsing and plot finished")
 
+        self.load_table_data()
+    
+    def load_table_data(self):
+        global parsed
+        global datasets
+
+        # Limpiar la tabla antes de cargar nuevos datos
+        self.csv_table.clear()
+
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Date', 'Title']]
+
+        for key in datasets:
+            checkbox = datasets[key]['checkbox'] 
+            if checkbox.isChecked():   
+                try:
+                    # Is done at the end of plotting, so data should already be in parsed dict             
+                    data = parsed[key]
+
+                    val_tag = f"validation_{data['val_epoch']-1}"
+
+                    model = data[val_tag]['model'].split("/")[-1]
+                    dataset = data[val_tag]['name'].split("/")[-1]
+                    dataset_type = dataset.split("_")
+                    
+                    best_epoch = data['train_data']['epoch_best_fit_index']
+                    train_duration = f"{data['train_data']['train_duration_h']:.2f}"
+                    end_date_tag = data['train_data']['train_end_time']
+                    # train_images = data['n_images']['train']
+                    # val_images = data['n_images']['val']
+
+                    for class_type, data_class in data[val_tag]['data'].items():
+                        if 'all' in class_type:
+                            continue
+
+                        # log(f"\t {data}")
+                        date_tag = datetime.fromisoformat(end_date_tag).strftime('%Y-%m-%d_%H:%M:%S')
+                        test_title = f'{model}_{dataset}_{date_tag}_{class_type}'
+                        condition = 'night' if 'night' in dataset_type[0] else 'day'
+                        row_list += [[model, condition, "_".join(dataset_type[1:]),
+                                        "{:.4f}".format(data_class['P']), 
+                                        "{:.4f}".format(data_class['R']), 
+                                        data_class['Images'], 
+                                        data_class['Instances'], 
+                                        "{:.4f}".format(data_class['mAP50']), 
+                                        "{:.4f}".format(data_class['mAP50-95']), 
+                                        class_type, 
+                                        dataset_type[0], 
+                                        best_epoch,
+                                        train_duration,
+                                        date_tag,
+                                        test_title]]
+                except KeyError as e:
+                    log(f"Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+
+        # Crear una nueva tabla
+        self.csv_table.setColumnCount(len(row_list[0]))
+        self.csv_table.setHorizontalHeaderLabels(row_list[0])
+        
+        # Conectar el evento sectionClicked del encabezado de la tabla
+        self.csv_table.horizontalHeader().sectionClicked.connect(self.sort_table)
+
+
+
+        # Agregar las filas a la tabla
+        for row_data in row_list[1:]:
+            row_position = self.csv_table.rowCount()
+            self.csv_table.insertRow(row_position)
+            for col_position, col_value in enumerate(row_data):
+                item = QTableWidgetItem(str(col_value))
+                self.csv_table.setItem(row_position, col_position, item)
+
+        
+        self.csv_data = row_list
+        # Actualizar la vista de la tabla
+        self.csv_table.resizeColumnsToContents()
+        self.csv_table.resizeRowsToContents()
+        
+        log(f"CSV data display completed")
+
+    def sort_table(self, logical_index):
+        # Manejar el evento de clic en el encabezado para ordenar la tabla
+        self.csv_table.sortItems(logical_index)
 
     def select_all_checkboxes(self):
         for key in datasets:
             checkbox = datasets[key]['checkbox'] 
             checkbox.setChecked(True)
+
+    def select_all_checkboxes_cond(self, condition):
+        for key in datasets:
+            if condition in key:
+                checkbox = datasets[key]['checkbox'] 
+                checkbox.setChecked(True)
 
     def deselect_all_checkboxes(self):
         for key in datasets:
