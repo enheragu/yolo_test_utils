@@ -47,7 +47,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
                     if images_npy:
                         log(f"[{yolo_model}][test {train_iteration}] - {model_option.title()} with {images_npy} npy images")
                     
-                    yaml_data['n_images'][model_option] = images_png + images_npy + images_npy
+                    yaml_data['n_images'][model_option] = images_png + images_npy
 
             dataset_start_time = datetime.now()
             

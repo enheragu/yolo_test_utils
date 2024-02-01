@@ -44,7 +44,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             if images_npy:
                 log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")            
 
-            yaml_data['n_images']['val'] = images_png + images_npy + images_npy
+            yaml_data['n_images']['val'] = images_png + images_npy
 
             args = {} 
             # args['project'] = 'detection'
