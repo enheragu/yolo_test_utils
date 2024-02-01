@@ -71,11 +71,12 @@ class DataPlotter(QMainWindow):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
         self.layout.addWidget(scroll_area, row, 0, 1, max_col - 2)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
+        scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
         scroll_area.setWidget(scroll_widget)
         scroll_layout = QGridLayout(scroll_widget)
 
@@ -111,18 +112,23 @@ class DataPlotter(QMainWindow):
 
         ## Create a button to select all checkboxes from a condition
         self.select_all_day_button = QPushButton(" Select 'day' ", self)
+        self.select_all_day_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.select_all_day_button.clicked.connect(lambda: self.select_all_checkboxes_cond('day'))
         self.select_all_night_button = QPushButton(" Select 'night' ", self)
+        self.select_all_night_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.select_all_night_button.clicked.connect(lambda: self.select_all_checkboxes_cond('night'))
-        self.select_all_all_button = QPushButton(" Select 'all' ", self)
+        self.select_all_all_button = QPushButton(" Select 'day-night' ", self)
+        self.select_all_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.select_all_all_button.clicked.connect(lambda: self.select_all_checkboxes_cond('all'))
 
         ## Create a button to select all checkboxes
         self.select_all_button = QPushButton(" Select All ", self)
+        self.select_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.select_all_button.clicked.connect(self.select_all_checkboxes)
 
         ## Create a button to deselect all checkboxes
         self.deselect_all_button = QPushButton(" Deselect All ", self)
+        self.deselect_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.deselect_all_button.clicked.connect(self.deselect_all_checkboxes)
 
         ## Create a button to generate the plot
@@ -135,9 +141,9 @@ class DataPlotter(QMainWindow):
 
         buttons_layout.addWidget(self.select_all_day_button, 0, 0, 1, 1)
         buttons_layout.addWidget(self.select_all_night_button, 0, 1, 1, 1)
-        buttons_layout.addWidget(self.select_all_all_button, 0, 2, 1, 1)
-        buttons_layout.addWidget(self.select_all_button, 1, 0, 1, 1)
-        buttons_layout.addWidget(self.deselect_all_button, 1, 1, 1, 2)
+        buttons_layout.addWidget(self.select_all_all_button, 1, 0, 1, 1)
+        buttons_layout.addWidget(self.select_all_button, 1, 1, 1, 1)
+        buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
         buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
         buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
 
