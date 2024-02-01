@@ -14,10 +14,14 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 
+import csv
+
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
+import mplcursors
 
 from config_utils import yolo_output_path as test_path
 from config_utils import log, bcolors, parseYaml
@@ -142,6 +146,7 @@ class DataPlotter(QMainWindow):
         self.tab_canvas = {}
         self.ax = {}
         self.figure = {}
+        self.cursor = {}
         self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
         self.tabs = QTabWidget(self.central_widget)
         self.layout.addWidget(self.tabs, row, 0, len(self.tab_keys), max_col)
@@ -188,7 +193,7 @@ class DataPlotter(QMainWindow):
             self.futures[key] = self.executor.submit(background_load_data, key)
 
         self.central_widget.setLayout(self.layout)
-    
+
 
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -198,8 +203,14 @@ class DataPlotter(QMainWindow):
         if file_name:
             for key in self.figure.keys():
                 # Save the plot to the selected location as a PNG image
-                self.figure[key].savefig(file_name + key.replace(" ", "_"), format='png')
-                print(f"Plot saved to {file_name}")
+                plot_name = file_name + "_" + key.replace(" ", "_")
+                self.figure[key].savefig(plot_name, format='png')
+                print(f"Plot saved to {plot_name}.png")
+          
+            with open(f'{file_name}.csv', 'w', newline='') as file:
+                log(f"Summary CVS data in stored {file_name}.csv")
+                writer = csv.writer(file)
+                writer.writerows(self.csv_data)
 
     def plot_data(self):
         global parsed
@@ -265,6 +276,13 @@ class DataPlotter(QMainWindow):
             # Configurar leyenda
             self.ax[canvas_key].legend()
 
+            # Use a Cursor to interactively display the label for a selected line.
+            self.cursor[canvas_key] = mplcursors.cursor(self.ax[canvas_key], hover=True)
+            self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
+                text=f"{sel.artist.get_label().split(' ')[0]}\n{xlabel}: {sel.target[0]:.2f}, {ylabel}: {sel.target[1]:.2f}",
+                bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
+            ))
+
             # Actualizar el gráfico
             self.tab_canvas[canvas_key].draw()
 
@@ -277,9 +295,8 @@ class DataPlotter(QMainWindow):
         global datasets
 
         # Limpiar la tabla antes de cargar nuevos datos
-        self.csv_table.clear()
 
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Date', 'Title']]
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Val Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Date', 'Title']]
 
         for key in datasets:
             checkbox = datasets[key]['checkbox'] 
@@ -324,6 +341,9 @@ class DataPlotter(QMainWindow):
                 except KeyError as e:
                     log(f"Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
 
+        self.csv_table.clear()
+        self.csv_table.setRowCount(0)
+
         # Crear una nueva tabla
         self.csv_table.setColumnCount(len(row_list[0]))
         self.csv_table.setHorizontalHeaderLabels(row_list[0])
@@ -331,11 +351,9 @@ class DataPlotter(QMainWindow):
         # Conectar el evento sectionClicked del encabezado de la tabla
         self.csv_table.horizontalHeader().sectionClicked.connect(self.sort_table)
 
-
-
         # Agregar las filas a la tabla
-        for row_data in row_list[1:]:
-            row_position = self.csv_table.rowCount()
+        for row_position, row_data in enumerate(row_list[1:]):
+            # row_position = self.csv_table.rowCount()
             self.csv_table.insertRow(row_position)
             for col_position, col_value in enumerate(row_data):
                 item = QTableWidgetItem(str(col_value))
