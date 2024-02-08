@@ -45,6 +45,7 @@ def find_results_file(search_path = test_path, file_name = data_file_name):
     myKeys = list(datasets.keys())
     myKeys.sort()
     datasets = {i: datasets[i] for i in myKeys}
+    return datasets
 
 # Wrap function to be paralelized
 def background_load_data(key):
@@ -193,10 +194,7 @@ class DataPlotter(QMainWindow):
         # Load data in background
         # Crear un ThreadPoolExecutor para cargar datos en segundo plano
         self.executor = ProcessPoolExecutor() # max_workers=12)
-        self.futures = {}
-        for key in datasets:
-            # log(f"\t· Launch background parsing for {key} data")
-            self.futures[key] = self.executor.submit(background_load_data, key)
+        self.futures = {key: self.executor.submit(background_load_data, key) for key in datasets}
 
         self.central_widget.setLayout(self.layout)
 
@@ -302,7 +300,7 @@ class DataPlotter(QMainWindow):
 
         # Limpiar la tabla antes de cargar nuevos datos
 
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Val Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Date', 'Title']]
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Train Images', 'Val Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Date', 'Title']]
 
         for key in datasets:
             checkbox = datasets[key]['checkbox'] 
@@ -320,8 +318,9 @@ class DataPlotter(QMainWindow):
                     best_epoch = data['train_data']['epoch_best_fit_index']
                     train_duration = f"{data['train_data']['train_duration_h']:.2f}"
                     end_date_tag = data['train_data']['train_end_time']
-                    # train_images = data['n_images']['train']
-                    # val_images = data['n_images']['val']
+                    train_images = data['n_images']['train']
+                    val_images = data['n_images']['val']
+                    pretrained = data['pretrained']
 
                     for class_type, data_class in data[val_tag]['data'].items():
                         if 'all' in class_type:
@@ -334,7 +333,8 @@ class DataPlotter(QMainWindow):
                         row_list += [[model, condition, "_".join(dataset_type[1:]),
                                         "{:.4f}".format(data_class['P']), 
                                         "{:.4f}".format(data_class['R']), 
-                                        data_class['Images'], 
+                                        train_images,
+                                        val_images, 
                                         data_class['Instances'], 
                                         "{:.4f}".format(data_class['mAP50']), 
                                         "{:.4f}".format(data_class['mAP50-95']), 
@@ -342,6 +342,7 @@ class DataPlotter(QMainWindow):
                                         dataset_type[0], 
                                         best_epoch,
                                         train_duration,
+                                        pretrained,
                                         date_tag,
                                         test_title]]
                 except KeyError as e:

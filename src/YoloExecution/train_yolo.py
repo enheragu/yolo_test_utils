@@ -71,6 +71,8 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['cache'] = cache
             args['pretrained'] = pretrained
             
+            yaml_data['pretrained'] = pretrained
+            
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
                 trainer.train()
