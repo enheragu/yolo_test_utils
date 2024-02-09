@@ -15,11 +15,14 @@ from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 
 import csv
+import math
 
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
+from scipy.ndimage.filters import gaussian_filter1d
 
 import mplcursors
 
@@ -47,9 +50,25 @@ def find_results_file(search_path = test_path, file_name = data_file_name):
     datasets = {i: datasets[i] for i in myKeys}
     return datasets
 
+def parseCSV(file_path):
+    with open(file_path, 'r', newline='') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        headers = [header.strip() for header in next(csv_reader)]
+        data_by_columns = {header: [] for header in headers}
+
+        for row in csv_reader:
+            for header, value in zip(headers, row):
+                data_by_columns[header].append(value.strip())
+
+        return data_by_columns
 # Wrap function to be paralelized
 def background_load_data(key):
     data = parseYaml(datasets[key]['path'])
+    csv_path = datasets[key]['path'].replace('results.yaml','results.csv')
+    if os.path.exists(csv_path):
+        data['csv_data'] = parseCSV(csv_path)
+    else:
+        log(f"\t· Could not parse CSV file associated to {key}", bcolors.ERROR)
     log(f"\t· Parsed {key} data")
     return data
 
@@ -134,7 +153,7 @@ class DataPlotter(QMainWindow):
 
         ## Create a button to generate the plot
         self.plot_button = QPushButton(" Generate Plot ", self)
-        self.plot_button.clicked.connect(self.plot_data)
+        self.plot_button.clicked.connect(self.render_data)
 
         ## Create a button to save the plot
         self.save_button = QPushButton(" Save Output ", self)
@@ -154,7 +173,7 @@ class DataPlotter(QMainWindow):
         self.ax = {}
         self.figure = {}
         self.cursor = {}
-        self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
+        self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'Train Loss Ev.', 'Val Loss Ev.', 'PR Evolution', 'mAP Evolution' ]
         self.tabs = QTabWidget(self.central_widget)
         self.layout.addWidget(self.tabs, row, 0, len(self.tab_keys), max_col)
 
@@ -216,7 +235,13 @@ class DataPlotter(QMainWindow):
                 writer = csv.writer(file)
                 writer.writerows(self.csv_data)
 
-    def plot_data(self):
+    def render_data(self):
+        self.plot_p_r_f1_data()
+        self.plot_loss_metrics_data()
+        self.load_table_data()
+
+    # Plots PR, P, R and F1 curve from each dataset involved
+    def plot_p_r_f1_data(self):
         global parsed
         global datasets
 
@@ -228,6 +253,9 @@ class DataPlotter(QMainWindow):
         # Plotear los datos de los datasets seleccionados
         log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
+            if canvas_key not in plot_data:
+                continue
+
             # Limpiar el gráfico anterior
             xlabel = plot_data[canvas_key]['xlabel']
             ylabel = plot_data[canvas_key]['ylabel']
@@ -290,10 +318,52 @@ class DataPlotter(QMainWindow):
             # Actualizar el gráfico
             self.tab_canvas[canvas_key].draw()
 
-        log(f"Parsing and plot finished")
+        log(f"Parsing and plot PR-P-R-F1 graphs finished")
 
-        self.load_table_data()
-    
+    def plot_loss_metrics_data(self):
+        global parsed
+        global datasets
+
+        plot_data = {'Train Loss Ev.': {'py': ['train/box_loss', 'train/cls_loss', 'train/dfl_loss'], 'xlabel': "epoch"},
+                     'Val Loss Ev.': {'py': ['val/box_loss', 'val/cls_loss', 'val/dfl_loss'], 'xlabel': "epoch"},
+                     'PR Evolution': {'py': ['metrics/precision(B)', 'metrics/recall(B)'], 'xlabel': "epoch"},
+                     'mAP Evolution': {'py': ['metrics/mAP50(B)', 'metrics/mAP50-95(B)'], 'xlabel': "epoch"}}
+        
+        for canvas_key in self.tab_keys:
+            if canvas_key not in plot_data:
+                continue
+
+            self.ax[canvas_key].clear()
+            self.ax[canvas_key].set_xlim(auto=True)
+            self.ax[canvas_key].set_ylim(auto=True)
+            subplot = {}
+            for index, py in enumerate(plot_data[canvas_key]['py']):
+                subplot[py] = self.figure[canvas_key].add_subplot(1, len(plot_data[canvas_key]['py']), index+1) # index + 1 as 0 is not allowed
+                subplot[py].set_title(f'{py}')
+                for key in datasets:
+                    checkbox = datasets[key]['checkbox'] 
+                    if checkbox.isChecked():  
+                        try:
+                            if 'csv_data' not in parsed[key]:
+                                log(f"No CSV data associated to {key}", bcolors.ERROR)
+                                continue
+
+                            # Is done at the end of plotting, so data should already be in parsed dict             
+                            data = parsed[key]['csv_data']
+                            data_x = [int(x) for x in data['epoch']]
+                            data_y = [float(y) for y in data[py]]
+                            subplot[py].plot(data_x, data_y, marker='.', label=key, linewidth=2, markersize=8)  # actual results
+                            subplot[py].plot(data_x, gaussian_filter1d(data_y, sigma=3), ':', label='key-smooth', linewidth=2)  # smoothing line
+                            # subplot[py].plot(data_x, data_y, linewidth=1)  # plot(confidence, metric)
+                        except KeyError as e:
+                            log(f"Key error problem generating Train/Val plots for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+
+            # Ajustar espacio entre subfiguras        
+            self.figure[canvas_key].tight_layout()
+
+            # Actualizar el gráfico
+            self.tab_canvas[canvas_key].draw()
+
     def load_table_data(self):
         global parsed
         global datasets
