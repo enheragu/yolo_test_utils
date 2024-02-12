@@ -24,8 +24,9 @@ import mplcursors
 
 from config_utils import log, bcolors, parseYaml
 from GUI.dataset_manager import DataSetHandler
-from GUI.check_box_widget import DatasetCheckBoxWidget
-from GUI.figure_tab_widget import PlotTabWidget
+from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
+from GUI.Widgets.figure_tab_widget import PlotTabWidget
+from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
 class TrainComparePlotter(QScrollArea):
     def __init__(self, dataset_handler):
@@ -95,23 +96,8 @@ class TrainComparePlotter(QScrollArea):
         self.layout.addWidget(self.figure_tab_widget)
         
         # Tab for CSV data
-        self.csv_tab = QWidget()
+        self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_checkboxes)
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
-
-        # Crear un QScrollArea dentro de la pestaña CSV
-        csv_scroll_area = QScrollArea()
-        csv_scroll_area.setWidgetResizable(True)
-        self.csv_tab.layout = QVBoxLayout()
-        self.csv_tab.layout.addWidget(csv_scroll_area)
-        self.csv_tab.setLayout(self.csv_tab.layout)
-
-        # Crear una tabla para mostrar datos CSV
-        self.csv_table = QTableWidget()
-        self.csv_table.setSortingEnabled(True)  # Habilitar la ordenación de columnas
-        # self.csv_table.setDragDropMode(QTableWidget.InternalMove)  # Habilitar la reordenación de filas
-        csv_scroll_area.setWidget(self.csv_table)
-
-        self.csv_data = [] # raw list to be filled with the data which should be stored in csv file
 
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -120,15 +106,11 @@ class TrainComparePlotter(QScrollArea):
 
         if file_name:
             self.figure_tab_widget.saveFigures(file_name)
-          
-            with open(f'{file_name}.csv', 'w', newline='') as file:
-                log(f"Summary CVS data in stored {file_name}.csv")
-                writer = csv.writer(file)
-                writer.writerows(self.csv_data)
+            self.csv_tab.save_data(file_name)
 
     def render_data(self):
         self.plot_p_r_f1_data()
-        self.load_table_data()
+        self.csv_tab.load_table_data()
 
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self):
@@ -159,15 +141,12 @@ class TrainComparePlotter(QScrollArea):
                 py_tag = plot_data[canvas_key]['py']
 
                 try:
-                    last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
-                    last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
-
                     best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
 
-                    px = data[last_fit_tag]['px']
-                    py = [data[last_fit_tag][py_tag]]
-                    names = data[last_fit_tag]['names']
-                    model = data[last_val_tag]['model'].split("/")[-1]
+                    px = data['pr_data_best']['px']
+                    py = [data['pr_data_best'][py_tag]]
+                    names = data['pr_data_best']['names']
+                    model = data['validation_best']['model'].split("/")[-1]
                     for py_list in py:
                         for i, y in enumerate(py_list):
                             ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
@@ -196,83 +175,3 @@ class TrainComparePlotter(QScrollArea):
         self.figure_tab_widget.draw()
 
         log(f"Parsing and plot PR-P-R-F1 graphs finished")
-
-    def load_table_data(self):
-        # Limpiar la tabla antes de cargar nuevos datos
-
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'Train Images', 'Val Images', 'Instances', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Date', 'Title']]
-
-        for key in self.dataset_checkboxes.getChecked():
-            try:
-                # Is done at the end of plotting, so data should already be in parsed dict             
-                data = self.dataset_handler[key]
-
-                val_tag = f"validation_{data['val_epoch']-1}"
-
-                model = data[val_tag]['model'].split("/")[-1]
-                dataset = data[val_tag]['name'].split("/")[-1]
-                dataset_type = dataset.split("_")
-                
-                best_epoch = data['train_data']['epoch_best_fit_index']
-                train_duration = f"{data['train_data']['train_duration_h']:.2f}"
-                end_date_tag = data['train_data']['train_end_time']
-                train_images = data['n_images']['train']
-                val_images = data['n_images']['val']
-                pretrained = data['pretrained']
-
-                for class_type, data_class in data[val_tag]['data'].items():
-                    if 'all' in class_type:
-                        continue
-
-                    # log(f"\t {data}")
-                    date_tag = datetime.fromisoformat(end_date_tag).strftime('%Y-%m-%d_%H:%M:%S')
-                    test_title = f'{model}_{dataset}_{date_tag}_{class_type}'
-                    condition = 'night' if 'night' in dataset_type[0] else 'day'
-                    row_list += [[model, condition, "_".join(dataset_type[1:]),
-                                    "{:.4f}".format(data_class['P']), 
-                                    "{:.4f}".format(data_class['R']), 
-                                    train_images,
-                                    val_images, 
-                                    data_class['Instances'], 
-                                    "{:.4f}".format(data_class['mAP50']), 
-                                    "{:.4f}".format(data_class['mAP50-95']), 
-                                    class_type, 
-                                    dataset_type[0], 
-                                    best_epoch,
-                                    train_duration,
-                                    pretrained,
-                                    date_tag,
-                                    test_title]]
-            except KeyError as e:
-                log(f"Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
-
-        self.csv_table.clear()
-        self.csv_table.setRowCount(0)
-
-        # Crear una nueva tabla
-        self.csv_table.setColumnCount(len(row_list[0]))
-        self.csv_table.setHorizontalHeaderLabels(row_list[0])
-        
-        # Conectar el evento sectionClicked del encabezado de la tabla
-        self.csv_table.horizontalHeader().sectionClicked.connect(self.sort_table)
-
-        # Agregar las filas a la tabla
-        for row_position, row_data in enumerate(row_list[1:]):
-            # row_position = self.csv_table.rowCount()
-            self.csv_table.insertRow(row_position)
-            for col_position, col_value in enumerate(row_data):
-                item = QTableWidgetItem(str(col_value))
-                self.csv_table.setItem(row_position, col_position, item)
-
-        
-        self.csv_data = row_list
-        # Actualizar la vista de la tabla
-        self.csv_table.resizeColumnsToContents()
-        self.csv_table.resizeRowsToContents()
-        
-        log(f"CSV data display completed")
-
-    def sort_table(self, logical_index):
-        # Manejar el evento de clic en el encabezado para ordenar la tabla
-        self.csv_table.sortItems(logical_index)
-

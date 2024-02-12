@@ -29,10 +29,10 @@ from GUI.dataset_manager import DataSetHandler
 from GUI.train_compare_tab import TrainComparePlotter
 from GUI.train_eval_tab import TrainEvalPlotter
 from GUI.variance_compare_tab import VarianceComparePlotter
-
+from GUI.csv_table_tab import CSVTablePlotter
 
 class GUIPlotter(QMainWindow):
-    def __init__(self, dataset_handler):
+    def __init__(self):
         super().__init__()
         self.setWindowTitle("Training result analyzer")
         self.setGeometry(100, 100, 1400, 1000)
@@ -45,21 +45,24 @@ class GUIPlotter(QMainWindow):
 
         self.tab_widget = QTabWidget()
         self.layout.addWidget(self.tab_widget)
-
-        train_compare_tab = TrainComparePlotter(dataset_handler)
+        
+        self.dataset_handler = DataSetHandler()
+        train_compare_tab = TrainComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
 
-        train_eval_tab = TrainEvalPlotter(dataset_handler)
+        train_eval_tab = TrainEvalPlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Review training process")
 
-        train_eval_tab = VarianceComparePlotter(dataset_handler)
+        train_eval_tab = VarianceComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
         
-
+        train_eval_tab = CSVTablePlotter(self.dataset_handler)
+        self.tab_widget.addTab(train_eval_tab, f"Table")
+        
 
 def main():
     app = QApplication(sys.argv)
-    window = GUIPlotter(DataSetHandler())
+    window = GUIPlotter()
     window.show()
     sys.exit(app.exec_())
 

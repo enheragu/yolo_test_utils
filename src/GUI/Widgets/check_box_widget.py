@@ -16,7 +16,7 @@ class DatasetCheckBoxWidget(QScrollArea):
         :param: include  Str pattern of tests that will be included in the checbox widget
                 as 'train_' or 'variance_'
     """
-    def __init__(self, widget, dataset_handler, include = None, exclude = "_variance_"):
+    def __init__(self, widget, dataset_handler, include = None, exclude = "variance_", max_rows = max_rows_checkboxes):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
@@ -24,7 +24,7 @@ class DatasetCheckBoxWidget(QScrollArea):
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
-        scroll_widget.setMinimumHeight(max_rows_checkboxes) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
+        scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
         self.setWidget(scroll_widget)
         scroll_layout = QGridLayout(scroll_widget)
 
@@ -52,8 +52,8 @@ class DatasetCheckBoxWidget(QScrollArea):
             checkbox = QCheckBox(test_name)
             checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
             self.check_box_dict[key] = checkbox
-            row = iter % max_rows_checkboxes
-            col = iter // max_rows_checkboxes
+            row = iter % max_rows
+            col = iter // max_rows
             group_dict[group_name].layout().addWidget(checkbox, row, col)
             iter += 1
             
@@ -86,7 +86,7 @@ class GroupCheckBoxWidget(QScrollArea):
         :param: include  Str pattern of tests that will be included in the checbox widget
                 as 'train_' or 'variance_'
     """
-    def __init__(self, widget, dataset_handler, include = None, exclude = "_variance_"):
+    def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
@@ -94,7 +94,7 @@ class GroupCheckBoxWidget(QScrollArea):
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
-        scroll_widget.setMinimumHeight(max_rows_checkboxes) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
+        scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
         self.setWidget(scroll_widget)
         scroll_layout = QGridLayout(scroll_widget)
 
@@ -104,7 +104,7 @@ class GroupCheckBoxWidget(QScrollArea):
         iter = 0
         self.check_box_dict = {}
 
-        LabelGroup = QGroupBox(f"Variance analysis sets:")
+        LabelGroup = QGroupBox(title)
         LabelGroup.setLayout(QGridLayout())
         LabelGroup.setStyleSheet("font-weight: bold;")
         scroll_layout.addWidget(LabelGroup)
@@ -115,17 +115,12 @@ class GroupCheckBoxWidget(QScrollArea):
                 if (include and include not in group_name) or \
                 (exclude and exclude in group_name): 
                     continue
-
-                test_name = dataset_info['name']
-                if group_name != last_group:
-                    iter = 0
-                    last_group = group_name
                     
                 checkbox = QCheckBox(group_name)
                 checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
                 self.check_box_dict[group_name] = checkbox
-                row = iter % max_rows_checkboxes
-                col = iter // max_rows_checkboxes
+                row = iter % max_rows
+                col = iter // max_rows
                 LabelGroup.layout().addWidget(checkbox, row, col)
                 
                 iter += 1

@@ -24,8 +24,8 @@ import mplcursors
 
 from config_utils import log, bcolors, parseYaml
 from GUI.dataset_manager import DataSetHandler
-from GUI.check_box_widget import DatasetCheckBoxWidget
-from GUI.figure_tab_widget import PlotTabWidget
+from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
+from GUI.Widgets.figure_tab_widget import PlotTabWidget
 
 class TrainEvalPlotter(QScrollArea):
     def __init__(self, dataset_handler):

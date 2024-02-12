@@ -25,9 +25,9 @@ import mplcursors
 
 from config_utils import log, bcolors, parseYaml
 from GUI.dataset_manager import DataSetHandler
-from GUI.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
-from GUI.figure_tab_widget import PlotTabWidget
-from GUI.numeric_slider_input_widget import NumericSliderInputWidget
+from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
+from GUI.Widgets.figure_tab_widget import PlotTabWidget
+from GUI.Widgets.numeric_slider_input_widget import NumericSliderInputWidget
 
 class VarianceComparePlotter(QScrollArea):
     def __init__(self, dataset_handler):
@@ -51,7 +51,7 @@ class VarianceComparePlotter(QScrollArea):
         self.dataset_train_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler)
         self.options_layout.addWidget(self.dataset_train_checkboxes,3)
 
-        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "_variance_", exclude = None)
+        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", exclude = None, title = f"Variance analysis sets:")
         self.options_layout.addWidget(self.dataset_variance_checkboxes,1)
 
         # Crear un widget que contendrá los grupos los botones
@@ -122,12 +122,10 @@ class VarianceComparePlotter(QScrollArea):
             py_tag = plot_data[canvas_key]['py']
 
             def getLastEpochData(key_data, raw_data_dict):
-                last_fit_tag = 'pr_data_' + str(raw_data_dict['pr_epoch'] - 1)
-                last_val_tag = 'validation_' + str(raw_data_dict['val_epoch'] - 1)
-                px = data[last_fit_tag]['px']
-                py = [data[last_fit_tag][key_data]]
-                names = data[last_fit_tag]['names']
-                model = data[last_val_tag]['model'].split("/")[-1]
+                px = raw_data_dict['pr_data_best']['px']
+                py = [raw_data_dict['pr_data_best'][key_data]]
+                names = raw_data_dict['pr_data_best']['names']
+                model = raw_data_dict['validation_best']['model'].split("/")[-1]
                 return px,py,names,model
             
             ## Plot each training result
@@ -146,7 +144,7 @@ class VarianceComparePlotter(QScrollArea):
 
             ## Plot each variance group
             # number_std = self.std_plot_widget.value
-            prev_idx = index + 1
+            prev_idx = len(self.dataset_train_checkboxes.getChecked())
             for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                 keys = [key for key in self.dataset_handler.keys() if group in key]
                 py_vec = []
@@ -165,14 +163,22 @@ class VarianceComparePlotter(QScrollArea):
                     except KeyError as e:
                         log(f"Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
 
+                if not py_vec:
+                    log(f"Vector of PY data empty. {key} variance curve wont be plotted.", bcolors.WARNING)
+                    continue
+
                 data_matrix = np.array(py_vec)
                 mean = np.mean(data_matrix, axis = 0)
-                std = np.std(data_matrix, axis = 0, ddof=1)
-                conf_interval = 1.96*std/math.sqrt(len(keys))
+                max_vals = np.max(data_matrix, axis=0)
+                min_vals = np.min(data_matrix, axis=0)
+
+                # std = np.std(data_matrix, axis = 0, ddof=1)
+                # conf_interval = std*number_std
+                # conf_interval = 1.96*std/math.sqrt(len(keys))
                 # conf_interval = Z(2 STD) * Error típico (la desviación típica que tendría el estadístico si lo calcularas en infinitas muestras iguales)
                 label = group.replace("train_based_variance_", "").replace(".yaml", "")
-                ax.plot(px, mean, label=f"{label} + Confidence Interval; n = {len(keys)})", color=colors[index+prev_idx])
-                ax.fill_between(px, mean-conf_interval, mean+conf_interval, alpha=0.3, facecolor=colors[index+prev_idx])
+                ax.plot(px, mean, label=f"{label}; n = {len(keys)}", color=colors[index+prev_idx])
+                ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=colors[index+prev_idx])
 
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
