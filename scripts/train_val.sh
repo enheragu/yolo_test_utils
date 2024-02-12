@@ -50,3 +50,9 @@ echo "--------------------------------------------------------------------------
 # source scripts/train_val.sh -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'val' 'train' --pretrained True
 # source scripts/train_val.sh -c 'day' 'night' -o 'visible' 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True; \
 # source scripts/train_val.sh -c 'day' 'night' -o 'rgbt' -m 'yolov8x.pt' -rm 'val' 'train' --pretrained True
+# source scripts/train_val.sh -c 'night' 'day'  -o '4ch' -m 'yoloCh4v5x.yaml' 'yoloCh4v6x.yaml' -rm 'train' --pretrained False --cache disk
+
+
+
+
+

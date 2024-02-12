@@ -20,34 +20,61 @@ test_finished() {
 }
 
 
-# source $SCRIPT_PATH/train_val.sh -c 'day' 'night' -o 'hsvt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'hsvt vths vt' $?
-# source $SCRIPT_PATH/train_val.sh -c 'night' -o 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'night_vt' $?
-# source $SCRIPT_PATH/train_val.sh -c 'day' 'night' -o 'visible' 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'visible lwir' $?
-# source $SCRIPT_PATH/train_val.sh -c 'day' 'night' -o 'rgbt' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'rgbt' $?
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day' -o 'hsvt' 'vths' 'vt' 'visible' 'lwir' 'rgbt' -m 'yolov8x.pt' -rm 'train' --pretrained True
+# test_finished 'hsvt vths vt visible lwir rgbt' $?
+
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'lwir_1ch' -m 'yoloCh1x.yaml' -rm 'train' --pretrained False --cache disk
+# test_finished 'lwir_1ch' $?
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh1x.yaml' -rm 'train' --pretrained False --cache disk
+# test_finished 'pca_rgbt_1ch fa_rgbt_1ch' $?
+
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'pca_rgbt_2ch' 'fa_rgbt_2ch' -m 'yoloCh2x.yaml' -rm 'train' --pretrained False --cache disk
+# test_finished 'pca_rgbt_2ch fa_rgbt_2ch' $?
+
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day' -o 'pca_rgbt_3ch' 'fa_rgbt_3ch' -m 'yolov8x.pt' -rm 'train' --pretrained True
+# test_finished 'pca_rgbt_3ch fa_rgbt_3ch' $?
+
 # source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o '4ch' -m 'yoloCh4x.yaml' -rm 'train' --pretrained False --cache disk
 # test_finished '4ch' $?
 
-# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh1x.yaml' -rm 'train' --pretrained False --cache disk
-# test_finished 'pca_rgbt_1ch fa_rgbt_1ch' $?
-# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'pca_rgbt_2ch' 'fa_rgbt_2ch' -m 'yoloCh2x.yaml' -rm 'train' --pretrained False --cache disk
-# test_finished 'pca_rgbt_2ch fa_rgbt_2ch' $?
-# source $SCRIPT_PATH/train_val.sh -c 'day' 'night' -o 'pca_rgbt_3ch' 'fa_rgbt_3ch' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'pca_rgbt_3ch fa_rgbt_3ch' $?
+#################################################
+# Test if theres differences when training from #
+#  scratch than training from pretrained model  #
+#################################################
+# source $SCRIPT_PATH/train_val.sh -c 'night' 'day' -o 'visible' 'lwir' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False
+# test_finished 'visible lwir without pretraining with day and night condition datasets' $?
+
+# source $SCRIPT_PATH/train_val.sh -c 'all' -o 'visible' 'rgbt' 'vths' 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True
+# test_finished 'vths vt visible rgbt (good day candidates), with all conditions datasets' $?
+
+# Also good VTHS, RGBT and VT that are already being used
+# source $SCRIPT_PATH/train_val.sh -c 'all' -o 'lwir' 'pca_rgbt_3ch' -m 'yolov8x.pt' -rm 'train' --pretrained True
+# test_finished 'lwir pca_rgbt_3ch (good night candidates), with all conditions datasets' $?
 
 
-# source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'nigth lwir' $?
-# source $SCRIPT_PATH/train_val.sh -c 'night' 'day'  -o 'lwir_1ch' -m 'yoloCh1x.yaml' -rm 'train' --pretrained False --cache disk
-# test_finished 'lwir_1ch' $?
-# source $SCRIPT_PATH/train_val.sh -c 'night' -o 'pca_rgbt_3ch' -m 'yolov8x.pt' -rm 'train' --pretrained True
-# test_finished 'night pca_rgbt_3ch' $?
-source $SCRIPT_PATH/train_val.sh -c 'day' 'night' -o 'fa_rgbt_3ch' -m 'yolov8x.pt' -rm 'train' --pretrained True
-test_finished 'fa_rgbt_3ch' $?
+## Variance between different training results
+for i in {1..10}
+do
+  source $SCRIPT_PATH/train_val.sh -c 'day' -o 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_day_vt_pretrained"
+  test_finished "Variance day vt test iteration $i" $?
+done
 
+for i in {1..10}
+do
+  source $SCRIPT_PATH/train_val.sh -c 'night' -o 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_night_vt_pretrained"
+  test_finished "Variance night vt test iteration $i" $?
+done
 
+for i in {1..10}
+do
+  source $SCRIPT_PATH/train_val.sh -c 'day' -o 'visible' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_day_visible_pretrained"
+  test_finished "Variance day visible test iteration $i" $?
+done
+
+for i in {1..10}
+do
+  source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_night_lwir_pretrained"
+  test_finished "Variance night lwir test iteration $i" $?
+done
 
 test_finished "all script finished" ":)"
