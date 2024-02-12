@@ -138,6 +138,10 @@ def handleArguments():
     parser.add_argument('-rm','--run-mode', action='store', dest='run_mode', metavar='MODE',
                         type=str, nargs='*', default=['val', 'train'],
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-path','--path-name', default=None, type=str, 
+                        help="Path in which the results will be stored. If set to None a default path will be generated.")
+
+
     
     opts = parser.parse_args()
 
@@ -147,4 +151,4 @@ def handleArguments():
     run_modes = list(opts.run_mode)
 
     log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};\n\t· run mode: {run_modes}")
-    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts
+    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts.path_name, opts

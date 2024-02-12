@@ -14,7 +14,7 @@ from ultralytics import YOLO
 from config_utils import yolo_output_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
 
     
-def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained):
+def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None):
     validation_iteration = 0
     start_time = datetime.now()
 
@@ -23,8 +23,11 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
         for dataset in dataset_config_list:
             validation_iteration += 1
 
-            path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + "/"           
-            
+            if path_name_in is None:
+                path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + "/"
+            else:
+                path_name = path_name_in + "/"  + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
+
             dataset_start_time = datetime.now()
             log("--------------------------------------------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
@@ -67,7 +70,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             validator = yolo_detc.DetectionValidator(args=args)
             validator(model=args.model)
 
-            with open(Path(f'{yolo_output_path}/{path_name}') / f'results.yaml', 'a') as file:
+            with open(Path(validator.save_dir) / f'results.yaml', 'a') as file:
                 import yaml
                 yaml.dump(yaml_data, file)
 

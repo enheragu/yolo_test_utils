@@ -27,15 +27,15 @@ from update_datset import checkKaistDataset
 
 if __name__ == '__main__':
     log(f"\n\n\n{'#'*30}\n[START TEST EXECUTION]")
-    condition_list, option_list, model_list, device, cache, pretrained, opts = handleArguments()
+    condition_list, option_list, model_list, device, cache, pretrained, path_name, opts = handleArguments()
 
     checkKaistDataset(option_list)
 
     for mode in opts.run_mode:
         if mode == 'val':
-            TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained)
+            TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name)
         elif mode == 'train':
-            TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)
+            TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name)
     
     log(f"Options executed were:\n\t· condition_list: {condition_list}\n\t· option_list: {option_list}\n\t· model_list: {model_list};\n\t· run mode: {opts.run_mode}")
     log(f"\n\n\n{'#'*30}\n[CLEAN FINISH TEST EXECUTION]")

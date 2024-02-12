@@ -17,7 +17,7 @@ from ultralytics import YOLO
 from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path
 
 
-def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained):
+def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None):
     train_iteration = 0
 
     start_time = datetime.now()
@@ -51,7 +51,10 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
 
             dataset_start_time = datetime.now()
             
-            path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","")
+            if path_name_in is None:
+                path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
+            else:
+                path_name = path_name_in + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
             
             args = {}
             args['mode'] = 'train'
@@ -70,13 +73,11 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['device'] = device
             args['cache'] = cache
             args['pretrained'] = pretrained
-            
-            yaml_data['pretrained'] = pretrained
-            
+                        
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
                 trainer.train()
-                with open(Path(f'{yolo_output_path}/{path_name}') / f'results.yaml', 'a') as file:
+                with open(Path(trainer.save_dir) / f'results.yaml', 'a') as file:
                     import yaml
                     yaml.dump(yaml_data, file)
 
