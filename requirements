@@ -8,3 +8,4 @@ xtarfile
 clint
 requests
 scipy
+mplcursors
