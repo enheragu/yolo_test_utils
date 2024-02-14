@@ -26,6 +26,10 @@ if __name__ == "__main__":
 
 from config_utils import kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path, log
 
+dataset_tag = 'kaist_coco' # 'kaist'
+# 'kaist_coco' is a version of kais that makes use of compatible coco tags
+# 'kaist' is regular kaist with its tagged classes
+
 lwir = "/lwir/"
 visible = "/visible/"
 
@@ -36,7 +40,16 @@ images_folder = "/images/"
 # TO check against default yolo, classes have to match the coco128.yaml
 class_data_coco = {  'person': 0,  'cyclist': 80, 'people': 81 } # people does not exist in coco dataset, use 80 as tag
 
-def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
+def processXML(xml_path, output_paths):
+    global dataset_tag
+    global class_data_coco
+
+    index = 0
+    if dataset_tag == 'kaist_coco':
+        obj_class_dict = class_data_coco
+    else:
+        obj_class_dict = {}
+
     with open(xml_path) as xml:
         txt_data = ""
         doc = untangle.parse(xml)
@@ -55,17 +68,24 @@ def processXML(xml_path, output_paths, obj_class_dict = class_data_coco):
                 w_normalized = float(object.bndbox.w.cdata) / img_width
                 h_normalized = float(object.bndbox.h.cdata) / img_height
                 
-                if obj_name == "people" or obj_name == "cyclist":
-                    obj_name = "person"
-                    
-                # Only processes person for now 
-                if obj_name == "person":
-                    txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
-            
+                if dataset_tag == 'kaist_coco':
+                    if obj_name == "people" or obj_name == "cyclist":
+                        obj_name = "person"
+                        
+                    # Only processes person for now 
+                    if obj_name == "person":
+                        txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
+
+                elif dataset_tag == 'kaist':
+                        if obj_name not in obj_class_dict:
+                            obj_class_dict[obj_name] = index
+                        txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
+
+                index += 1
             for file in output_paths:
                 with open(file, 'w+') as output:
                     output.write(txt_data)
-
+        log("Class dict is now: {class_dict}")
 # Process line from dataset file so to paralelice process
 def processLine(new_dataset_label_paths, data_set_name, line):
     for data_type in (lwir, visible):
@@ -98,10 +118,13 @@ def processLine(new_dataset_label_paths, data_set_name, line):
             
 dataset_blacklist = []
 dataset_whitelist = ['train-all-02', 'train-all-20', 'test-all-01', 'train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
-def kaistToYolo():
+def kaistToYolo(dataset_format = 'kaist_coco'):
+    global dataset_tag
+    dataset_tag = dataset_format
+
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets
-    log("[KaistToYolo::KaistToYolo] Kaist To Yolo formatting:")
+    log("[KaistToYolo::KaistToYolo] Kaist To Yolo formatting in {dataset_format} format:")
     for file in os.listdir(kaist_sets_path):
         file_path = os.path.join(kaist_sets_path, file)
         if os.path.isfile(file_path):

@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 from Dataset.kaist_to_yolo_annotations import kaistToYolo
 from Dataset.rgb_thermal_mix import dataset_options, make_dataset
 
-from config_utils import kaist_path, kaist_yolo_dataset_path, log
+from config_utils import kaist_path, kaist_yolo_dataset_path, log, dataset_tags_default
 
 
 def getKaistData():
@@ -50,7 +50,7 @@ def getKaistData():
             # Extract member
             tar.extract(member=member)
 
-def checkKaistDataset(options = []):
+def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
     # Ensure input is a list
     if type(options) is not type(list()):
         options = [options]
@@ -70,7 +70,7 @@ def checkKaistDataset(options = []):
     options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     if 'lwir' not in options_found and 'visible' not in options_found:
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {kaist_yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
-        kaistToYolo()
+        kaistToYolo(dataset_format)
         # Update with new options
         options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     else:
@@ -89,7 +89,15 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--option', action='store', dest='olist',
                         type=str, nargs='*', default=dataset_options.keys(),
                         help=f"Extra options of the datasets to be included (apart from downloaded lwir and visible). Available options are {dataset_options.keys()}. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, nargs='*', default=dataset_tags_default[0],
+                        help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
+    
     opts = parser.parse_args()
 
     option_list_default = list(opts.olist)
-    checkKaistDataset(option_list_default) # 'rgbt', 'hsvt' ... see rgb_thermal_mix.py for more info
+    dataset_format = opts.dformat
+    
+    if dataset_format not in dataset_tags_default:
+        raise KeyError(f"Dataset format provided ({dataset_format}) is not part of the ones avalable: {dataset_tags_default}.")
+
+    checkKaistDataset(option_list_default, dataset_format) # 'rgbt', 'hsvt' ... see rgb_thermal_mix.py for more info

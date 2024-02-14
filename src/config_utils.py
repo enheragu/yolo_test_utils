@@ -68,7 +68,7 @@ def dumpYaml(file_path, data):
 condition_list_default = ['all','day', 'night']
 option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt', 'vths', 'vt', '4ch'] # 4ch
 model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
-
+dataset_tags_default = ['kaist_coco', 'kaist'] # Just list of availables :)
 
 def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None):
     from jinja2 import Template
@@ -144,7 +144,8 @@ def handleArguments():
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
-
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, nargs='*', default=dataset_tags_default[0],
+                        help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
 
     
     opts = parser.parse_args()
@@ -154,5 +155,8 @@ def handleArguments():
     model_list_default = list(opts.mlist)
     run_modes = list(opts.run_mode)
 
+    if opts.dformat not in dataset_tags_default:
+        raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")
+
     log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};\n\t· run mode: {run_modes}")
-    return condition_list_default, option_list_default, model_list_default, opts.device, opts.cache, opts.pretrained, opts.path_name, opts
+    return condition_list_default, option_list_default, model_list_default, opts

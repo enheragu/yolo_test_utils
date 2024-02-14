@@ -14,7 +14,7 @@ from ultralytics import YOLO
 from config_utils import yolo_output_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
 
     
-def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None):
+def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_format = dataset_tags_default[0]):
     validation_iteration = 0
     start_time = datetime.now()
 
