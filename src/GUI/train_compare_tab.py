@@ -23,38 +23,26 @@ from scipy.ndimage.filters import gaussian_filter1d
 import mplcursors
 
 from config_utils import log, bcolors, parseYaml
+from GUI.base_tab import BaseClassPlotter
 from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
 from GUI.Widgets.figure_tab_widget import PlotTabWidget
 from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
-class TrainComparePlotter(QScrollArea):
-    def __init__(self, dataset_handler, parent_window):
-        super().__init__()
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
 
-        self.parent_window = parent_window
-        self.dataset_handler = dataset_handler
+class TrainComparePlotter(BaseClassPlotter):
+    def __init__(self, dataset_handler):
+        super().__init__(dataset_handler, tab_keys)
 
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
-
-        self.setWidgetResizable(True)  # Permitir que el widget se expanda
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        self.options_widget = QWidget(self)
-        self.layout.addWidget(self.options_widget)
-
-        self.options_layout = QHBoxLayout()
-        self.options_widget.setLayout(self.options_layout)
-        self.options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # Needs to overload buttons widget with Grid layout for this specific view
+        self.options_layout.removeWidget(self.buttons_widget)
+        self.buttons_widget = QWidget(self.options_widget)
+        self.options_layout.addWidget(self.buttons_widget,1)
+        self.buttons_layout = QGridLayout(self.buttons_widget)
 
         self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler)
-        self.options_layout.addWidget(self.dataset_checkboxes,3)
-
-        # Crear un widget que contendrá los grupos los botones
-        buttons_widget = QWidget(self.options_widget)
-        self.options_layout.addWidget(buttons_widget,1)
-        buttons_layout = QGridLayout(buttons_widget)
+        self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
 
         ## Create a button to select all checkboxes from a given condition
         self.select_all_day_button = QPushButton(" Select 'day' ", self)
@@ -83,49 +71,19 @@ class TrainComparePlotter(QScrollArea):
         self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
-        buttons_layout.addWidget(self.select_all_day_button, 0, 0, 1, 1)
-        buttons_layout.addWidget(self.select_all_night_button, 0, 1, 1, 1)
-        buttons_layout.addWidget(self.select_all_all_button, 1, 0, 1, 1)
-        buttons_layout.addWidget(self.select_all_button, 1, 1, 1, 1)
-        buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
-        buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
-        buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
+        self.buttons_layout.addWidget(self.select_all_day_button, 0, 0, 1, 1)
+        self.buttons_layout.addWidget(self.select_all_night_button, 0, 1, 1, 1)
+        self.buttons_layout.addWidget(self.select_all_all_button, 1, 0, 1, 1)
+        self.buttons_layout.addWidget(self.select_all_button, 1, 1, 1, 1)
+        self.buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
+        self.buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
+        self.buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
 
-        self.cursor = {}
-        self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
-        self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
-        self.layout.addWidget(self.figure_tab_widget)
-        
+       
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_checkboxes)
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
-   
-    def toggle_options(self):
-        # Cambiar el estado del check basado en si las opciones están visibles o no
-        if self.options_widget.isVisible():
-            self.options_widget.hide()
-        else:
-            self.options_widget.show()
-
-    def update_view_menu(self):
-        self.view_menu = self.parent_window.menuBar().addMenu('View')
-        self.tools_menu = self.parent_window.menuBar().addMenu('Tools')
-
-
-        self.show_options_action = QAction('Show Options Tab', self, checkable=True)
-        self.show_options_action.setChecked(True) 
-        self.show_options_action.triggered.connect(self.toggle_options)
-        self.view_menu.addAction(self.show_options_action)
-
-        # self.hide_options_action = QAction('Hide Options Tab', self)
-        # self.hide_options_action.triggered.connect(self.options_widget.hide)
-        # self.view_menu.addAction(self.hide_options_action)
-
-        self.save_options_action = QAction("Save Output", self)
-        self.save_options_action.triggered.connect(self.save_plot)
-        self.tools_menu.addAction(self.save_options_action)
-
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()

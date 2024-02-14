@@ -19,7 +19,7 @@ import math
 
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QAction, QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 
 import mplcursors
@@ -51,30 +51,49 @@ class GUIPlotter(QMainWindow):
         self.layout.addWidget(self.tab_widget)
         
         self.dataset_handler = DataSetHandler(update_cache)
-        train_compare_tab = TrainComparePlotter(self.dataset_handler, self)
+        train_compare_tab = TrainComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
 
-        train_eval_tab = TrainEvalPlotter(self.dataset_handler, self)
+        train_eval_tab = TrainEvalPlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Review training process")
 
-        train_eval_tab = VarianceComparePlotter(self.dataset_handler, self)
+        train_eval_tab = VarianceComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
         
-        train_eval_tab = CSVTablePlotter(self.dataset_handler, self)
+        train_eval_tab = CSVTablePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Table")
         
         
         self.tab_widget.currentChanged.connect(self.update_view_menu)
         self.update_view_menu()  # Actualizar el menú "View" cuando se abre la ventana
 
-        # Resto del código...
+    def update_dataset_handler(self):
+        self.dataset_handler = DataSetHandler(update_cache)
+    
+    def toggle_cached(self):
+        global update_cache
+        update_cache = not update_cache
 
     def update_view_menu(self):
         # Limpiar el menú "View"
         self.menuBar().clear()
+        archive_menu = self.menuBar().addMenu('Archive')
+
+        self.reload_datasets_action = QAction('Reload datasets')
+        self.reload_datasets_action.triggered.connect(self.update_dataset_handler)
+        archive_menu.addAction(self.reload_datasets_action)
+
+        self.cached_option_action = QAction('Use cached datasets', self, checkable=True)
+        self.cached_option_action.setChecked(True) 
+        self.cached_option_action.triggered.connect(self.toggle_cached)
+        archive_menu.addAction(self.cached_option_action)
+        
+        view_menu = self.menuBar().addMenu('View')
+        tools_menu = self.menuBar().addMenu('Tools')
+
         # Obtener la pestaña/tab actual
         current_tab_widget = self.tab_widget.currentWidget()
-        current_tab_widget.update_view_menu()
+        current_tab_widget.update_view_menu(archive_menu, view_menu, tools_menu)
 
 def handleArguments():
     global update_cache
