@@ -9,6 +9,7 @@ while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
+export NTFY_TOPIC="eeha_training_test_battery"
 
 test_finished() {
     curl \
