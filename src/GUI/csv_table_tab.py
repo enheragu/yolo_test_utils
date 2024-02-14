@@ -46,7 +46,7 @@ class CSVTablePlotter(QScrollArea):
         self.options_widget.setLayout(self.options_layout)
         self.options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, title = "Datasets:", max_rows = 3)
+        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, title = "Test groups:", max_rows = 3)
         self.options_layout.addWidget(self.dataset_variance_checkboxes,3)
 
         # Crear un widget que contendrá los grupos los botones

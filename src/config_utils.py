@@ -57,6 +57,10 @@ def parseYaml(file_path):
     with open(file_path) as file:
         return yaml.load(file, Loader=SafeLoader)
 
+def dumpYaml(file_path, data):
+    with open(file_path, "w+") as file:
+        yaml.dump(data, file)
+        
 #################################
 #       Dinamic CFG stuff       #
 #################################

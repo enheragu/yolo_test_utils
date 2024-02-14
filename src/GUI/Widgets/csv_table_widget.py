@@ -6,6 +6,7 @@
 
 import os
 import sys
+import itertools
 
 from datetime import datetime
 
@@ -14,18 +15,26 @@ import csv
 import math
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
+
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 from config_utils import log, bcolors
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 
 class TrainCSVDataTable(QWidget):
+    """
+        :param: dataset_handler instance of shared DataSetHandler
+        :param: dataset_checkboxes is a check_box_widget or a list of them (any of both types)
+    """
     def __init__(self, dataset_handler, dataset_checkboxes):
         super().__init__()
 
         self.dataset_handler = dataset_handler
-        self.dataset_checkboxes = dataset_checkboxes
+        self.dataset_checkboxes = dataset_checkboxes  if isinstance(dataset_checkboxes, list) else [dataset_checkboxes]
+        
 
         # self.setWidgetResizable(True)  # Permitir que el widget se expanda
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -57,22 +66,24 @@ class TrainCSVDataTable(QWidget):
     ## Overloadable function :)
     def getDataDictToPlot(self):
         data = {}
-        if isinstance(self.dataset_checkboxes, DatasetCheckBoxWidget):
-            for key in self.dataset_checkboxes.getChecked():           
-                data[key] = self.dataset_handler[key]
-        elif isinstance(self.dataset_checkboxes, GroupCheckBoxWidget):
-            for group in self.dataset_checkboxes.getChecked():
-                keys = [key for key in self.dataset_handler.keys() if group in key]
-                for key in keys:
+        
+        for checkbox_list in self.dataset_checkboxes:
+            if isinstance(checkbox_list, DatasetCheckBoxWidget):
+                for key in checkbox_list.getChecked():           
                     data[key] = self.dataset_handler[key]
-        else:
-            log(f"CheckBox object instanced not recogniced.", bcolors.ERROR)
+            elif isinstance(checkbox_list, GroupCheckBoxWidget):
+                for group in checkbox_list.getChecked():
+                    keys = [key for key in self.dataset_handler.keys() if group in key]
+                    for key in keys:
+                        data[key] = self.dataset_handler[key]
+            else:
+                log(f"CheckBox object instanced not recogniced.", bcolors.ERROR)
         return data
 
     def load_table_data(self):
         # Limpiar la tabla antes de cargar nuevos datos
 
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Date', 'Title']]
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Num Classes', 'Dataset', 'Date', 'Title', 'Group Key']]
 
         for key, data in self.getDataDictToPlot().items():
             try:
@@ -111,8 +122,11 @@ class TrainCSVDataTable(QWidget):
                                     train_images,
                                     val_images, 
                                     data_class['Instances'], 
+                                    data['n_classes'],
+                                    data['dataset_tag'],
                                     date_tag,
-                                    test_title]]
+                                    test_title,
+                                    key]]
             except KeyError as e:
                 log(f"Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
 
@@ -126,12 +140,31 @@ class TrainCSVDataTable(QWidget):
         # Conectar el evento sectionClicked del encabezado de la tabla
         self.csv_table.horizontalHeader().sectionClicked.connect(self.sort_table)
 
+
+        colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+        color_iterator = itertools.cycle(colors_list)
+        row_color = {}
         # Agregar las filas a la tabla
         for row_position, row_data in enumerate(row_list[1:]):
             # row_position = self.csv_table.rowCount()
             self.csv_table.insertRow(row_position)
+            
+            ## Add colors
+            ## row_tag Filters by gout/condition_type
+            row_tag = row_data[-1].split("/")[0]+"/"+row_data[1]
+            if row_tag in row_color:
+                cell_color = row_color[row_tag]
+            else:
+                next_color = next(color_iterator)
+                if isinstance(next_color, str):
+                    next_color = to_rgba(next_color)
+                alpha_value = 20  # transparency range between 0 and 255
+                cell_color = QColor(next_color[0] * 255, next_color[1] * 255, next_color[2] * 255, alpha_value)
+                row_color[row_tag] = cell_color
+
             for col_position, col_value in enumerate(row_data):
                 item = QTableWidgetItem(str(col_value))
+                item.setBackground(cell_color)
                 self.csv_table.setItem(row_position, col_position, item)
 
         

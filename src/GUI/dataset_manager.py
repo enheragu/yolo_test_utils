@@ -9,6 +9,7 @@
 import os
 import sys
 import time
+import shutil
 
 from datetime import datetime
 
@@ -19,44 +20,10 @@ import concurrent.futures
 import csv
 
 from config_utils import yolo_output_path as test_path
-from config_utils import log, bcolors, parseYaml
+from config_utils import log, bcolors, parseYaml, dumpYaml
 
 data_file_name = "results.yaml"
-
-## Manages in a separate thread the processes so that the dataloading 
-## does not keep infinitely keeping those resources. Futures are deleted
-## once they finish and a thread safe access is provided for result data
-class FutureManager:
-    def __init__(self, executor, futures):
-        self.executor = executor
-        self.futures = futures
-        self.lock = threading.Lock()
-        self.results = {}
-
-    def monitor_futures(self):
-        with self.lock:
-            while self.futures:
-                time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
-
-                for key, future in list(self.futures.items()):
-                    if future.done():
-                        try:
-                            self.results[key] = future.result()
-                        except Exception as e:
-                            log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
-                        finally:
-                            del self.futures[key]
-        log(f"All executors finished loading data")
-
-    def get_results(self):
-        with self.lock:
-            return self.results
-
-    def start_monitoring(self):
-        thread = threading.Thread(target=self.monitor_futures)
-        thread.daemon = True
-        thread.start()
-
+cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -76,11 +43,17 @@ def getResultsYamlData(dataset):
     data_filtered = {}
     try:
         ## FILTER UNUSED DATA TO AVOID MEMORY CONSUMPTION
+
         last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
         last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
 
+        if last_val_tag not in data or last_fit_tag not in data:
+            last_fit_tag = 'pr_data_' + str(data['train_data']['epoch_best_fit_index'])
+            last_val_tag = 'validation_' + str(data['train_data']['epoch_best_fit_index'])
+
         data_filtered = {'validation_best': data[last_val_tag], 'pr_data_best': data[last_fit_tag],
-                        'train_data': data['train_data'],'n_images': data['n_images']
+                        'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],
+                        'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag']
                         }
     except KeyError as e:
         log(f"Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
@@ -103,7 +76,7 @@ def getArgsYamlData(dataset):
     if os.path.exists(arg_path):
         try:
             data = parseYaml(arg_path)
-            data_filtered = {'batch': data['batch'], 'pretrained': data['pretrained'], 'deterministic': data['deterministic']}
+            data_filtered = {'batch': data['batch'], 'deterministic': data['deterministic']}
         except KeyError as e:
             log(f"Missing key in Args data dict ({dataset['key']}): {e}", bcolors.ERROR)
     else:
@@ -112,30 +85,28 @@ def getArgsYamlData(dataset):
     return data_filtered
 
 # Wrap function to be paralelized
-def background_load_data(dataset):
-    data = getResultsYamlData(dataset)
-    data.update(getCSVData(dataset))
-    data.update(getArgsYamlData(dataset))
+def background_load_data(dataset_key_tuple):
+    key, dataset = dataset_key_tuple
+    filename = f"{cache_path}/{key.replace('/','_')}.yaml.cache"
+    
+    if os.path.exists(filename):
+        data = parseYaml(filename)
+        log(f"Loaded data from cache file in {filename}")
+    else:
+        data = getResultsYamlData(dataset)
+        data.update(getCSVData(dataset))
+        data.update(getArgsYamlData(dataset))
 
     # log(f"\t· Parsed {dataset['key']} data")
     return data
 
-# Wrap function to be paralelized
-## Threaded version
-# def background_load_data(dataset):
-#     combined_data = {}
-#     with concurrent.futures.ThreadPoolExecutor() as executor:
-#         futures = [
-#             executor.submit(getResultsYamlData, dataset),
-#             executor.submit(getCSVData, dataset),
-#             executor.submit(getArgsYamlData, dataset)
-#         ]
-#         concurrent.futures.wait(futures)
-
-#         for future in futures:
-#             combined_data.update(future.result())
-    
-#     return combined_data
+def background_save_cache(dataset_key_tuple):
+    key, dataset = dataset_key_tuple
+    filename = f"{cache_path}/{key.replace('/','_')}.yaml.cache"
+    # log(f"Data cache to be stored in {filename}")
+    # if not os.path.exists(filename):
+    dumpYaml(filename, dataset)
+    # log(f"Stored data cache file in {filename}")
 
 def find_results_file(search_path = test_path, file_name = data_file_name):
     log(f"Search all results.yaml files")
@@ -156,18 +127,59 @@ def find_results_file(search_path = test_path, file_name = data_file_name):
     return dataset_info
     
 class DataSetHandler:
-    def __init__(self):
+    def __init__(self, update_cache = True):
+        self.update_cache = update_cache
+        if update_cache and os.path.exists(cache_path):
+            shutil.rmtree(cache_path)
+            log(f"Cleared previous cache files to be recached.")
+        # Ensure cache dir exists if cleared or firs execution in machine or...
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path)
+
         self.dataset_info = find_results_file()
         self.parsed_data = {}
 
         # Load data in background
+        self.lock = threading.Lock()
+        self.futures_result = {}
         self.executor = ProcessPoolExecutor()
-        self.futures = {key: self.executor.submit(background_load_data, info) for key, info in self.dataset_info.items()}
+        self.futures = {key: self.executor.submit(background_load_data, (key,info)) for key, info in self.dataset_info.items()}
 
-        self.future_manager = FutureManager(self.executor, self.futures)
-        self.future_manager.start_monitoring()
+        self.monitor_data_load()
+        
+    def monitor_data_load(self):
+        thread = threading.Thread(target=self.monitor_futures)
+        thread.daemon = True
+        thread.start()
 
+    def monitor_futures(self):
+        with self.lock:
+            while self.futures:
+                time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
 
+                for key, future in list(self.futures.items()):
+                    if future.done():
+                        try:
+                            self.futures_result[key] = future.result()
+                        except Exception as e:
+                            log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
+                        finally:
+                            del self.futures[key]
+        log(f"All executors finished loading data. Store cache data")
+        
+        log(f"Update cache data files for later executions")
+        self.executor.shutdown() # Clear previous executor
+        self.executor = ProcessPoolExecutor()
+        self.futures = {key: self.executor.submit(background_save_cache, (key, self.__getitem__(key))) for key in self.dataset_info.keys()}
+        time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
+
+        while self.futures:
+            time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
+            for key, future in list(self.futures.items()):
+                if future.done():
+                    del self.futures[key]
+        log(f"Finished caching data")
+            
     def getInfo(self):
         return self.dataset_info
 
@@ -176,7 +188,8 @@ class DataSetHandler:
     
     def __getitem__(self, key):
         if not key in self.parsed_data:
-            self.parsed_data = self.future_manager.get_results()
+            with self.lock:
+                self.parsed_data = self.futures_result
 
         return self.parsed_data[key]
 
@@ -184,7 +197,8 @@ class DataSetHandler:
         return len(self.dataset_info)
     
     def __del__(self):
-        if self.executor:
+        # Destructor can be called before executed object is created if somth fails :(
+        if hasattr(self, 'executor') and self.executor:
             # Cancelar todas las futuras que aún no han terminado
             for future in self.futures.values():
                 future.cancel()

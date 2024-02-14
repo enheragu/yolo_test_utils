@@ -124,7 +124,7 @@ class TrainComparePlotter(QScrollArea):
         self.figure_tab_widget.clear()
 
         # Plotear los datos de los datasets seleccionados
-        log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
+        # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
             if canvas_key not in plot_data:
                 continue
@@ -132,7 +132,7 @@ class TrainComparePlotter(QScrollArea):
             # Limpiar el gráfico anterior
             xlabel = plot_data[canvas_key]['xlabel']
             ylabel = plot_data[canvas_key]['ylabel']
-            log(f"Plotting {ylabel}-{xlabel} Curve")
+            # log(f"Plotting {ylabel}-{xlabel} Curve")
 
             # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])

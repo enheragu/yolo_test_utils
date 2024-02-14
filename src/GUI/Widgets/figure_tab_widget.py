@@ -46,8 +46,8 @@ class PlotTabWidget(QTabWidget):
             canvas.draw()
 
     def draw(self):
-        for figure in self.figure.values():
-            figure.tight_layout()
+        # for figure in self.figure.values():
+            # figure.tight_layout()
         for canvas in self.tab_canvas.values():
             canvas.draw()
 

@@ -13,7 +13,7 @@ import sys
 
 from datetime import datetime
 
-
+import argparse
 import csv
 import math
 
@@ -31,6 +31,10 @@ from GUI.train_eval_tab import TrainEvalPlotter
 from GUI.variance_compare_tab import VarianceComparePlotter
 from GUI.csv_table_tab import CSVTablePlotter
 
+## Data YAML cached for faster data loading
+# Update means that previous will be overwriten
+update_cache = False
+
 class GUIPlotter(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -46,7 +50,7 @@ class GUIPlotter(QMainWindow):
         self.tab_widget = QTabWidget()
         self.layout.addWidget(self.tab_widget)
         
-        self.dataset_handler = DataSetHandler()
+        self.dataset_handler = DataSetHandler(update_cache)
         train_compare_tab = TrainComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
 
@@ -59,9 +63,19 @@ class GUIPlotter(QMainWindow):
         train_eval_tab = CSVTablePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Table")
         
+def handleArguments():
+    global update_cache
+    parser = argparse.ArgumentParser(description="GUI to review training results.")
+    parser.add_argument('--update_cache', action='store_true', help='Actualizar archivos de caché si es verdadero')
+
+    # Parsear los argumentos de la línea de comandos
+    args = parser.parse_args()
+
+    update_cache = args.update_cache
 
 def main():
     app = QApplication(sys.argv)
+    handleArguments()
     window = GUIPlotter()
     window.show()
     sys.exit(app.exec_())

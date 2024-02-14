@@ -28,6 +28,7 @@ from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 from GUI.Widgets.figure_tab_widget import PlotTabWidget
 from GUI.Widgets.numeric_slider_input_widget import NumericSliderInputWidget
+from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
 class VarianceComparePlotter(QScrollArea):
     def __init__(self, dataset_handler):
@@ -79,11 +80,14 @@ class VarianceComparePlotter(QScrollArea):
         buttons_layout.addWidget(self.plot_button)
         buttons_layout.addWidget(self.save_button)
 
+        self.cursor = {}
         self.tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
         self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
         self.layout.addWidget(self.figure_tab_widget)
-        
-        self.cursor = {}
+
+        # Tab for CSV data
+        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_train_checkboxes,self.dataset_variance_checkboxes])
+        self.figure_tab_widget.addTab(self.csv_tab, "Table")
         
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -92,9 +96,11 @@ class VarianceComparePlotter(QScrollArea):
 
         if file_name:
             self.figure_tab_widget.saveFigures(file_name)
+            self.csv_tab.save_data(file_name)
 
     def render_data(self):
         self.plot_loss_metrics_data()
+        self.csv_tab.load_table_data()
 
     def plot_loss_metrics_data(self):
 
@@ -107,7 +113,7 @@ class VarianceComparePlotter(QScrollArea):
         self.figure_tab_widget.clear()
 
         # Plotear los datos de los datasets seleccionados
-        log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
+        # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
             if canvas_key not in plot_data:
                 continue
@@ -115,7 +121,7 @@ class VarianceComparePlotter(QScrollArea):
             # Limpiar el gráfico anterior
             xlabel = plot_data[canvas_key]['xlabel']
             ylabel = plot_data[canvas_key]['ylabel']
-            log(f"Plotting {ylabel}-{xlabel} Curve")
+            # log(f"Plotting {ylabel}-{xlabel} Curve")
 
             # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])

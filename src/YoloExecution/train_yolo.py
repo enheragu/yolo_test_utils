@@ -68,12 +68,15 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True
-            args['patience'] = 15
+            args['patience'] = 10
 
             args['device'] = device
             args['cache'] = cache
             args['pretrained'] = pretrained
                         
+            yaml_data['pretrained'] = pretrained
+            yaml_data['dataset_tag'] = 'kaist_coco'
+            
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
                 trainer.train()
