@@ -11,6 +11,7 @@ SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 source $SCRIPT_PATH/../../venv/bin/activate
 
+echo "Note that NTFY_TOPIC env var is now: $NTFY_TOPIC"
 
 NOW=`date +"%Y_%m_%d-%H_%M_%S"`
 LOG_PATH=$SCRIPT_PATH/../runs/exec_log
