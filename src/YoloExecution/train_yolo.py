@@ -17,7 +17,7 @@ from ultralytics import YOLO
 from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path
 
 
-def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None):
+def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag):
     train_iteration = 0
 
     start_time = datetime.now()
@@ -75,7 +75,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['pretrained'] = pretrained
                         
             yaml_data['pretrained'] = pretrained
-            yaml_data['dataset_tag'] = 'kaist_coco'
+            yaml_data['dataset_tag'] = dataset_tag
             
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:

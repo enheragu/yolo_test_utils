@@ -14,7 +14,7 @@ from ultralytics import YOLO
 from config_utils import yolo_output_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments
 
     
-def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None):
+def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag):
     validation_iteration = 0
     start_time = datetime.now()
 
@@ -48,6 +48,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
                 log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")            
 
             yaml_data['n_images']['val'] = images_png + images_npy
+            yaml_data['dataset_tag'] = dataset_tag
 
             args = {} 
             # args['project'] = 'detection'

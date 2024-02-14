@@ -33,9 +33,9 @@ if __name__ == '__main__':
 
     for mode in opts.run_mode:
         if mode == 'val':
-            TestValidateYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name)
+            TestValidateYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat)
         elif mode == 'train':
-            TestTrainYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name)
+            TestTrainYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat)
     
     log(f"Options executed were:\n\t· condition_list: {condition_list}\n\t· option_list: {option_list}\n\t· model_list: {model_list};\n\t· run mode: {opts.run_mode}")
     log(f"\n\n\n{'#'*30}\n[CLEAN FINISH TEST EXECUTION]")
