@@ -51,18 +51,31 @@ class GUIPlotter(QMainWindow):
         self.layout.addWidget(self.tab_widget)
         
         self.dataset_handler = DataSetHandler(update_cache)
-        train_compare_tab = TrainComparePlotter(self.dataset_handler)
+        train_compare_tab = TrainComparePlotter(self.dataset_handler, self)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
 
-        train_eval_tab = TrainEvalPlotter(self.dataset_handler)
+        train_eval_tab = TrainEvalPlotter(self.dataset_handler, self)
         self.tab_widget.addTab(train_eval_tab, f"Review training process")
 
-        train_eval_tab = VarianceComparePlotter(self.dataset_handler)
+        train_eval_tab = VarianceComparePlotter(self.dataset_handler, self)
         self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
         
-        train_eval_tab = CSVTablePlotter(self.dataset_handler)
+        train_eval_tab = CSVTablePlotter(self.dataset_handler, self)
         self.tab_widget.addTab(train_eval_tab, f"Table")
         
+        
+        self.tab_widget.currentChanged.connect(self.update_view_menu)
+        self.update_view_menu()  # Actualizar el menú "View" cuando se abre la ventana
+
+        # Resto del código...
+
+    def update_view_menu(self):
+        # Limpiar el menú "View"
+        self.menuBar().clear()
+        # Obtener la pestaña/tab actual
+        current_tab_widget = self.tab_widget.currentWidget()
+        current_tab_widget.update_view_menu()
+
 def handleArguments():
     global update_cache
     parser = argparse.ArgumentParser(description="GUI to review training results.")

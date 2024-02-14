@@ -15,7 +15,7 @@ import math
 
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QAction
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from scipy.ndimage.filters import gaussian_filter1d
@@ -28,9 +28,10 @@ from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
 from GUI.Widgets.figure_tab_widget import PlotTabWidget
 
 class TrainEvalPlotter(QScrollArea):
-    def __init__(self, dataset_handler):
+    def __init__(self, dataset_handler, parent_window):
         super().__init__()
 
+        self.parent_window = parent_window
         self.dataset_handler = dataset_handler
 
         self.layout = QVBoxLayout()
@@ -73,7 +74,32 @@ class TrainEvalPlotter(QScrollArea):
         self.tab_keys = ['Train Loss Ev.', 'Val Loss Ev.', 'PR Evolution', 'mAP Evolution' ]
         self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
         self.layout.addWidget(self.figure_tab_widget)
-        
+   
+    def toggle_options(self):
+        # Cambiar el estado del check basado en si las opciones están visibles o no
+        if self.options_widget.isVisible():
+            self.options_widget.hide()
+        else:
+            self.options_widget.show()
+
+    def update_view_menu(self):
+        self.view_menu = self.parent_window.menuBar().addMenu('View')
+        self.tools_menu = self.parent_window.menuBar().addMenu('Tools')
+
+
+        self.show_options_action = QAction('Show Options Tab', self, checkable=True)
+        self.show_options_action.setChecked(True) 
+        self.show_options_action.triggered.connect(self.toggle_options)
+        self.view_menu.addAction(self.show_options_action)
+
+        # self.hide_options_action = QAction('Hide Options Tab', self)
+        # self.hide_options_action.triggered.connect(self.options_widget.hide)
+        # self.view_menu.addAction(self.hide_options_action)
+
+        self.save_options_action = QAction("Save Output", self)
+        self.save_options_action.triggered.connect(self.save_plot)
+        self.tools_menu.addAction(self.save_options_action)
+
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()

@@ -16,7 +16,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QWidget, QPushButton, QFileDialog, QScrollArea, QSizePolicy, QVBoxLayout
+from PyQt5.QtWidgets import QHBoxLayout, QWidget, QPushButton, QFileDialog, QScrollArea, QSizePolicy, QVBoxLayout, QAction
 
 
 import mplcursors
@@ -28,9 +28,10 @@ from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
 
 class CSVTablePlotter(QScrollArea):
-    def __init__(self, dataset_handler):
+    def __init__(self, dataset_handler, parent_window):
         super().__init__()
 
+        self.parent_window = parent_window
         self.dataset_handler = dataset_handler
 
         self.layout = QVBoxLayout()
@@ -82,7 +83,31 @@ class CSVTablePlotter(QScrollArea):
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_variance_checkboxes)
         self.layout.addWidget(self.csv_tab)
+   
+    def toggle_options(self):
+        # Cambiar el estado del check basado en si las opciones están visibles o no
+        if self.options_widget.isVisible():
+            self.options_widget.hide()
+        else:
+            self.options_widget.show()
 
+    def update_view_menu(self):
+        self.view_menu = self.parent_window.menuBar().addMenu('View')
+        self.tools_menu = self.parent_window.menuBar().addMenu('Tools')
+
+
+        self.show_options_action = QAction('Show Options Tab', self, checkable=True)
+        self.show_options_action.setChecked(True) 
+        self.show_options_action.triggered.connect(self.toggle_options)
+        self.view_menu.addAction(self.show_options_action)
+
+        # self.hide_options_action = QAction('Hide Options Tab', self)
+        # self.hide_options_action.triggered.connect(self.options_widget.hide)
+        # self.view_menu.addAction(self.hide_options_action)
+
+        self.save_options_action = QAction("Save Output", self)
+        self.save_options_action.triggered.connect(self.save_plot)
+        self.tools_menu.addAction(self.save_options_action)
         
     def save_plot(self):
         # Open a file dialog to select the saving location

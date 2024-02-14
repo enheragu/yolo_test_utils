@@ -91,11 +91,12 @@ def background_load_data(dataset_key_tuple):
     
     if os.path.exists(filename):
         data = parseYaml(filename)
-        log(f"Loaded data from cache file in {filename}")
+        # log(f"Loaded data from cache file in {filename}")
     else:
         data = getResultsYamlData(dataset)
         data.update(getCSVData(dataset))
         data.update(getArgsYamlData(dataset))
+        log(f"Reoaded data from RAW data for {dataset}")
 
     # log(f"\t· Parsed {dataset['key']} data")
     return data
