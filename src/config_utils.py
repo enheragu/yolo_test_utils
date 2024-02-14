@@ -8,9 +8,9 @@ from pathlib import Path
 from datetime import datetime
 
 home = Path.home()
-repo_path = f"{home}/eeha/yolo_test_utils/"
+repo_path = f"{home}/eeha/yolo_test_utils"
 
-dataset_config_path = f"{repo_path}/yolo_config/"
+dataset_config_path = f"{repo_path}/yolo_config"
 yolo_output_path = f"{repo_path}/runs/detect"
 
 ####################################
@@ -18,12 +18,14 @@ yolo_output_path = f"{repo_path}/runs/detect"
 ####################################
 
 kaist_path = f"{home}/eeha/kaist-cvpr15"
-kaist_sets_path = f"{kaist_path}/imageSets/"
-kaist_annotation_path = f"{kaist_path}/annotations-xml-new/"
-kaist_images_path = f"{kaist_path}/images/"
-kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format
+kaist_sets_path = f"{kaist_path}/imageSets"
+kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
+kaist_images_path = f"{kaist_path}/images"
+kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated" # Output dataset in YOLO format
 
-kaist_cfg_template = f"{dataset_config_path}/dataset_condition_option.j2"
+templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
+                 'kaist': f"{dataset_config_path}/dataset_kaist_option.j2"
+                 }
 
 
 ################################
@@ -64,13 +66,14 @@ def dumpYaml(file_path, data):
 #################################
 #       Dinamic CFG stuff       #
 #################################
+import shutil
 
 condition_list_default = ['all','day', 'night']
 option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt', 'vths', 'vt', '4ch'] # 4ch
 model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = ['kaist_coco', 'kaist'] # Just list of availables :)
 
-def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None):
+def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None, dataset_tag = dataset_tags_default[0]):
     from jinja2 import Template
 
     global condition_list_default, option_list_default, kaist_yolo_dataset_path
@@ -81,11 +84,15 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     
     cfg_generated_files = []
     
-    tmp_cfg_path = os.getcwd() + "/tmp_cfg/"
+    tmp_cfg_path = os.getcwd() + "/tmp_cfg"
+    if os.path.exists(tmp_cfg_path):
+        shutil.rmtree(tmp_cfg_path)
     Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
-
-    with open(kaist_cfg_template) as file:
+    
+    
+    with open(templates_cfg[dataset_tag]) as file:
         template = Template(file.read())
+        log(f"[ConfigUtils::generateCFGFiles] Generate GCF files with template from {templates_cfg[dataset_tag]}")
 
     for condition in condition_list:
         for option in option_list:
@@ -144,7 +151,7 @@ def handleArguments():
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
-    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, nargs='*', default=dataset_tags_default[0],
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[0],
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
 
     

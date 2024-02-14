@@ -26,10 +26,6 @@ if __name__ == "__main__":
 
 from config_utils import kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path, log
 
-dataset_tag = 'kaist_coco' # 'kaist'
-# 'kaist_coco' is a version of kais that makes use of compatible coco tags
-# 'kaist' is regular kaist with its tagged classes
-
 lwir = "/lwir/"
 visible = "/visible/"
 
@@ -38,17 +34,15 @@ images_folder = "/images/"
 
 
 # TO check against default yolo, classes have to match the coco128.yaml
-class_data_coco = {  'person': 0,  'cyclist': 80, 'people': 81 } # people does not exist in coco dataset, use 80 as tag
+class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag
+              'kaist': {  'person': 0,  'cyclist': 1, 'people': 2 }
+             }
 
-def processXML(xml_path, output_paths):
-    global dataset_tag
-    global class_data_coco
+def processXML(xml_path, output_paths, dataset_format):
+    global class_data
+    global obj_class_dict
 
-    index = 0
-    if dataset_tag == 'kaist_coco':
-        obj_class_dict = class_data_coco
-    else:
-        obj_class_dict = {}
+    obj_class_dict = class_data[dataset_format]
 
     with open(xml_path) as xml:
         txt_data = ""
@@ -68,7 +62,7 @@ def processXML(xml_path, output_paths):
                 w_normalized = float(object.bndbox.w.cdata) / img_width
                 h_normalized = float(object.bndbox.h.cdata) / img_height
                 
-                if dataset_tag == 'kaist_coco':
+                if dataset_format == 'kaist_coco':
                     if obj_name == "people" or obj_name == "cyclist":
                         obj_name = "person"
                         
@@ -76,34 +70,29 @@ def processXML(xml_path, output_paths):
                     if obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
-                elif dataset_tag == 'kaist':
-                        if obj_name not in obj_class_dict:
-                            obj_class_dict[obj_name] = index
+                elif dataset_format == 'kaist':
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
-                index += 1
             for file in output_paths:
                 with open(file, 'w+') as output:
                     output.write(txt_data)
-        log("Class dict is now: {class_dict}")
+
 # Process line from dataset file so to paralelice process
-def processLine(new_dataset_label_paths, data_set_name, line):
+## IMPORTANT -> line has to be the last argument
+def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
     for data_type in (lwir, visible):
         line = line.replace("\n", "")
         path = line.split("/")
         path = (path[0], path[1], data_type, path[2])
-        root_label_path = kaist_annotation_path + line + ".xml"
-        # log(root_label_path)
-
         # labelling
 
         root_label_path = f"{kaist_annotation_path}/{line}.xml"
         output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
         # log(output_paths)
-        processXML(root_label_path, output_paths)
+        processXML(root_label_path, output_paths, dataset_format)
 
         # Create images
-        root_image_path = kaist_images_path + "/".join(path) + ".jpg"
+        root_image_path = kaist_images_path + "/" + "/".join(path) + ".jpg"
         new_image_path = f"{kaist_yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
         # log(new_image_path)
         # Create or update symlink if already exists
@@ -116,15 +105,17 @@ def processLine(new_dataset_label_paths, data_set_name, line):
             else:
                 raise e
             
+    # log(f"[KaistToYolo::processLine] Process {root_label_path}")
+
+            
 dataset_blacklist = []
 dataset_whitelist = ['train-all-02', 'train-all-20', 'test-all-01', 'train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
 def kaistToYolo(dataset_format = 'kaist_coco'):
-    global dataset_tag
-    dataset_tag = dataset_format
+    global class_data
 
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets
-    log("[KaistToYolo::KaistToYolo] Kaist To Yolo formatting in {dataset_format} format:")
+    log(f"[KaistToYolo::KaistToYolo] Kaist To Yolo formatting in '{dataset_format}' format:")
     for file in os.listdir(kaist_sets_path):
         file_path = os.path.join(kaist_sets_path, file)
         if os.path.isfile(file_path):
@@ -141,10 +132,10 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
             # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
 
             # Create new folder structure
-            new_dataset_label_paths = (kaist_yolo_dataset_path + data_set_name + lwir + label_folder,
-                                kaist_yolo_dataset_path + data_set_name + visible + label_folder)
-            new_dataset_kaist_images_paths = (kaist_yolo_dataset_path + data_set_name + lwir + images_folder,
-                                kaist_yolo_dataset_path + data_set_name + visible + images_folder)
+            new_dataset_label_paths = (kaist_yolo_dataset_path + "/" + data_set_name + lwir + label_folder,
+                                kaist_yolo_dataset_path + "/" + data_set_name + visible + label_folder)
+            new_dataset_kaist_images_paths = (kaist_yolo_dataset_path + "/" + data_set_name + lwir + images_folder,
+                                kaist_yolo_dataset_path + "/" + data_set_name + visible + images_folder)
             
             for folder in (new_dataset_label_paths + new_dataset_kaist_images_paths):
                 # log(folder)
@@ -154,14 +145,15 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
             with open(file_path, 'r') as file:
                 lines_list = [line.rstrip() for line in file]
                 with Pool() as pool:
-                    func = partial(processLine, new_dataset_label_paths, data_set_name)
+                    func = partial(processLine, new_dataset_label_paths, data_set_name, dataset_format)
                     pool.map(func, lines_list)
-                    
+
                 log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
             dataset_processed += 1
                         
     log(f"[KaistToYolo::KaistToYolo] Finished procesing {dataset_processed} datasets. Output datasests are located in {kaist_yolo_dataset_path}")
-    
+    log(f"[KaistToYolo::KaistToYolo] Class dict is now: {class_data[dataset_format]}")
+
     # yaml_data_path = "./dataset_config/yolo_obj_classes.yaml"
     # with open(yaml_data_path, "w+") as file:
     #     # Swap key and value to access by number later

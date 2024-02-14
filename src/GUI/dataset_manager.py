@@ -96,7 +96,7 @@ def background_load_data(dataset_key_tuple):
         data = getResultsYamlData(dataset)
         data.update(getCSVData(dataset))
         data.update(getArgsYamlData(dataset))
-        log(f"Reoaded data from RAW data for {dataset}")
+        log(f"Reloaded data from RAW data for {key} dataset")
 
     # log(f"\t· Parsed {dataset['key']} data")
     return data

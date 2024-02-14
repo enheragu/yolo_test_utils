@@ -69,6 +69,7 @@ class GUIPlotter(QMainWindow):
 
     def update_dataset_handler(self):
         self.dataset_handler = DataSetHandler(update_cache)
+        self.cached_option_action.setChecked(False) 
     
     def toggle_cached(self):
         global update_cache

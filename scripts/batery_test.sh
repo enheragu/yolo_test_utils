@@ -3,22 +3,13 @@
 ## Path of current file
 SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
-  SOURCE=$(readlink "$SOURCE")
-  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+    DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+    SOURCE=$(readlink "$SOURCE")
+    [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 export NTFY_TOPIC="eeha_training_test_battery"
-
-test_finished() {
-    curl \
-    -d "Finished execution of test cases: $1. Finished with status $2" \
-    -H "Title: Execution finished" \
-    -H "Priority: default" \
-    -H "Tags: +1" \
-    ntfy.sh/eeha_training_test_battery
-}
 
 
 # source $SCRIPT_PATH/train_val.sh -c 'night' 'day' -o 'hsvt' 'vths' 'vt' 'visible' 'lwir' 'rgbt' -m 'yolov8x.pt' -rm 'train' --pretrained True
@@ -53,29 +44,35 @@ test_finished() {
 # test_finished 'lwir pca_rgbt_3ch (good night candidates), with all conditions datasets' $?
 
 
+
+
 ## Variance between different training results
 for i in {1..10}
 do
-  source $SCRIPT_PATH/train_val.sh -c 'day' -o 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_day_vt_pretrained"
-  test_finished "Variance day vt test iteration $i" $?
+    source $SCRIPT_PATH/train_val.sh -c 'day' -o 'visible' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
+                                   --path-name "variance_day_visible_kaist_train" --dataset-format 'kaist'
 done
 
 for i in {1..10}
 do
-  source $SCRIPT_PATH/train_val.sh -c 'night' -o 'vt' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_night_vt_pretrained"
-  test_finished "Variance night vt test iteration $i" $?
+    source $SCRIPT_PATH/train_val.sh -c 'day' -o 'vt' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
+                                   --path-name "variance_day_vt_kaist_train" --dataset-format 'kaist'
 done
 
 for i in {1..10}
 do
-  source $SCRIPT_PATH/train_val.sh -c 'day' -o 'visible' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_day_visible_pretrained"
-  test_finished "Variance day visible test iteration $i" $?
+    source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
+                                   --path-name "variance_night_lwir_kaist_train" --dataset-format 'kaist'
 done
 
-for i in {1..10}
-do
-  source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yolov8x.pt' -rm 'train' --pretrained True --path-name "variance_night_lwir_pretrained"
-  test_finished "Variance night lwir test iteration $i" $?
-done
 
-test_finished "all script finished" ":)"
+battery_test_finished() {
+    curl \
+    -d "Finished execution of all test cases." \
+    -H "Title: ¡Execution finished!" \
+    -H "Priority: default" \
+    -H "Tags: +1,partying_face" \
+    ntfy.sh/eeha_training_test_battery
+}
+
+battery_test_finished

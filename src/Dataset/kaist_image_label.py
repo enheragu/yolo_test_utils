@@ -107,7 +107,7 @@ if __name__ == '__main__':
                 # print(xml_path)
 
                 for img_type in (lwir, visible):
-                    img_path = kaist_images_path + test_path + img_type
+                    img_path = kaist_images_path + "/" + test_path + img_type
                     output_image_path = img_path.replace(kaist_images_path,labeled_images)
                     
                     Path(output_image_path).mkdir(parents=True, exist_ok=True)

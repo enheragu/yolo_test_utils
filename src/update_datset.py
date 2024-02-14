@@ -68,13 +68,21 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
     # Check that YOLO version exists or create it
     setfolders = [ f.path for f in os.scandir(kaist_yolo_dataset_path) if f.is_dir() ]
     options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
+    
+    # log(f"{kaist_yolo_dataset_path = }")
+    # log(f"[UpdateDataset::checkKaistDataset] {setfolders = };\n{options_found =}\n")
+
     if 'lwir' not in options_found and 'visible' not in options_found:
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {kaist_yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
         kaistToYolo(dataset_format)
         # Update with new options
+        setfolders = [ f.path for f in os.scandir(kaist_yolo_dataset_path) if f.is_dir() ]
         options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     else:
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset found in {kaist_yolo_dataset_path}, no need to re-label it.")
+    
+    # log(f"{kaist_yolo_dataset_path = }")
+    # log(f"[UpdateDataset::checkKaistDataset] {setfolders = };\n{options_found =}\n")
 
     # Check that needed versions exist or create them
     for option in options:
@@ -89,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--option', action='store', dest='olist',
                         type=str, nargs='*', default=dataset_options.keys(),
                         help=f"Extra options of the datasets to be included (apart from downloaded lwir and visible). Available options are {dataset_options.keys()}. Usage: -c item1 item2, -c item3")
-    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, nargs='*', default=dataset_tags_default[0],
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[0],
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     
     opts = parser.parse_args()

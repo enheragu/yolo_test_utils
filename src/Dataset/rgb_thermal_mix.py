@@ -30,7 +30,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from config_utils import kaist_yolo_dataset_path, log
+from config_utils import kaist_yolo_dataset_path, log, bcolors
 
 lwir = "/lwir/"
 visible = "/visible/"
@@ -152,7 +152,7 @@ dataset_options.update(fa_pca_options)
 
 def make_dataset(option):
     if option not in dataset_options:
-        log(f"Option {option} not found in dataset generation options. Not generating.")
+        log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
     
     symlink_created = 0
