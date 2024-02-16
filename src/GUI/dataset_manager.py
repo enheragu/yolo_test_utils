@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import shutil
+import inspect
 
 from datetime import datetime
 
@@ -56,7 +57,7 @@ def getResultsYamlData(dataset):
                         'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag']
                         }
     except KeyError as e:
-        log(f"Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
+        log(f"[{inspect.currentframe().f_code.co_name}] Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
         
     return data_filtered
                         
@@ -78,7 +79,7 @@ def getArgsYamlData(dataset):
             data = parseYaml(arg_path)
             data_filtered = {'batch': data['batch'], 'deterministic': data['deterministic']}
         except KeyError as e:
-            log(f"Missing key in Args data dict ({dataset['key']}): {e}", bcolors.ERROR)
+            log(f"[{inspect.currentframe().f_code.co_name}] Missing key in Args data dict ({dataset['key']}): {e}", bcolors.ERROR)
     else:
         log(f"\t· Could not parse Args file file associated to {dataset['key']}", bcolors.ERROR)
     

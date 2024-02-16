@@ -13,6 +13,7 @@ from datetime import datetime
 import csv
 import math
 
+import numpy as np
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QAction
@@ -99,7 +100,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self):
-
+        # PY is an interpolated versino to plot it with a consistent px value<
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
@@ -111,9 +112,6 @@ class TrainComparePlotter(BaseClassPlotter):
         # Plotear los datos de los datasets seleccionados
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
-            if canvas_key not in plot_data:
-                continue
-
             # Limpiar el gráfico anterior
             xlabel = plot_data[canvas_key]['xlabel']
             ylabel = plot_data[canvas_key]['ylabel']
@@ -129,15 +127,21 @@ class TrainComparePlotter(BaseClassPlotter):
                     best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
 
                     px = data['pr_data_best']['px']
-                    py = [data['pr_data_best'][py_tag]]
+                    py = data['pr_data_best'][py_tag]
+                        
                     names = data['pr_data_best']['names']
                     model = data['validation_best']['model'].split("/")[-1]
-                    for py_list in py:
-                        for i, y in enumerate(py_list):
-                            ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+                    for i, y in enumerate(py):
+                        # Filter by max recall values so to not have interpolated diagram
+                        if canvas_key == 'PR Curve':
+                            r = data['pr_data_best']['r'][i]
+                            max_r = max(r)
+                            index_max = next((i for i, x in enumerate(px) if x > max_r), None)
+                            y = y[:index_max] + [np.nan] * (len(y) - index_max)
+                        ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
 
                 except KeyError as e:
-                    log(f"Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                    log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
 
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
@@ -159,4 +163,4 @@ class TrainComparePlotter(BaseClassPlotter):
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
 
-        log(f"Parsing and plot PR-P-R-F1 graphs finished")
+        log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")

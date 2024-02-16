@@ -59,7 +59,7 @@ class TrainCSVDataTable(QWidget):
             self.figure_tab_widget.saveFigures(file_name)
           
             with open(f'{file_name}.csv', 'w', newline='') as file:
-                log(f"Summary CVS data in stored {file_name}.csv")
+                log(f"[{self.__class__.__name__}] Summary CVS data in stored {file_name}.csv")
                 writer = csv.writer(file)
                 writer.writerows(self.csv_data)
 
@@ -77,7 +77,7 @@ class TrainCSVDataTable(QWidget):
                     for key in keys:
                         data[key] = self.dataset_handler[key]
             else:
-                log(f"CheckBox object instanced not recogniced.", bcolors.ERROR)
+                log(f"[{self.__class__.__name__}] CheckBox object instanced not recogniced.", bcolors.ERROR)
         return data
 
     def load_table_data(self):
@@ -128,7 +128,7 @@ class TrainCSVDataTable(QWidget):
                                     test_title,
                                     key]]
             except KeyError as e:
-                log(f"Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                log(f"[{self.__class__.__name__}] Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
 
         self.csv_table.clear()
         self.csv_table.setRowCount(0)
@@ -173,7 +173,7 @@ class TrainCSVDataTable(QWidget):
         self.csv_table.resizeColumnsToContents()
         self.csv_table.resizeRowsToContents()
         
-        log(f"CSV data display completed")
+        log(f"[{self.__class__.__name__}] CSV data display completed")
 
     def sort_table(self, logical_index):
         # Manejar el evento de clic en el encabezado para ordenar la tabla
