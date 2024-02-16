@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
+"""
+    This file defines a class to handle scheduling different test options to be later executed.
+    Makes use of different set of files to store these tests and of a FileLock class to handle 
+    safe access to them.
+
+    Each test stored is composed by a list of options that will be later retrieved and executed.
+
+    When executed as a main file (./test_scheduler.py) it tries to add given options (if provided)
+    to the pending list.
+"""
+
 import os
 import fcntl
 import yaml
@@ -8,7 +19,7 @@ import shutil
 
 from config_utils import log, bcolors
 
-# Definir los nombres de los archivos YAML
+# Important path and file names used by this module
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
 pending_file_default = f'{cache_path}/pending.yaml'
 pending_stopped_default = f'{cache_path}/pending_stopped.yaml'
@@ -16,6 +27,12 @@ executing_file_default = f'{cache_path}/executing.yaml'
 finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
 stop_env_var = "EEHA_TEST_STOP_REQUESTED"
+
+"""
+    Class that handles safe lock/unlock mechanism for files. It is set
+    so that it locks when created and unlocks when the environment is
+    left and the variable is destroyed
+"""
 
 class FileLock:
     def __init__(self, file):
