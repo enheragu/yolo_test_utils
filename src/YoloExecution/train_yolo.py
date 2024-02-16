@@ -62,7 +62,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['data'] = dataset
             args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
-            args['epochs'] = 1
+            args['epochs'] = 500
             args['batch'] = 16
             # args['save'] = False
             args['save_txt'] = True

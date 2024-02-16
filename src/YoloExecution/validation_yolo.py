@@ -79,7 +79,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             log("-------------------------------------------------")
            
     clearCFGFIles(dataset_config_list)
-    log()
+    # log()
     log(f"Processed {validation_iteration} datasets and took {datetime.now() - start_time} (h/min/s)")
 
 

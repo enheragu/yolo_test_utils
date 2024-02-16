@@ -3,6 +3,8 @@
 '''
 
 import os
+import sys
+
 from pathlib import Path
 
 from datetime import datetime
@@ -12,6 +14,7 @@ repo_path = f"{home}/eeha/yolo_test_utils"
 
 dataset_config_path = f"{repo_path}/yolo_config"
 yolo_output_path = f"{repo_path}/runs/detect"
+yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
 
 ####################################
 #     Datasets path and output     #
@@ -21,7 +24,7 @@ kaist_path = f"{home}/eeha/kaist-cvpr15"
 kaist_sets_path = f"{kaist_path}/imageSets"
 kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
 kaist_images_path = f"{kaist_path}/images"
-kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated" # Output dataset in YOLO format
+kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format
 
 templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
                  'kaist': f"{dataset_config_path}/dataset_kaist_option.j2"
@@ -124,7 +127,7 @@ def clearCFGFIles(cfg_generated_files):
 ###################################
 from argparse import ArgumentParser
 
-def handleArguments():
+def handleArguments(argument_list = sys.argv[1:]):
     global condition_list_default, option_list_default, model_list_default
     arg_dict = {}
     parser = ArgumentParser(description="Handle operations with YOLOv8, both Validation and Training. Tests will be executed iteratively from all combinations of the configurations provided (condition, option and model).")
@@ -153,9 +156,10 @@ def handleArguments():
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
     parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[0],
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
+    parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
 
     
-    opts = parser.parse_args()
+    opts = parser.parse_args(argument_list)
 
     condition_list_default = list(opts.clist)
     option_list_default = list(opts.olist)
