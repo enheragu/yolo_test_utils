@@ -24,7 +24,8 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from config_utils import kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path, log
+from config_utils import kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
+from log_utils import log, bcolors
 
 lwir = "/lwir/"
 visible = "/visible/"
@@ -70,7 +71,8 @@ def processXML(xml_path, output_paths, dataset_format):
                     if obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
-                elif dataset_format == 'kaist':
+                # For now Kaist format takes only into account persons
+                elif dataset_format == 'kaist' and obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
             for file in output_paths:

@@ -30,7 +30,8 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from config_utils import kaist_yolo_dataset_path, log, bcolors
+from config_utils import kaist_yolo_dataset_path
+from log_utils import log, bcolors
 
 lwir = "/lwir/"
 visible = "/visible/"

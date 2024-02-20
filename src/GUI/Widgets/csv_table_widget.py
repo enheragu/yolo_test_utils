@@ -21,7 +21,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
-from config_utils import log, bcolors
+from log_utils import log, bcolors
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 
 class TrainCSVDataTable(QWidget):
@@ -159,7 +159,7 @@ class TrainCSVDataTable(QWidget):
                 if isinstance(next_color, str):
                     next_color = to_rgba(next_color)
                 alpha_value = 20  # transparency range between 0 and 255
-                cell_color = QColor(next_color[0] * 255, next_color[1] * 255, next_color[2] * 255, alpha_value)
+                cell_color = QColor(int(next_color[0] * 255), int(next_color[1] * 255), int(next_color[2] * 255), alpha_value)
                 row_color[row_tag] = cell_color
 
             for col_position, col_value in enumerate(row_data):

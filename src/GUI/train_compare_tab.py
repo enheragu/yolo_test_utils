@@ -23,7 +23,8 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 import mplcursors
 
-from config_utils import log, bcolors, parseYaml
+from config_utils import parseYaml
+from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
@@ -42,7 +43,7 @@ class TrainComparePlotter(BaseClassPlotter):
         self.options_layout.addWidget(self.buttons_widget,1)
         self.buttons_layout = QGridLayout(self.buttons_widget)
 
-        self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler)
+        self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
 
         ## Create a button to select all checkboxes from a given condition

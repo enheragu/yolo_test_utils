@@ -24,7 +24,8 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 import mplcursors
 
-from config_utils import log, bcolors, parseYaml
+from config_utils import parseYaml
+from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
@@ -38,10 +39,10 @@ class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
         super().__init__(dataset_handler, tab_keys)
 
-        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", exclude = None, title = f"Variance analysis sets:")
-        self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,1)
+        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", exclude = None, title = f"Variance analysis sets:", title_filter=["variance_"])
+        self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
-        self.dataset_train_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler)
+        self.dataset_train_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_train_checkboxes,3)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
@@ -99,7 +100,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # xlabel = canvas_key
                 # ylabel = "Probability"
                 
-
+                bin_size = 7
                 ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
@@ -113,8 +114,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                     
                     # log(f"{group}: {len(data_y) = }")
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
-                    bin_size = 7
-                    ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}; bin = {bin_size}', color=colors[index], edgecolor=colors[index])
+                    ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=colors[index], edgecolor=colors[index])
                     
                     mean = np.mean(data_y)
                     std = np.std(data_y)
@@ -127,7 +127,11 @@ class VarianceComparePlotter(BaseClassPlotter):
 
                     ax.plot(x, y, linestyle='--', linewidth=2, color=colors[index])
                 
-                ax.set_title(f'{xlabel} distribution')
+                ax.annotate(f'Note: Each set of {canvas_key} data is discretized into {bin_size} bins.',
+                                xy = (0.995, 0.015), xycoords='axes fraction',
+                                ha='right', va="center", fontsize=15)
+
+                ax.set_title(f'{canvas_key} distribution')
             else:
                 if canvas_key not in plot_data:
                     continue
@@ -225,15 +229,15 @@ class VarianceComparePlotter(BaseClassPlotter):
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
             
+                # Use a Cursor to interactively display the label for a selected line.
+                self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)
+                self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
+                    text=f"{sel.artist.get_label().split(' ')[0]}\n{xlabel}: {sel.target[0]:.2f}, {ylabel}: {sel.target[1]:.2f}",
+                    bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
+                ))
+
             # Configurar leyenda
             ax.legend()
-
-            # Use a Cursor to interactively display the label for a selected line.
-            self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)
-            self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
-                text=f"{sel.artist.get_label().split(' ')[0]}\n{xlabel}: {sel.target[0]:.2f}, {ylabel}: {sel.target[1]:.2f}",
-                bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
-            ))
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()

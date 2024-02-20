@@ -21,7 +21,8 @@ import concurrent.futures
 import csv
 
 from config_utils import yolo_output_path as test_path
-from config_utils import log, bcolors, parseYaml, dumpYaml
+from config_utils import parseYaml, dumpYaml
+from log_utils import log, bcolors
 
 data_file_name = "results.yaml"
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"

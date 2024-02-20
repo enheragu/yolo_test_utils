@@ -24,7 +24,8 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 import mplcursors
 
-from config_utils import log, bcolors, parseYaml
+from config_utils import parseYaml
+from log_utils import log, bcolors
 from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 from GUI.Widgets.figure_tab_widget import PlotTabWidget

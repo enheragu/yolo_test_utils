@@ -21,7 +21,8 @@ from PyQt5.QtWidgets import QHBoxLayout, QWidget, QPushButton, QFileDialog, QScr
 
 import mplcursors
 
-from config_utils import log, bcolors, parseYaml
+from config_utils import parseYaml
+from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.base_tab import BaseClassPlotter
 from GUI.dataset_manager import DataSetHandler

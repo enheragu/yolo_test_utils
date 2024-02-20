@@ -15,8 +15,9 @@ class DatasetCheckBoxWidget(QScrollArea):
     """
         :param: include  Str pattern of tests that will be included in the checbox widget
                 as 'train_' or 'variance_'
+        :param: title_filter: list of substrings to filter from Group title
     """
-    def __init__(self, widget, dataset_handler, include = None, exclude = "variance_", max_rows = max_rows_checkboxes):
+    def __init__(self, widget, dataset_handler, include = None, exclude = "variance_", max_rows = max_rows_checkboxes, title_filter = []):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
@@ -44,7 +45,10 @@ class DatasetCheckBoxWidget(QScrollArea):
             if group_name != last_group:
                 iter = 0
                 last_group = group_name
-                group_dict[group_name] = QGroupBox(f"Model: {group_name}")
+                title_name = group_name
+                for filter in title_filter:
+                    title_name = title_name.replace(filter, "")
+                group_dict[group_name] = QGroupBox(f"Model: {title_name}")
                 group_dict[group_name].setLayout(QGridLayout())
                 group_dict[group_name].setStyleSheet("font-weight: bold;")
                 scroll_layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
@@ -86,7 +90,7 @@ class GroupCheckBoxWidget(QScrollArea):
         :param: include  Str pattern of tests that will be included in the checbox widget
                 as 'train_' or 'variance_'
     """
-    def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes):
+    def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes, title_filter = []):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
@@ -116,7 +120,10 @@ class GroupCheckBoxWidget(QScrollArea):
                 (exclude and exclude in group_name): 
                     continue
                     
-                checkbox = QCheckBox(group_name)
+                title = group_name
+                for filter in title_filter:
+                    title = title.replace(filter, "")
+                checkbox = QCheckBox(title)
                 checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
                 self.check_box_dict[group_name] = checkbox
                 row = iter % max_rows
