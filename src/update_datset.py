@@ -19,7 +19,8 @@ from argparse import ArgumentParser
 from Dataset.kaist_to_yolo_annotations import kaistToYolo
 from Dataset.rgb_thermal_mix import dataset_options, make_dataset
 
-from config_utils import kaist_path, kaist_yolo_dataset_path, log, dataset_tags_default
+from config_utils import kaist_path, kaist_yolo_dataset_path, dataset_tags_default
+from log_utils import log, bcolors
 
 
 def getKaistData():

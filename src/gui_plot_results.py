@@ -21,10 +21,14 @@ import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAction, QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
 
-
 import mplcursors
 
-from config_utils import log, bcolors, parseYaml
+sys.path.append('.')
+import src # Imports __init__.py defined in paralel to this script
+
+
+from config_utils import parseYaml
+from log_utils import log, bcolors
 from GUI.dataset_manager import DataSetHandler
 from GUI.train_compare_tab import TrainComparePlotter
 from GUI.train_eval_tab import TrainEvalPlotter

@@ -47,23 +47,24 @@ export NTFY_TOPIC="eeha_training_test_battery"
 
 
 ## Variance between different training results
-for i in {1..10}
+for i in {1..2}
 do
     source $SCRIPT_PATH/train_val.sh -c 'day' -o 'visible' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
                                    --path-name "variance_day_visible_kaist_train" --dataset-format 'kaist'
 done
 
-for i in {1..10}
-do
-    source $SCRIPT_PATH/train_val.sh -c 'day' -o 'vt' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
-                                   --path-name "variance_day_vt_kaist_train" --dataset-format 'kaist'
-done
+# for i in {1..10}
+# do
+#     source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
+#                                    --path-name "variance_night_lwir_kaist_train" --dataset-format 'kaist'
+# done
 
-for i in {1..10}
-do
-    source $SCRIPT_PATH/train_val.sh -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
-                                   --path-name "variance_night_lwir_kaist_train" --dataset-format 'kaist'
-done
+# for i in {1..10}
+# do
+#     source $SCRIPT_PATH/train_val.sh -c 'day' -o 'vt' -m 'yoloCh3x.yaml' -rm 'train' --pretrained False \
+#                                    --path-name "variance_day_vt_kaist_train" --dataset-format 'kaist'
+# done
+
 
 
 battery_test_finished() {

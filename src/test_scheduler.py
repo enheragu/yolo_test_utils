@@ -13,11 +13,15 @@
 """
 
 import os
+import sys
 import fcntl
 import yaml
 import shutil
 
-from config_utils import log, bcolors
+sys.path.append('.')
+import src # Imports __init__.py defined in paralel to this script
+
+from log_utils import log, bcolors
 
 # Important path and file names used by this module
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
