@@ -14,10 +14,11 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from config_utils import dataset_config_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
+from config_utils import dataset_config_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
+from log_utils import log, bcolors
 
 
-def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0]):
+def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0], batch = 16):
     train_iteration = 0
 
     start_time = datetime.now()
@@ -63,7 +64,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
             args['epochs'] = 500
-            args['batch'] = 16
+            args['batch'] = batch
             # args['save'] = False
             args['save_txt'] = True
             args['verbose'] = True

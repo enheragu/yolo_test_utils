@@ -11,7 +11,8 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from config_utils import yolo_output_path, log, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, dataset_tags_default
+from config_utils import yolo_output_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, dataset_tags_default
+from log_utils import log, bcolors
 
     
 def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0]):

@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# encoding: utf-8
+
 '''
     File with variables configuring path an setup info and utils
 '''
@@ -8,6 +11,7 @@ import sys
 from pathlib import Path
 
 from datetime import datetime
+from log_utils import log, bcolors
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -29,28 +33,6 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset 
 templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
                  'kaist': f"{dataset_config_path}/dataset_kaist_option.j2"
                  }
-
-
-################################
-#     Format Logging stuff     #
-################################
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    ERROR = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
-def log(msg = "", color = bcolors.OKCYAN):
-    timetag = datetime.utcnow().strftime('%F %T.%f')[:-3]
-    print(f"{color}[{timetag}] {msg}{bcolors.ENDC}")
-
 
 ################################
 #      YAML parsing stuff      #
@@ -74,7 +56,7 @@ import shutil
 condition_list_default = ['all','day', 'night']
 option_list_default = ['visible', 'lwir', 'hsvt', 'rgbt', 'vths', 'vt', '4ch'] # 4ch
 model_list_default = ['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
-dataset_tags_default = ['kaist_coco', 'kaist'] # Just list of availables :)
+dataset_tags_default = ['kaist', 'kaist_coco'] # Just list of availables :)
 
 def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None, dataset_tag = dataset_tags_default[0]):
     from jinja2 import Template
@@ -150,13 +132,14 @@ def handleArguments(argument_list = sys.argv[1:]):
                         type=bool, default=False, 
                         help="Whether to use a pretrained model.")
     parser.add_argument('-rm','--run-mode', action='store', dest='run_mode', metavar='MODE',
-                        type=str, nargs='*', default=['val', 'train'],
+                        type=str, nargs='*', default=['train'], #['val', 'train'],
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
     parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[0],
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
+    parser.add_argument('--batch', dest='batch', type=int, default=16, help='Batch size when training.')
 
     
     opts = parser.parse_args(argument_list)
@@ -169,5 +152,15 @@ def handleArguments(argument_list = sys.argv[1:]):
     if opts.dformat not in dataset_tags_default:
         raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")
 
+    if "EEHA_TRAIN_DEVICE" in os.environ:
+        device_value = os.getenv("EEHA_TRAIN_DEVICE")
+        if device_value.isdigit():
+            device_number = int(device_value)
+            log(f"Device has been configured through ENV(EEHA_TRAIN_DEVICE) to {device_number}. Argparse had previously set it to {opts.device}.")
+            opts.device = device_number
+        else:
+            raise TypeError(f"Invalid device set thorugh ENV(EEHA_TRAIN_DEVICE). Is not a number: {device_number}")
+
     log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};\n\t· run mode: {run_modes}")
+    log(f"Extra options are: {opts}")
     return condition_list_default, option_list_default, model_list_default, opts
