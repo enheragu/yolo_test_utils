@@ -83,7 +83,7 @@ class TrainCSVDataTable(QWidget):
     def load_table_data(self):
         # Limpiar la tabla antes de cargar nuevos datos
 
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Num Classes', 'Dataset', 'Date', 'Title', 'Group Key']]
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Num Classes', 'Dataset', 'Device', 'Date', 'Title', 'Group Key']]
 
         for key, data in self.getDataDictToPlot().items():
             try:
@@ -124,6 +124,7 @@ class TrainCSVDataTable(QWidget):
                                     data_class['Instances'], 
                                     data['n_classes'],
                                     data['dataset_tag'],
+                                    data['device_type'],
                                     date_tag,
                                     test_title,
                                     key]]

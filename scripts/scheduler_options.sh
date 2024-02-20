@@ -44,7 +44,7 @@ function eeha_stop_scheduler() {
 
 function eeha_run_gui() {
     source $EEHA_SCHEDULER_SCRIPT_PATH/../../venv/bin/activate
-    (cd $EEHA_SCHEDULER_SCRIPT_PATH/.. && ./src/gui_plot_results.py &)
+    (cd $EEHA_SCHEDULER_SCRIPT_PATH/.. && ./src/gui_plot_results.py $@ &)
 }
 
 function eeha_stop_gui() {

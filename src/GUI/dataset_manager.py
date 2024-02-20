@@ -25,6 +25,7 @@ from config_utils import parseYaml, dumpYaml
 from log_utils import log, bcolors
 
 data_file_name = "results.yaml"
+ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 
 def parseCSV(file_path):
@@ -45,7 +46,6 @@ def getResultsYamlData(dataset):
     data_filtered = {}
     try:
         ## FILTER UNUSED DATA TO AVOID MEMORY CONSUMPTION
-
         last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
         last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
 
@@ -55,7 +55,8 @@ def getResultsYamlData(dataset):
 
         data_filtered = {'validation_best': data[last_val_tag], 'pr_data_best': data[last_fit_tag],
                         'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],
-                        'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag']
+                        'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag'],
+                        'device_type': data['system_data']['device_type']
                         }
     except KeyError as e:
         log(f"[{inspect.currentframe().f_code.co_name}] Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
@@ -111,14 +112,25 @@ def background_save_cache(dataset_key_tuple):
     dumpYaml(filename, dataset)
     # log(f"Stored data cache file in {filename}")
 
-def find_results_file(search_path = test_path, file_name = data_file_name):
+"""
+    :param: ignored ignore or not the folders with ignore files. False to process all
+        even with ignore file
+"""
+def find_results_file(search_path = test_path, file_name = data_file_name, ignored = True):
     log(f"Search all results.yaml files")
 
     dataset_info = {}
     for root, dirs, files in os.walk(search_path):
+
+        if ignore_file_name in files and ignored:
+            log(f"Path with {ignore_file_name} file is set to be ignored: {root}.", bcolors.WARNING)
+            dirs[:] = [] # Clear subdir list to avoid getting into them
+            continue
+
         if file_name in files:
             abs_path = os.path.join(root, file_name)
             if "validate" in abs_path: # Avoid validation tests, only training
+                log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
                 continue
             name = abs_path.split("/")[-3] + "/" + abs_path.split("/")[-2]
             dataset_info[name] = {'name': abs_path.split("/")[-2], 'path': abs_path, 'model': abs_path.split("/")[-3], 'key': name}

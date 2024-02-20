@@ -109,6 +109,7 @@ def handleArguments():
     args = parser.parse_args()
 
     update_cache = args.update_cache
+    log(f"Update cache flag is: {update_cache}")
 
 def main():
     app = QApplication(sys.argv)
