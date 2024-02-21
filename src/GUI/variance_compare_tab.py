@@ -4,33 +4,17 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
-import os
-import sys
-
-from datetime import datetime
-
-
-import csv
-import math
 import numpy as np
 
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QAction
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
-from scipy.ndimage.filters import gaussian_filter1d
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
 
-from config_utils import parseYaml
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
-from GUI.Widgets.figure_tab_widget import PlotTabWidget
-from GUI.Widgets.numeric_slider_input_widget import NumericSliderInputWidget
 from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
 tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'mAP50', 'mAP50-95']
@@ -46,15 +30,15 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.options_layout.insertWidget(0, self.dataset_train_checkboxes,3)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
-        self.deselect_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_train_checkboxes.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
 
         self.plot_button = QPushButton(" Generate Plot ", self)
-        self.plot_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
 
         self.save_button = QPushButton(" Save Output ", self)
-        self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
         self.buttons_layout.addWidget(self.deselect_all_button)
@@ -129,7 +113,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 
                 ax.annotate(f'Note: Each set of {canvas_key} data is discretized into {bin_size} bins.',
                                 xy = (0.995, 0.015), xycoords='axes fraction',
-                                ha='right', va="center", fontsize=15)
+                                ha='right', va="center", fontsize=8)
 
                 ax.set_title(f'{canvas_key} distribution')
             else:

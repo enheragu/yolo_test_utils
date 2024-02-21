@@ -5,8 +5,8 @@
     Creates a widget with a title, a numeric input box and an associated slider
 """
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QLabel, QSlider
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QLabel, QSlider
 
 class NumericSliderInputWidget(QWidget):
     def __init__(self, label_text='', min = 0, max = 4, parent=None):

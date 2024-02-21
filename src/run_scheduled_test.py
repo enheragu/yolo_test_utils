@@ -4,17 +4,15 @@
 import os
 import sys
 import traceback
-from datetime import datetime
+
+from Dataset import checkKaistDataset
+from test_scheduler import TestQueue
+
+from log_utils import Logger, log, log_ntfy, logCoolMessage, bcolors
+from config_utils import handleArguments, yolo_outpu_log_path
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
-
-
-from config_utils import handleArguments, yolo_outpu_log_path
-from log_utils import Logger, log, log_ntfy, logCoolMessage, bcolors
-from update_datset import checkKaistDataset
-from test_scheduler import TestQueue
-
 
 if __name__ == '__main__':
     logger = Logger(yolo_outpu_log_path)

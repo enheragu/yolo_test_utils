@@ -7,8 +7,8 @@
 
 import matplotlib.pyplot as plt
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QTabWidget, QVBoxLayout
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 class PlotTabWidget(QTabWidget):
@@ -22,11 +22,10 @@ class PlotTabWidget(QTabWidget):
         # Crear pestañas para cada conjunto de datos
         for key in tab_keys:
             # Create a Matplotlib widget
-            plt.rcParams.update({'font.size': 22})
             self.figure[key] = plt.figure()
             ax = self.figure[key].add_subplot(111)
             ax.axis('off')
-            ax.text(0.5,0.5, 'Select datasets to plot', ha='center', va='center', fontsize=32, color='gray')
+            ax.text(0.5,0.5, 'Select datasets to plot', ha='center', va='center', fontsize=28, color='gray')
             self.tab_canvas[key] = FigureCanvas(self.figure[key])
             
             # Agregar el lienzo a la pestaña

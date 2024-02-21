@@ -5,8 +5,8 @@
     Creates a widget with slide view that contains all checkboxes with dataset parsed
 """
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 max_rows_checkboxes = 5
 
@@ -21,7 +21,7 @@ class DatasetCheckBoxWidget(QScrollArea):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Hacerlo redimensionable solo horizontalmente
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # Hacerlo redimensionable solo horizontalmente
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()
@@ -94,7 +94,7 @@ class GroupCheckBoxWidget(QScrollArea):
         super().__init__(widget)
 
         self.setWidgetResizable(True)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Hacerlo redimensionable solo horizontalmente
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Hacerlo redimensionable solo horizontalmente
 
         # Crear un widget que contendrá los grupos de checkboxes
         scroll_widget = QWidget()

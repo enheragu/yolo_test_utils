@@ -4,30 +4,13 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
-import os
-import sys
-
-from datetime import datetime
-
-
-import csv
-import math
-
-import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QAction
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 from scipy.ndimage.filters import gaussian_filter1d
 
-import mplcursors
-
-from config_utils import parseYaml
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
-from GUI.Widgets.figure_tab_widget import PlotTabWidget
 
 tab_keys = ['Train Loss Ev.', 'Val Loss Ev.', 'PR Evolution', 'mAP Evolution' ]
 
@@ -39,15 +22,15 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
-        self.deselect_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(self.dataset_checkboxes.deselect_all)
 
         self.plot_button = QPushButton(" Generate Plot ", self)
-        self.plot_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
 
         self.save_button = QPushButton(" Save Output ", self)
-        self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
         self.buttons_layout.addWidget(self.deselect_all_button)

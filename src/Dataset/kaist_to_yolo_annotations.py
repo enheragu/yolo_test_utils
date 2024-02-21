@@ -11,10 +11,8 @@
     · Class numbers are zero-indexed (start from 0).
 """
 import untangle
-import yaml
 import os, errno
 from pathlib import Path
-import shutil
 
 from multiprocessing.pool import Pool
 from functools import partial
@@ -24,7 +22,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from config_utils import kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
+from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
 from log_utils import log, bcolors
 
 lwir = "/lwir/"
@@ -33,11 +31,6 @@ visible = "/visible/"
 label_folder = "/labels/"
 images_folder = "/images/"
 
-
-# TO check against default yolo, classes have to match the coco128.yaml
-class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag
-              'kaist': {  'person': 0,  'cyclist': 1, 'people': 2 }
-             }
 
 def processXML(xml_path, output_paths, dataset_format):
     global class_data
@@ -110,8 +103,6 @@ def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
     # log(f"[KaistToYolo::processLine] Process {root_label_path}")
 
             
-dataset_blacklist = []
-dataset_whitelist = ['train-all-02', 'train-all-20', 'test-all-01', 'train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
 def kaistToYolo(dataset_format = 'kaist_coco'):
     global class_data
 
