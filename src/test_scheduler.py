@@ -18,10 +18,10 @@ import fcntl
 import yaml
 import shutil
 
+from log_utils import log, bcolors
+
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
-
-from log_utils import log, bcolors
 
 # Important path and file names used by this module
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
@@ -120,7 +120,7 @@ class TestQueue:
         next_test = self._popFirst(self.pending_file)
 
         FileLock(self.executing_file)
-        self._save_file(self.executing_file, next_test)
+        self._save_file(self.executing_file, [next_test])
 
         return next_test
 
@@ -145,7 +145,6 @@ class TestQueue:
 
 ## TEST MODULE
 def test():
-    import sys
     test_queue = TestQueue()
     print(f"[TEST] Add to test queue: {sys.argv[1:]}")
     test_queue.add_new_test(sys.argv[1:])
@@ -174,7 +173,6 @@ def test():
     
     
 if __name__ == '__main__':
-    import sys
     test_queue = TestQueue()
 
     if len(sys.argv) > 1:

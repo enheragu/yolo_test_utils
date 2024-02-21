@@ -15,13 +15,9 @@ import math
 import numpy as np
 
 import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QWidget, QPushButton, QFileDialog, QScrollArea, QSizePolicy, QVBoxLayout, QAction
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
-
-import mplcursors
-
-from config_utils import parseYaml
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.base_tab import BaseClassPlotter
@@ -39,19 +35,19 @@ class CSVTablePlotter(BaseClassPlotter):
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
         self.select_all_button = QPushButton(" Select All ", self)
-        self.select_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_button.clicked.connect(self.dataset_variance_checkboxes.select_all)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
-        self.deselect_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(self.dataset_variance_checkboxes.deselect_all)
 
         self.plot_button = QPushButton(" Generate Table ", self)
-        self.plot_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
 
         self.save_button = QPushButton(" Save Output ", self)
-        self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
         self.buttons_layout.addWidget(self.select_all_button)
@@ -73,3 +69,4 @@ class CSVTablePlotter(BaseClassPlotter):
 
     def render_data(self):
         self.csv_tab.load_table_data()
+        log(f"[{self.__class__.__name__}] Table updated")

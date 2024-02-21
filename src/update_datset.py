@@ -8,19 +8,16 @@
 
 import os
 
+from argparse import ArgumentParser
 from pathlib import Path
 import requests
 import xtarfile as tarfile
-from clint.textui import progress
 from tqdm import tqdm
+from clint.textui import progress
 
-from argparse import ArgumentParser
-
-from Dataset.kaist_to_yolo_annotations import kaistToYolo
-from Dataset.rgb_thermal_mix import dataset_options, make_dataset
-
-from config_utils import kaist_path, kaist_yolo_dataset_path, dataset_tags_default
 from log_utils import log, bcolors
+from Dataset import kaistToYolo, dataset_options, make_dataset
+from config_utils import kaist_path, kaist_yolo_dataset_path, dataset_tags_default
 
 
 def getKaistData():

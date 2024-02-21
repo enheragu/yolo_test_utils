@@ -7,7 +7,6 @@ import os
 from datetime import datetime
 import logging
 
-
 # """
 #     Needs to close the file each time so that it not collides with others
 # """

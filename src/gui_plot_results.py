@@ -1,39 +1,25 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
-## NEEDS PYQT 5: pip install PyQt5  
+## NEEDS PYQT 5: pip install PyQt6  
 ## Using "export QT_DEBUG_PLUGINS=1" to see pluggin issues. Some might be missing. Install with apt
 ## Also needs to install lib: sudo apt install libxcb-cursor0
 ## might need an update -> pip install --upgrade pip
 
 # If orphans are left behind just use:
 # -> kill $(ps -aux | grep "gui_plot" | awk '{print $2}')
-import os
+
 import sys
-
-from datetime import datetime
-
 import argparse
-import csv
-import math
 
-import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QAction, QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout
 
-import mplcursors
+from log_utils import log, bcolors
+from GUI import DataSetHandler, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
-
-
-from config_utils import parseYaml
-from log_utils import log, bcolors
-from GUI.dataset_manager import DataSetHandler
-from GUI.train_compare_tab import TrainComparePlotter
-from GUI.train_eval_tab import TrainEvalPlotter
-from GUI.variance_compare_tab import VarianceComparePlotter
-from GUI.csv_table_tab import CSVTablePlotter
 
 ## Data YAML cached for faster data loading
 # Update means that previous will be overwriten
@@ -42,6 +28,7 @@ update_cache = False
 class GUIPlotter(QMainWindow):
     def __init__(self):
         super().__init__()
+        
         self.setWindowTitle("Training result analyzer")
         self.setGeometry(100, 100, 1400, 1000)
 
@@ -66,8 +53,10 @@ class GUIPlotter(QMainWindow):
         
         train_eval_tab = CSVTablePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Table")
-        
-        
+
+        train_eval_tab = SchedulerHandlerPlotter()
+        self.tab_widget.addTab(train_eval_tab, f"Scheduled tests")
+                
         self.tab_widget.currentChanged.connect(self.update_view_menu)
         self.update_view_menu()  # Actualizar el menú "View" cuando se abre la ventana
 
@@ -113,10 +102,14 @@ def handleArguments():
 
 def main():
     app = QApplication(sys.argv)
+    font = QApplication.font()
+    font.setPointSize(10)  
+    app.setFont(font)
+
     handleArguments()
     window = GUIPlotter()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     log(f"Start graph interface")

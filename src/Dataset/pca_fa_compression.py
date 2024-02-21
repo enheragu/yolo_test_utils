@@ -7,12 +7,12 @@
 """
 
 import numpy as np
-import cv2 
+import cv2 as cv
 
 from log_utils import log, bcolors
 
 def draw_text(img, text,
-          font=cv2.FONT_HERSHEY_PLAIN,
+          font=cv.FONT_HERSHEY_PLAIN,
           pos=(0, 0),
           font_scale=1,
           font_thickness=1,
@@ -21,10 +21,10 @@ def draw_text(img, text,
           ):
 
     x, y = pos
-    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+    text_size, _ = cv.getTextSize(text, font, font_scale, font_thickness)
     text_w, text_h = text_size
-    cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
-    cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
+    cv.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
+    cv.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
 
     return text_size
 
@@ -87,7 +87,7 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True, p
     for i in range(components):
         image_vector.append(image.transpose()[i].reshape(img_shape))
         
-    image = cv2.merge(image_vector)
+    image = cv.merge(image_vector)
     
     # # if test:
     # condition_01 = sorted_eigenvalues[0] / sorted_eigenvalues[1]
@@ -112,11 +112,11 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True, p
 def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels = 3):
 
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv2.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv2.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
-    b,g,r = cv2.split(visible_imgage_filered)
-    th = cv2.cvtColor(thermal_image_filtered, cv2.COLOR_BGR2GRAY)
+    b,g,r = cv.split(visible_imgage_filered)
+    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
@@ -131,11 +131,11 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels =
 def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 3):
     
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv2.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv2.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
-    b,g,r = cv2.split(visible_imgage_filered)
-    th = cv2.cvtColor(thermal_image_filtered, cv2.COLOR_BGR2GRAY)
+    b,g,r = cv.split(visible_imgage_filered)
+    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()
@@ -151,7 +151,7 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
 
 def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
-    cv2.imwrite(path, image)
+    cv.imwrite(path, image)
     return image
 
 def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
@@ -168,7 +168,7 @@ def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
-    cv2.imwrite(path, image)
+    cv.imwrite(path, image)
     return image    
 
 def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
@@ -186,11 +186,11 @@ def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
 
 def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv2.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv2.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
-    h,s,v = cv2.split(cv2.cvtColor(visible_image, cv2.COLOR_BGR2HSV))
-    th = cv2.cvtColor(thermal_image_filtered, cv2.COLOR_BGR2GRAY)
+    h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
+    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [h,s,v,th]]).transpose()   
@@ -201,11 +201,3 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     return image
 
 
-options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
-           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
-           'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
-        #    'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
-           'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' },
-           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
-           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
-          }

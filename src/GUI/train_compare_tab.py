@@ -14,21 +14,14 @@ import csv
 import math
 
 import numpy as np
-import matplotlib.pyplot as plt
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QPushButton, QCheckBox, QFileDialog, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QAction
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
-from scipy.ndimage.filters import gaussian_filter1d
+from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
 
 from config_utils import parseYaml
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.dataset_manager import DataSetHandler
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
-from GUI.Widgets.figure_tab_widget import PlotTabWidget
 from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
 tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
@@ -48,29 +41,29 @@ class TrainComparePlotter(BaseClassPlotter):
 
         ## Create a button to select all checkboxes from a given condition
         self.select_all_day_button = QPushButton(" Select 'day' ", self)
-        self.select_all_day_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.select_all_day_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_day_button.clicked.connect(lambda: self.dataset_checkboxes.select_cond('day'))
         self.select_all_night_button = QPushButton(" Select 'night' ", self)
-        self.select_all_night_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.select_all_night_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_night_button.clicked.connect(lambda: self.dataset_checkboxes.select_cond('night'))
         self.select_all_all_button = QPushButton(" Select 'day-night' ", self)
-        self.select_all_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.select_all_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_all_button.clicked.connect(lambda: self.dataset_checkboxes.select_cond('all'))
 
         self.select_all_button = QPushButton(" Select All ", self)
-        self.select_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_button.clicked.connect(self.dataset_checkboxes.select_all)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
-        self.deselect_all_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(self.dataset_checkboxes.deselect_all)
 
         self.plot_button = QPushButton(" Generate Plot ", self)
-        self.plot_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
 
         self.save_button = QPushButton(" Save Output ", self)
-        self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
         self.buttons_layout.addWidget(self.select_all_day_button, 0, 0, 1, 1)
@@ -98,6 +91,7 @@ class TrainComparePlotter(BaseClassPlotter):
     def render_data(self):
         self.plot_p_r_f1_data()
         self.csv_tab.load_table_data()
+        log(f"[{self.__class__.__name__}] Plot and table updated")
 
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self):
@@ -164,4 +158,4 @@ class TrainComparePlotter(BaseClassPlotter):
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
 
-        log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")
+        # log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")

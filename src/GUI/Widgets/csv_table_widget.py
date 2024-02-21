@@ -4,25 +4,19 @@
     Defines a Qt widget to display data from trainig into a CSV table format
 """
 
-import os
-import sys
 import itertools
-
 from datetime import datetime
-
-
 import csv
-import math
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 from log_utils import log, bcolors
-from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
+from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 
 class TrainCSVDataTable(QWidget):
     """
@@ -37,7 +31,7 @@ class TrainCSVDataTable(QWidget):
         
 
         # self.setWidgetResizable(True)  # Permitir que el widget se expanda
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         # Crear un QScrollArea dentro de la pestaña CSV
         csv_scroll_area = QScrollArea()
@@ -174,7 +168,7 @@ class TrainCSVDataTable(QWidget):
         self.csv_table.resizeColumnsToContents()
         self.csv_table.resizeRowsToContents()
         
-        log(f"[{self.__class__.__name__}] CSV data display completed")
+        # log(f"[{self.__class__.__name__}] CSV data display completed")
 
     def sort_table(self, logical_index):
         # Manejar el evento de clic en el encabezado para ordenar la tabla
