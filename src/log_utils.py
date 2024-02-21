@@ -38,8 +38,11 @@ class Logger(object):
         
         self.output_path = output_path
         self.log_file_name = ""
-        self.executing_symlink = f'{self.output_path}/../now_executing.log'
-        self.latest_symlink = f'{self.output_path}/../latest.log'
+        id = ""
+        if "EEHA_TRAIN_DEVICE" in os.environ:
+            id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+        self.executing_symlink = f'{self.output_path}/../now_executing{id}.log'
+        self.latest_symlink = f'{self.output_path}/../latest{id}.log'
 
         self._create_log_file()
 
