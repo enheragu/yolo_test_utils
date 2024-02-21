@@ -63,7 +63,11 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     
     cfg_generated_files = []
     
-    tmp_cfg_path = os.getcwd() + "/tmp_cfg"
+    id = ""
+    if "EEHA_TRAIN_DEVICE" in os.environ:
+        id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+
+    tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}"
     if os.path.exists(tmp_cfg_path):
         shutil.rmtree(tmp_cfg_path)
     Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
@@ -92,7 +96,11 @@ def clearCFGFIles(cfg_generated_files):
             os.remove(file)
     
     try:
-        tmp_cfg_path = os.getcwd() + "/tmp_cfg/"
+        id = ""
+        if "EEHA_TRAIN_DEVICE" in os.environ:
+            id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+            
+        tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}/"
         os.rmdir(tmp_cfg_path)
     except Exception as e:
         log(f"Catched exception removing tmf folder: {e}")

@@ -65,6 +65,7 @@ if __name__ == '__main__':
                 log_ntfy(raw_msg, success=True)
             logCoolMessage(f"CLEAN FINISH TEST EXECUTION")
 
+            test_queue.finished_test(True)
             # raw_msg = f"Options executed (n iterations: {opts.iterations}) were: {condition_list = }; {option_list = }; {model_list = }; run mode = {opts.run_mode}"
             # log_ntfy(raw_msg, success=True)
 
@@ -78,6 +79,7 @@ if __name__ == '__main__':
             raw_msg = f"Options failed (at index {index}/{opts.iterations})  were: {condition_list = }; {option_list = }; {model_list = }; run mode = {opts.run_mode}\n"
             raw_msg += f"Catched exception: {e}"
             log_ntfy(raw_msg, success=False)
+            test_queue.finished_test(False)
 
             ### ALREADY FINISHED EVERYTHING, MOVE LOG FILE WITH ERROR TAG
             #   NEEDS TO BE CLOSED BEFOREHAND

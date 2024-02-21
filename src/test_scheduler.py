@@ -74,6 +74,8 @@ class TestQueue:
         if reset_files and os.path.exists(cache_path):
             shutil.rmtree(cache_path)
 
+        self.executing_test = None
+
     def _read_file(self, file_name):
         try:
             with open(file_name, 'r') as file:
@@ -121,6 +123,7 @@ class TestQueue:
 
         FileLock(self.executing_file)
         self._save_file(self.executing_file, [next_test])
+        self.executing_test = next_test
 
         return next_test
 
@@ -128,11 +131,12 @@ class TestQueue:
         Interface method to notify and log the test that was already executed,
         with success status (true or false)
     """
-    def finished_test(self, test, success = True):
-        if success:
-            self._updateFile(self.finished_file_ok, test)
-        else:
-            self._updateFile(self.finished_file_failed, test)
+    def finished_test(self, success = True):
+        if self.executing_test:
+            if success:
+                self._updateFile(self.finished_file_ok, self.executing_test)
+            else:
+                self._updateFile(self.finished_file_failed, self.executing_test)
         
         FileLock(self.executing_file)
         self._save_file(self.executing_file, [])
@@ -158,11 +162,11 @@ def test():
     next_test = test_queue.get_next_test()
     print(f"[TEST] Got test queue: {next_test}")
     print(f"[TEST] Finish ok: {next_test}")
-    test_queue.finished_test(next_test, True)
+    test_queue.finished_test(True)
 
     next_test = test_queue.get_next_test()
     print(f"[TEST] Finish no ok: {next_test}")
-    test_queue.finished_test(next_test, True)
+    test_queue.finished_test(False)
 
     next_test = test_queue.get_next_test()
     
