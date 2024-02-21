@@ -127,7 +127,7 @@ def configArgParser():
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
-    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[0], choices=dataset_tags_default,
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[1], choices=dataset_tags_default,
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')

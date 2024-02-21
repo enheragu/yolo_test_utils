@@ -48,6 +48,7 @@ class TrainEvalPlotter(BaseClassPlotter):
 
     def render_data(self):
         self.plot_loss_metrics_data()
+        log(f"[{self.__class__.__name__}] Plot updated")
 
     def plot_loss_metrics_data(self):
 
@@ -93,4 +94,4 @@ class TrainEvalPlotter(BaseClassPlotter):
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
-        log(f"[{self.__class__.__name__}] Parsing and plot Loss Val PR and mAP graphs finished")
+        # log(f"[{self.__class__.__name__}] Parsing and plot Loss Val PR and mAP graphs finished")

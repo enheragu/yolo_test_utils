@@ -40,7 +40,7 @@ fa_pca_options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension'
 
 
 dataset_options.update(fa_pca_options)
-dataset_options_keys = list(dataset_options.keys())
+dataset_options_keys = ['visible', 'lwir'] + list(dataset_options.keys())
 
 # Dataset class to take into account when generating YOLO style dataset
 class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag

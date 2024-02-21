@@ -168,7 +168,7 @@ class TrainCSVDataTable(QWidget):
         self.csv_table.resizeColumnsToContents()
         self.csv_table.resizeRowsToContents()
         
-        log(f"[{self.__class__.__name__}] CSV data display completed")
+        # log(f"[{self.__class__.__name__}] CSV data display completed")
 
     def sort_table(self, logical_index):
         # Manejar el evento de clic en el encabezado para ordenar la tabla

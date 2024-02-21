@@ -61,6 +61,7 @@ class VarianceComparePlotter(BaseClassPlotter):
     def render_data(self):
         self.plot_loss_metrics_data()
         self.csv_tab.load_table_data()
+        log(f"[{self.__class__.__name__}] Plot and table updated")
 
     def plot_loss_metrics_data(self):
 
@@ -226,4 +227,4 @@ class VarianceComparePlotter(BaseClassPlotter):
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
 
-        log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")
+        # log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")

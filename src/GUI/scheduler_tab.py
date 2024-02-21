@@ -11,6 +11,8 @@ from config_utils import parseYaml, dumpYaml, configArgParser
 from log_utils import log, bcolors
 from GUI.Widgets.checable_combobox import CheckableComboBox
 
+from test_scheduler import TestQueue
+
 class SchedulerHandlerPlotter(QWidget):
 
     def __init__(self):
@@ -26,7 +28,7 @@ class SchedulerHandlerPlotter(QWidget):
                         # Convertir las opciones a una lista si es un conjunto o un diccionario
                         if isinstance(choices, (set, dict)):
                             choices = list(choices)
-                        self.options[long_option] = {'title': long_option, 'long':action.option_strings[0], 'short':action.option_strings[1], 
+                        self.options[long_option] = {'title': long_option, 'long':action.option_strings[1], 'short':action.option_strings[0], 
                                                      'action': action, 'help': action.help, 'type': action.type, 'choices': choices,
                                                      'nargs': action.nargs, 'default': action.default}
 
@@ -115,9 +117,11 @@ class SchedulerHandlerPlotter(QWidget):
            
             if 'default' in option:
                 default_value = option['default']
-                if isinstance(input_field, CheckableComboBox):
-                    input_field.setDefaults(default_value)
-                elif isinstance(input_field, QComboBox):
+                ## Default is set to all, so is a bit inconvenient to have to uncheck all 
+                #  of them when is a CheckableComboBox
+                # if isinstance(input_field, CheckableComboBox):
+                #     input_field.setDefaults(default_value)
+                if isinstance(input_field, QComboBox):
                     input_field.setCurrentText(str(default_value))
                 elif isinstance(input_field, QLineEdit):
                     input_field.setText(str(default_value))
@@ -141,6 +145,8 @@ class SchedulerHandlerPlotter(QWidget):
             value = None
             if isinstance(option['widget'], CheckableComboBox):
                 value = option['widget'].currentData()
+                if len(value) == 1:
+                    value = str(value[0])
             elif isinstance(option['widget'], QComboBox):
                 value = option['widget'].currentText()
             elif isinstance(option['widget'], QLineEdit):
@@ -155,7 +161,10 @@ class SchedulerHandlerPlotter(QWidget):
                 cmd_list.append(option['long'])
                 cmd_list.append(value)
 
-        print(cmd_list)
+        # print(cmd_list)
+        test_queue = TestQueue()
+        test_queue.add_new_test(cmd_list) 
+        self.load_and_display_data()
 
     def load_and_display_data(self):
         # Limpiar la tabla antes de cargar nuevos datos
@@ -189,7 +198,7 @@ class SchedulerHandlerPlotter(QWidget):
                     for column_title, column_info in self.options.items():
                         if command == column_info['long'] or command == column_info['short']:
                             column_index = title_index_map[column_title]
-                            item = QTableWidgetItem(content)
+                            item = QTableWidgetItem(str(content))
                             cell_color = QColor(144, 238, 144)
                             item.setBackground(cell_color)
                             table.setItem(row, column_index, item)

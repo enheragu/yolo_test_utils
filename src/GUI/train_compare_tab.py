@@ -91,6 +91,7 @@ class TrainComparePlotter(BaseClassPlotter):
     def render_data(self):
         self.plot_p_r_f1_data()
         self.csv_tab.load_table_data()
+        log(f"[{self.__class__.__name__}] Plot and table updated")
 
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self):
@@ -157,4 +158,4 @@ class TrainComparePlotter(BaseClassPlotter):
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
 
-        log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")
+        # log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")

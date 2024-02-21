@@ -69,3 +69,4 @@ class CSVTablePlotter(BaseClassPlotter):
 
     def render_data(self):
         self.csv_tab.load_table_data()
+        log(f"[{self.__class__.__name__}] Table updated")
