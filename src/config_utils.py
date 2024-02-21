@@ -16,7 +16,7 @@ import yaml
 from yaml.loader import SafeLoader
 
 from log_utils import log, bcolors
-from Dataset import dataset_options_keys, dataset_keys
+from Dataset import dataset_options_keys, dataset_keys, kaist_yolo_dataset_path
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -49,7 +49,7 @@ def dumpYaml(file_path, data):
 
 condition_list_default = ['all','day', 'night']
 option_list_default = dataset_options_keys
-model_list_default = ['yoloCh1.yaml','yoloCh2.yaml','yoloCh3.yaml','yoloCh4.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+model_list_default = ['yoloCh1x.yaml','yoloCh2x.yaml','yoloCh3x.yaml','yoloCh4x.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = dataset_keys   # Just list of availables :)
 
 def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None, dataset_tag = dataset_tags_default[0]):

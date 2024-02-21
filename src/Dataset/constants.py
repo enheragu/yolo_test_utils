@@ -16,7 +16,7 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset 
 
 ## Whitelist/blacklist to add or exclude datasets from generation
 dataset_blacklist = []
-dataset_whitelist = ['train-all-02', 'train-all-20', 'test-all-01', 'train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
+dataset_whitelist = ['train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
 
 
 # Dict with tag-function to be used when generating different options
