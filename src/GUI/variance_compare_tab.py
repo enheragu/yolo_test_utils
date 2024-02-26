@@ -96,7 +96,12 @@ class VarianceComparePlotter(BaseClassPlotter):
                             data_y = np.append(data_y, data['validation_best']['data']['all'][canvas_key])
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            continue
                     
+                    if np.size(data_y) == 0:
+                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {key}", bcolors.ERROR)
+                        continue
+
                     # log(f"{group}: {len(data_y) = }")
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
                     ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=colors[index], edgecolor=colors[index])

@@ -42,14 +42,16 @@ class GUIPlotter(QMainWindow):
         self.layout.addWidget(self.tab_widget)
         
         self.dataset_handler = DataSetHandler(update_cache)
+        
+        train_eval_tab = VarianceComparePlotter(self.dataset_handler)
+        self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
+
         train_compare_tab = TrainComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
 
         train_eval_tab = TrainEvalPlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Review training process")
 
-        train_eval_tab = VarianceComparePlotter(self.dataset_handler)
-        self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
         
         train_eval_tab = CSVTablePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Table")
