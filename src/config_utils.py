@@ -47,7 +47,7 @@ def dumpYaml(file_path, data):
 #       Dinamic CFG stuff       #
 #################################
 
-condition_list_default = ['all','day', 'night']
+condition_list_default = ['day','night','all']
 option_list_default = dataset_options_keys
 model_list_default = ['yoloCh1x.yaml','yoloCh2x.yaml','yoloCh3x.yaml','yoloCh4x.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = dataset_keys   # Just list of availables :)
@@ -143,15 +143,14 @@ def configArgParser():
     return parser
 
 def handleArguments(argument_list = sys.argv[1:]):
-    global condition_list_default, option_list_default, model_list_default
     arg_dict = {}
     
     parser = configArgParser()
     opts = parser.parse_args(argument_list)
 
-    condition_list_default = list(opts.clist)
-    option_list_default = list(opts.olist)
-    model_list_default = list(opts.mlist)
+    condition_list = list(opts.clist)
+    option_list = list(opts.olist)
+    model_list = list(opts.mlist)
     run_modes = list(opts.run_mode)
 
     if opts.dformat not in dataset_tags_default:
@@ -166,6 +165,6 @@ def handleArguments(argument_list = sys.argv[1:]):
         else:
             raise TypeError(f"Invalid device set thorugh ENV(EEHA_TRAIN_DEVICE). Is not a number: {device_number}")
 
-    log(f"Options parsed:\n\t· condition_list: {condition_list_default}\n\t· option_list: {option_list_default}\n\t· model_list: {model_list_default};\n\t· run mode: {run_modes}")
+    log(f"Options parsed:\n\t· condition_list: {condition_list}\n\t· option_list: {option_list}\n\t· model_list: {model_list};\n\t· run mode: {run_modes}")
     log(f"Extra options are: {opts}")
-    return condition_list_default, option_list_default, model_list_default, opts
+    return condition_list, option_list, model_list, opts
