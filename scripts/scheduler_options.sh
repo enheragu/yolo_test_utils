@@ -15,14 +15,16 @@ export EEHA_SCHEDULER_SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2
 
 function eeha_device0_scheduler() {
     export EEHA_TRAIN_DEVICE=0
-    tmux new-session -d -s scheduler_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
-    tmux detach -s scheduler_$EEHA_TRAIN_DEVICE
+    eeha_run_scheduler $@
+    #tmux new-session -d -s scheduler_eeha_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
+    #tmux detach -s scheduler_eeha_$EEHA_TRAIN_DEVICE
 }
 
 function eeha_device1_scheduler() {
     export EEHA_TRAIN_DEVICE=1
-    tmux new-session -d -s scheduler_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
-    tmux detach -s scheduler_$EEHA_TRAIN_DEVICE
+    eeha_run_scheduler $@
+    #tmux new-session -d -s scheduler_eeha_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
+    #tmux detach -s scheduler_eeha_$EEHA_TRAIN_DEVICE
 }
 
 function eeha_run_scheduler() {
@@ -55,8 +57,9 @@ function eeha_check_process() {
     tail -f $EEHA_SCHEDULER_SCRIPT_PATH/../runs/now_executing.log -n 300
 }
 
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 10 --path-name "variance_day_visible_b10_kaist_trained" --iterations 5
+# eha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 10 --path-name "variance_day_visible_b10_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
+# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 32 --path-name "variance_day_visible_b32_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4x.yaml' --path-name "variance_night_4ch_kaist_trained" --iterations 2
 # eeha_schedule_new_test -c 'night' -o 'pca_rgbt_3ch' -m 'yoloCh3x.yaml' --path-name "variance_night_pca_kaist_trained" --iterations 2

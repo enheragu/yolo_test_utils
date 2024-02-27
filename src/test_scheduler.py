@@ -32,6 +32,10 @@ finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
 stop_env_var = "EEHA_TEST_STOP_REQUESTED"
 
+# Update executing file with device ID so that multiple executions does not collapse
+if "EEHA_TRAIN_DEVICE" in os.environ:
+    executing_file_default.replace('.yaml', f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}.yaml')
+
 """
     Class that handles safe lock/unlock mechanism for files. It is set
     so that it locks when created and unlocks when the environment is
