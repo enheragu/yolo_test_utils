@@ -154,15 +154,17 @@ class DataSetHandler:
         self.dataset_info = find_results_file()
         self.parsed_data = {}
         self.incomplete_dataset = {}
-        self.lock = threading.Lock()
+
+        self.access_data_lock = threading.Lock()
+        self.save_data_lock = threading.Lock()
 
         self._load_data(self.dataset_info, self.update_cache)
         
     def _load_data(self, dataset_dict, update_cache):
         # Load data in background
         self.futures_result = {}
-        self.executor = ProcessPoolExecutor()
-        self.futures = {key: self.executor.submit(background_load_data, (key,info,update_cache)) for key, info in dataset_dict.items()}
+        self.executor_load = ProcessPoolExecutor()
+        self.futures_load = {key: self.executor_load.submit(background_load_data, (key,info,update_cache)) for key, info in dataset_dict.items()}
         
         thread = threading.Thread(target=self._monitor_futures_load)
         thread.daemon = True
@@ -173,38 +175,41 @@ class DataSetHandler:
         thread_save.start()
               
     def _save_cache_data(self, dataset_dict):
-        log(f"Update cache data files for later executions")
-        self.executor.shutdown() # Clear previous executor
-        self.executor = ProcessPoolExecutor()
-        self.futures = {key: self.executor.submit(background_save_cache, (key, self.__getitem__(key))) for key in dataset_dict.keys()}
-        
-        thread = threading.Thread(target=self._monitor_futures_save)
-        thread.daemon = True
-        thread.start()
+        with self.save_data_lock:
+            log(f"Update cache data files for later executions")
+            self.executor_save = ProcessPoolExecutor()
+            self.futures_save = {key: self.executor_save.submit(background_save_cache, (key, self.__getitem__(key))) for key in dataset_dict.keys()}
+            
+            thread = threading.Thread(target=self._monitor_futures_save)
+            thread.daemon = True
+            thread.start()
 
     def _monitor_futures_load(self):
-        with self.lock:
-            while self.futures:
-                time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
+        with self.save_data_lock:
+            with self.access_data_lock:
+                while self.futures_load:
+                    time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
 
-                for key, future in list(self.futures.items()):
-                    if future.done():
-                        try:
-                            self.futures_result[key] = future.result()
-                        except Exception as e:
-                            log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
-                        finally:
-                            del self.futures[key]
-        log(f"All executors finished loading data.")
+                    for key, future in list(self.futures_load.items()):
+                        if future.done():
+                            try:
+                                self.futures_result[key] = future.result()
+                            except Exception as e:
+                                log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
+                            finally:
+                                del self.futures_load[key]
+            self.executor_load.shutdown() # Clear executor
+            log(f"All executors finished loading data.")
         
         
     def _monitor_futures_save(self):
         time.sleep(1)
-        while self.futures:
+        while self.futures_save:
             time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
-            for key, future in list(self.futures.items()):
+            for key, future in list(self.futures_save.items()):
                 if future.done():
-                    del self.futures[key]
+                    del self.futures_save[key]
+        self.executor_save.shutdown() # Clear executor
         log(f"All executors finished caching data")
 
     def reloadIncomplete(self):
@@ -237,7 +242,7 @@ class DataSetHandler:
             return None
         
         if not key in self.parsed_data:
-            with self.lock:
+            with self.access_data_lock:
                 self.parsed_data = self.futures_result
 
         return self.parsed_data[key]
