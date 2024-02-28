@@ -59,6 +59,9 @@ class CSVTablePlotter(BaseClassPlotter):
         self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_variance_checkboxes)
         self.layout.addWidget(self.csv_tab)
    
+    def update_checkbox(self):
+        self.dataset_variance_checkboxes.update_checkboxes()
+
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()

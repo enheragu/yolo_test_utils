@@ -90,6 +90,10 @@ class TrainComparePlotter(BaseClassPlotter):
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
+    def update_checkbox(self):
+        self.dataset_checkboxes.update_checkboxes()
+        self.dataset_checkboxes_extra.update_checkboxes()
+
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()

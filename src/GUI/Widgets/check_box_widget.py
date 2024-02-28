@@ -20,6 +20,12 @@ class DatasetCheckBoxWidget(QScrollArea):
     def __init__(self, widget, dataset_handler, include = None, exclude = "variance_", max_rows = max_rows_checkboxes, title_filter = []):
         super().__init__(widget)
 
+        self.dataset_handler = dataset_handler
+        self.include = include
+        self.exclude = exclude
+        self.title_filter = title_filter
+        self.max_rows = max_rows
+
         self.setWidgetResizable(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # Hacerlo redimensionable solo horizontalmente
 
@@ -27,18 +33,26 @@ class DatasetCheckBoxWidget(QScrollArea):
         scroll_widget = QWidget()
         scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
         self.setWidget(scroll_widget)
-        scroll_layout = QGridLayout(scroll_widget)
+        self.scroll_layout = QGridLayout(scroll_widget)
 
         # Create group boxes to group checkboxes
+        self.check_box_dict = {}
+        self.update_checkboxes()
+
+    def update_checkboxes(self):
+        while self.scroll_layout.count():
+            child = self.scroll_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+            
+        self.check_box_dict = {}
         group_dict = {}
         last_group = ""
         iter = 0
-        self.check_box_dict = {}
-
-        for key, dataset_info in dataset_handler.getInfo().items():
+        for key, dataset_info in self.dataset_handler.getInfo().items():
             group_name = dataset_info['model']
-            if (include and include not in group_name) or \
-               (exclude and exclude in group_name): 
+            if (self.include and self.include not in group_name) or \
+               (self.exclude and self.exclude in group_name): 
                 continue
 
             test_name = dataset_info['name']
@@ -46,18 +60,18 @@ class DatasetCheckBoxWidget(QScrollArea):
                 iter = 0
                 last_group = group_name
                 title_name = group_name
-                for filter in title_filter:
+                for filter in self.title_filter:
                     title_name = title_name.replace(filter, "")
                 group_dict[group_name] = QGroupBox(f"Model: {title_name}")
                 group_dict[group_name].setLayout(QGridLayout())
                 group_dict[group_name].setStyleSheet("font-weight: bold;")
-                scroll_layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
+                self.scroll_layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
 
             checkbox = QCheckBox(test_name)
             checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
             self.check_box_dict[key] = checkbox
-            row = iter % max_rows
-            col = iter // max_rows
+            row = iter % self.max_rows
+            col = iter // self.max_rows
             group_dict[group_name].layout().addWidget(checkbox, row, col)
             iter += 1
 
@@ -95,6 +109,13 @@ class GroupCheckBoxWidget(QScrollArea):
     def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes, title_filter = []):
         super().__init__(widget)
 
+        self.title = title
+        self.dataset_handler = dataset_handler
+        self.include = include
+        self.exclude = exclude
+        self.title_filter = title_filter
+        self.max_rows = max_rows
+
         self.setWidgetResizable(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Hacerlo redimensionable solo horizontalmente
 
@@ -102,34 +123,39 @@ class GroupCheckBoxWidget(QScrollArea):
         scroll_widget = QWidget()
         scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
         self.setWidget(scroll_widget)
-        scroll_layout = QGridLayout(scroll_widget)
+        self.scroll_layout = QGridLayout(scroll_widget)
 
-        # Create group boxes to group checkboxes
-        group_dict = {}
-        last_group = ""
-        iter = 0
+        self.update_checkboxes()
+
+    def update_checkboxes(self):
+        while self.scroll_layout.count():
+            child = self.scroll_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+            
         self.check_box_dict = {}
 
-        LabelGroup = QGroupBox(title)
+        iter = 0
+        LabelGroup = QGroupBox(self.title)
         LabelGroup.setLayout(QGridLayout())
         LabelGroup.setStyleSheet("font-weight: bold;")
-        scroll_layout.addWidget(LabelGroup)
+        self.scroll_layout.addWidget(LabelGroup)
         
-        for key, dataset_info in dataset_handler.getInfo().items():
+        for key, dataset_info in self.dataset_handler.getInfo().items():
             group_name = dataset_info['model']
             if not group_name in self.check_box_dict:
-                if (include and include not in group_name) or \
-                (exclude and exclude in group_name): 
+                if (self.include and self.include not in group_name) or \
+                (self.exclude and self.exclude in group_name): 
                     continue
                     
                 title = group_name
-                for filter in title_filter:
+                for filter in self.title_filter:
                     title = title.replace(filter, "")
                 checkbox = QCheckBox(title)
                 checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
                 self.check_box_dict[group_name] = checkbox
-                row = iter % max_rows
-                col = iter // max_rows
+                row = iter % self.max_rows
+                col = iter // self.max_rows
                 LabelGroup.layout().addWidget(checkbox, row, col)
                 
                 iter += 1

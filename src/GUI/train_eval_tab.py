@@ -49,6 +49,9 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.save_button)
         self.buttons_layout.addWidget(self.select_extra_button)
    
+    def update_checkbox(self):
+        self.dataset_checkboxes.update_checkboxes()
+        self.dataset_checkboxes_extra.update_checkboxes()
 
     def save_plot(self):
         # Open a file dialog to select the saving location

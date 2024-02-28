@@ -142,7 +142,18 @@ def find_results_file(search_path = test_path, file_name = data_file_name, ignor
     return dataset_info
     
 class DataSetHandler:
-    def __init__(self, update_cache = True):
+    def __init__(self, update_cache = True, search_path = test_path):
+        self.new(update_cache, search_path)
+
+    def new(self, update_cache = True, search_path = test_path):
+        global cache_path
+
+        # Prepares different cache path for Dataset Handler from different location than default
+        if search_path != test_path:
+            cache_path = cache_path + "_extra"
+            log(f"Loading data from different directory: {search_path}")
+            log(f"Redirecting cache to {cache_path}")
+
         self.update_cache = update_cache
         if update_cache and os.path.exists(cache_path):
             shutil.rmtree(cache_path)
@@ -151,7 +162,7 @@ class DataSetHandler:
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
 
-        self.dataset_info = find_results_file()
+        self.dataset_info = find_results_file(search_path)
         self.parsed_data = {}
         self.incomplete_dataset = {}
 

@@ -52,7 +52,7 @@ class BaseClassPlotter(QWidget):
         else:
             self.options_widget.show()
 
-    def update_view_menu(self, archive_menu, view_menu, tools_menu):
+    def update_view_and_menu(self, archive_menu, view_menu, tools_menu):
 
         self.show_options_action = QAction('Show Options Tab', self, checkable=True)
         self.show_options_action.setShortcut(Qt.Key.Key_F11)
@@ -69,9 +69,14 @@ class BaseClassPlotter(QWidget):
         self.save_output_action.setShortcut(QKeySequence("Ctrl+S"))
         self.save_output_action.triggered.connect(self.save_plot)
         tools_menu.addAction(self.save_output_action)
+        
+        self.update_checkbox()
 
+    def update_checkbox(self):
+        raise NotImplementedError(f"This method has to be reimplemented in child {type(self).__name__} class")
+    
     def save_plot(self):
-        raise NotImplementedError("This method has to be reimplemented in child class")
+        raise NotImplementedError(f"This method has to be reimplemented in child {type(self).__name__} class")
 
     def render_data(self):
-        raise NotImplementedError("This method has to be reimplemented in child class")
+        raise NotImplementedError(f"This method has to be reimplemented in child {type(self).__name__} class")

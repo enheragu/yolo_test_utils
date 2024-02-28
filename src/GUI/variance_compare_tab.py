@@ -49,6 +49,10 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_train_checkboxes,self.dataset_variance_checkboxes])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
+    def update_checkbox(self):
+        self.dataset_train_checkboxes.update_checkboxes()
+        self.dataset_variance_checkboxes.update_checkboxes()
+
     def save_plot(self):
         # Open a file dialog to select the saving location
         options = QFileDialog.Options()

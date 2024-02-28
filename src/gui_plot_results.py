@@ -13,7 +13,7 @@ import sys
 import argparse
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QMenu
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QMenu, QFileDialog
 
 from log_utils import log, bcolors
 from GUI import DataSetHandler, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
@@ -51,7 +51,6 @@ class GUIPlotter(QMainWindow):
 
         train_eval_tab = TrainEvalPlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Review training process")
-
         
         train_eval_tab = CSVTablePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Table")
@@ -59,19 +58,26 @@ class GUIPlotter(QMainWindow):
         train_eval_tab = SchedulerHandlerPlotter()
         self.tab_widget.addTab(train_eval_tab, f"Scheduled tests")
                 
-        self.tab_widget.currentChanged.connect(self.update_view_menu)
-        self.update_view_menu()  # Actualizar el menú "View" cuando se abre la ventana
+        self.tab_widget.currentChanged.connect(self.update_view_and_menu)
+        self.update_view_and_menu()  # Actualizar el menú "View" cuando se abre la ventana
 
     def reload_cached_datasetself(self):
-        self.dataset_handler = DataSetHandler(False)
+        self.dataset_handler.new(False)
     
     def reload_raw_dataset(self):
-        self.dataset_handler = DataSetHandler(True)
+        self.dataset_handler.new(True)
 
     def reload_incomplete_dataset(self):
         self.dataset_handler.reloadIncomplete()
 
-    def update_view_menu(self):
+    def reload_from_path(self):
+        search_path = QFileDialog.getExistingDirectory(self, "Select path")
+        if search_path:
+            log(f"Reloading data from path: {search_path}")
+            self.dataset_handler.new(True, search_path)
+        
+
+    def update_view_and_menu(self):
         # Limpiar el menú "View"
         self.menuBar().clear()
         archive_menu = self.menuBar().addMenu('Archive')
@@ -79,25 +85,29 @@ class GUIPlotter(QMainWindow):
         self.reload_datasets_menu = QMenu('Reload datasets')
         
         self.use_cached_datasets_action = QAction('Reload cached datasets')
-        self.use_cached_datasets_action.triggered.connect( self.reload_cached_datasetself)
+        self.use_cached_datasets_action.triggered.connect(self.reload_cached_datasetself)
         self.reload_datasets_menu.addAction(self.use_cached_datasets_action)
         
         self.reload_from_raw_action = QAction('Reload all from raw')
-        self.reload_from_raw_action.triggered.connect( self.reload_raw_dataset)
+        self.reload_from_raw_action.triggered.connect(self.reload_raw_dataset)
         self.reload_datasets_menu.addAction(self.reload_from_raw_action)
 
         self.reload_incomplete_action = QAction('Reload incomplete from raw')
-        self.reload_incomplete_action.triggered.connect( self.reload_incomplete_dataset)
+        self.reload_incomplete_action.triggered.connect(self.reload_incomplete_dataset)
         self.reload_datasets_menu.addAction(self.reload_incomplete_action)
 
         archive_menu.addMenu(self.reload_datasets_menu)
+
+        self.reload_from_path_menu = QAction('Load datasets from path')
+        self.reload_from_path_menu.triggered.connect(self.reload_from_path )
+        archive_menu.addAction(self.reload_from_path_menu)
 
         view_menu = self.menuBar().addMenu('View')
         tools_menu = self.menuBar().addMenu('Tools')
 
         # Obtener la pestaña/tab actual
         current_tab_widget = self.tab_widget.currentWidget()
-        current_tab_widget.update_view_menu(archive_menu, view_menu, tools_menu)
+        current_tab_widget.update_view_and_menu(archive_menu, view_menu, tools_menu)
 
 def handleArguments():
     global update_cache
