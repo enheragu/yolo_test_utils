@@ -13,7 +13,7 @@ import sys
 import argparse
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QMenu
 
 from log_utils import log, bcolors
 from GUI import DataSetHandler, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
@@ -62,28 +62,36 @@ class GUIPlotter(QMainWindow):
         self.tab_widget.currentChanged.connect(self.update_view_menu)
         self.update_view_menu()  # Actualizar el menú "View" cuando se abre la ventana
 
-    def update_dataset_handler(self):
-        self.dataset_handler = DataSetHandler(update_cache)
-        self.cached_option_action.setChecked(False) 
+    def reload_cached_datasetself(self):
+        self.dataset_handler = DataSetHandler(False)
     
-    def toggle_cached(self):
-        global update_cache
-        update_cache = not update_cache
+    def reload_raw_dataset(self):
+        self.dataset_handler = DataSetHandler(True)
+
+    def reload_incomplete_dataset(self):
+        self.dataset_handler.reloadIncomplete()
 
     def update_view_menu(self):
         # Limpiar el menú "View"
         self.menuBar().clear()
         archive_menu = self.menuBar().addMenu('Archive')
 
-        self.reload_datasets_action = QAction('Reload datasets')
-        self.reload_datasets_action.triggered.connect(self.update_dataset_handler)
-        archive_menu.addAction(self.reload_datasets_action)
-
-        self.cached_option_action = QAction('Use cached datasets', self, checkable=True)
-        self.cached_option_action.setChecked(True) 
-        self.cached_option_action.triggered.connect(self.toggle_cached)
-        archive_menu.addAction(self.cached_option_action)
+        self.reload_datasets_menu = QMenu('Reload datasets')
         
+        self.use_cached_datasets_action = QAction('Reload cached datasets')
+        self.use_cached_datasets_action.triggered.connect( self.reload_cached_datasetself)
+        self.reload_datasets_menu.addAction(self.use_cached_datasets_action)
+        
+        self.reload_from_raw_action = QAction('Reload all from raw')
+        self.reload_from_raw_action.triggered.connect( self.reload_raw_dataset)
+        self.reload_datasets_menu.addAction(self.reload_from_raw_action)
+
+        self.reload_incomplete_action = QAction('Reload incomplete from raw')
+        self.reload_incomplete_action.triggered.connect( self.reload_incomplete_dataset)
+        self.reload_datasets_menu.addAction(self.reload_incomplete_action)
+
+        archive_menu.addMenu(self.reload_datasets_menu)
+
         view_menu = self.menuBar().addMenu('View')
         tools_menu = self.menuBar().addMenu('Tools')
 

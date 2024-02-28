@@ -80,6 +80,8 @@ class TrainCSVDataTable(QWidget):
         row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Num Classes', 'Dataset', 'Device', 'Date', 'Title', 'Group Key']]
 
         for key, data in self.getDataDictToPlot().items():
+            if not data:
+                continue
             try:
                 model = data['validation_best']['model'].split("/")[-1]
                 dataset = data['validation_best']['name'].split("/")[-1]
@@ -124,6 +126,7 @@ class TrainCSVDataTable(QWidget):
                                     key]]
             except KeyError as e:
                 log(f"[{self.__class__.__name__}] Key error problem generating CSV for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                self.dataset_handler.markAsIncomplete(key)
 
         self.csv_table.clear()
         self.csv_table.setRowCount(0)

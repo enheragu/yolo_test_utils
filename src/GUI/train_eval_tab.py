@@ -88,6 +88,7 @@ class TrainEvalPlotter(BaseClassPlotter):
                         subplot[py].legend()
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] Key error problem generating Train/Val plots for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        self.dataset_handler.markAsIncomplete(key)
             
             self.figure_tab_widget[canvas_key].subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9)
             self.figure_tab_widget[canvas_key].tight_layout()
@@ -95,3 +96,4 @@ class TrainEvalPlotter(BaseClassPlotter):
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
         # log(f"[{self.__class__.__name__}] Parsing and plot Loss Val PR and mAP graphs finished")
+

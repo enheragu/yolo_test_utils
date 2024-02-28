@@ -4,6 +4,7 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
+import itertools
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 from GUI.Widgets.csv_table_widget import TrainCSVDataTable
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'mAP50', 'mAP50-95']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'mAP50', 'mAP50-95', 'P', 'R']
 
 class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
@@ -79,8 +80,9 @@ class VarianceComparePlotter(BaseClassPlotter):
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
             
-            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95':
-                colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95' or canvas_key == 'P' or canvas_key == 'R':
+                colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+                color_iterator = itertools.cycle(colors_list)
                 # Limpiar el gráfico anterior
                 # xlabel = canvas_key
                 # ylabel = "Probability"
@@ -92,35 +94,49 @@ class VarianceComparePlotter(BaseClassPlotter):
                     data_y = np.array([])
                     for key in keys:
                         data = self.dataset_handler[key]
+                        if not data:
+                            continue
                         try:
                             data_y = np.append(data_y, data['validation_best']['data']['all'][canvas_key])
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            self.dataset_handler.markAsIncomplete(key)
                             continue
                     
                     if np.size(data_y) == 0:
-                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {key}", bcolors.ERROR)
+                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {group}", bcolors.ERROR)
                         continue
+                    
+                    
+                    # If all data are exactly the same plotting will have issues (STD=0)
+                    # Add little noise for plotting
+                    if np.all(data_y == data_y[0]):
+                        data_y += np.random.normal(scale=0.00001, size=len(data_y))
 
                     # log(f"{group}: {len(data_y) = }")
+                    next_color = next(color_iterator)
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
-                    ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=colors[index], edgecolor=colors[index])
+                    ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=next_color, edgecolor=next_color)
                     
                     mean = np.mean(data_y)
                     std = np.std(data_y)
 
-                    x = np.linspace(mean-std*8, mean+std*8, 100)
-                    y = norm.pdf(x, mean, std)
-                    
-                    for pos in np.arange(mean-std*2, mean+std*2, std):
-                        ax.axvline(x=pos, color=colors[index], linewidth=1)
+                    if std >0.001:       
+                        
+                        x = np.linspace(mean-std*8, mean+std*8, 100)
+                        y = norm.pdf(x, mean, std)
+                        ax.plot(x, y, linestyle='--', linewidth=2, color=next_color)
 
-                    ax.plot(x, y, linestyle='--', linewidth=2, color=colors[index])
-                
+                        for pos in np.arange(mean-std*2, mean+std*2, std):
+                            ax.axvline(x=pos, color=next_color, linewidth=1)
+                    else:
+                        log(f"[{self.__class__.__name__}] STD of data is <0 ({std = }) for {canvas_key} plot with n={len(data_y)} for {group}", bcolors.ERROR)
+
                 ax.annotate(f'Note: Each set of {canvas_key} data is discretized into {bin_size} bins.',
                                 xy = (0.995, 0.015), xycoords='axes fraction',
                                 ha='right', va="center", fontsize=8)
-
+                # ax.set_yscale('log')
+                # ax.set_ylabel('log scale')
                 ax.set_title(f'{canvas_key} distribution')
             else:
                 if canvas_key not in plot_data:
@@ -143,9 +159,12 @@ class VarianceComparePlotter(BaseClassPlotter):
                     return px,py,names,model
                 
                 ## Plot each training result
-                colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+                colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+                color_iterator = itertools.cycle(colors_list)
                 for index, key in enumerate(self.dataset_train_checkboxes.getChecked()):
                     data = self.dataset_handler[key]
+                    if not data:
+                        continue
                     try:
                         best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
                         px, py, names, model = getLastEpochData(py_tag, data)
@@ -157,19 +176,21 @@ class VarianceComparePlotter(BaseClassPlotter):
                                 r = data['pr_data_best']['r'][i]
                                 max_r = max(r)
                                 index_max = next((i for i, x in enumerate(px) if x > max_r), None)
-                            ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+                            ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator))  # plot(confidence, metric)
 
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        self.dataset_handler.markAsIncomplete(key)
 
                 ## Plot each variance group
                 # number_std = self.std_plot_widget.value
-                prev_idx = len(self.dataset_train_checkboxes.getChecked())
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
                     py_vec = []
                     for key in keys:
                         data = self.dataset_handler[key]
+                        if not data:
+                            continue
                         try:
                             px, py, names, model = getLastEpochData(py_tag, data)
                             if len(names) > 1:
@@ -191,6 +212,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            self.dataset_handler.markAsIncomplete(key)
 
                     if not py_vec:
                         log(f"[{self.__class__.__name__}] Vector of PY data empty. {key} variance curve wont be plotted.", bcolors.WARNING)
@@ -207,9 +229,10 @@ class VarianceComparePlotter(BaseClassPlotter):
                     # conf_interval = 1.96*std/math.sqrt(len(keys))
                     # conf_interval = Z(2 STD) * Error típico (la desviación típica que tendría el estadístico si lo calcularas en infinitas muestras iguales)
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")
-                                
-                    ax.plot(px, mean, label=f"{label}; n = {len(py_vec)}", color=colors[index+prev_idx])
-                    ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=colors[index+prev_idx])
+                    
+                    next_color=next(color_iterator)
+                    ax.plot(px, mean, label=f"{label}; n = {len(py_vec)}", color=next_color)
+                    ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=next_color)
 
                 ax.set_xlim(0, 1)
                 ax.set_ylim(0, 1)

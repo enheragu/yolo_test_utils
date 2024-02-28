@@ -89,10 +89,10 @@ def getArgsYamlData(dataset):
 
 # Wrap function to be paralelized
 def background_load_data(dataset_key_tuple):
-    key, dataset = dataset_key_tuple
+    key, dataset, update_cache = dataset_key_tuple
     filename = f"{cache_path}/{key.replace('/','_')}.yaml.cache"
     
-    if os.path.exists(filename):
+    if os.path.exists(filename) and not update_cache:
         data = parseYaml(filename)
         # log(f"Loaded data from cache file in {filename}")
     else:
@@ -153,21 +153,36 @@ class DataSetHandler:
 
         self.dataset_info = find_results_file()
         self.parsed_data = {}
-
-        # Load data in background
+        self.incomplete_dataset = {}
         self.lock = threading.Lock()
+
+        self._load_data(self.dataset_info, self.update_cache)
+        
+    def _load_data(self, dataset_dict, update_cache):
+        # Load data in background
         self.futures_result = {}
         self.executor = ProcessPoolExecutor()
-        self.futures = {key: self.executor.submit(background_load_data, (key,info)) for key, info in self.dataset_info.items()}
-
-        self.monitor_data_load()
+        self.futures = {key: self.executor.submit(background_load_data, (key,info,update_cache)) for key, info in dataset_dict.items()}
         
-    def monitor_data_load(self):
-        thread = threading.Thread(target=self.monitor_futures)
+        thread = threading.Thread(target=self._monitor_futures_load)
         thread.daemon = True
         thread.start()
 
-    def monitor_futures(self):
+        thread_save = threading.Thread(target=self._save_cache_data, args=(dataset_dict,))
+        thread_save.daemon = True
+        thread_save.start()
+              
+    def _save_cache_data(self, dataset_dict):
+        log(f"Update cache data files for later executions")
+        self.executor.shutdown() # Clear previous executor
+        self.executor = ProcessPoolExecutor()
+        self.futures = {key: self.executor.submit(background_save_cache, (key, self.__getitem__(key))) for key in dataset_dict.keys()}
+        
+        thread = threading.Thread(target=self._monitor_futures_save)
+        thread.daemon = True
+        thread.start()
+
+    def _monitor_futures_load(self):
         with self.lock:
             while self.futures:
                 time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
@@ -180,28 +195,47 @@ class DataSetHandler:
                             log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
                         finally:
                             del self.futures[key]
-        log(f"All executors finished loading data. Store cache data")
+        log(f"All executors finished loading data.")
         
-        log(f"Update cache data files for later executions")
-        self.executor.shutdown() # Clear previous executor
-        self.executor = ProcessPoolExecutor()
-        self.futures = {key: self.executor.submit(background_save_cache, (key, self.__getitem__(key))) for key in self.dataset_info.keys()}
-        time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
-
+        
+    def _monitor_futures_save(self):
+        time.sleep(1)
         while self.futures:
             time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
             for key, future in list(self.futures.items()):
                 if future.done():
                     del self.futures[key]
-        log(f"Finished caching data")
-            
+        log(f"All executors finished caching data")
+
+    def reloadIncomplete(self):
+        log(f"Reload incomplete datasets: {self.incomplete_dataset.keys()}")
+        if self.incomplete_dataset:
+            self._load_data(self.incomplete_dataset, update_cache=True)
+
     def getInfo(self):
         return self.dataset_info
 
     def keys(self):
         return self.dataset_info.keys()
     
+    # Remove dataset from execution as it is giving problems
+    def markAsIncomplete(self, key):
+        log(f"[{self.__class__.__name__}] Incomplete dataset data {key}. Won't be taken into account.", bcolors.WARNING)
+        incomplete_data = self.__delitem__(key)
+        self.incomplete_dataset[key] = incomplete_data
+
+    def __delitem__(self, key):
+        if key in self.parsed_data:
+            self.dataset_info.pop(key)
+            eliminate = self.parsed_data.pop(key)
+            return eliminate
+        else:
+            raise KeyError(f'[{self.__class__.__name__}] Key {key} is not in parsed_data dict.')
+        
     def __getitem__(self, key):
+        if key in self.incomplete_dataset:
+            return None
+        
         if not key in self.parsed_data:
             with self.lock:
                 self.parsed_data = self.futures_result

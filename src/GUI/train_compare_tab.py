@@ -116,6 +116,8 @@ class TrainComparePlotter(BaseClassPlotter):
             ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
             for key in self.dataset_checkboxes.getChecked():
                 data = self.dataset_handler[key]
+                if not data:
+                    continue
                 py_tag = plot_data[canvas_key]['py']
 
                 try:
@@ -137,6 +139,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
                 except KeyError as e:
                     log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                    self.dataset_handler.markAsIncomplete(key)
 
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
