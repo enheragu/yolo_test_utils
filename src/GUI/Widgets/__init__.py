@@ -4,3 +4,4 @@ from .check_box_widget import GroupCheckBoxWidget, DatasetCheckBoxWidget
 from .csv_table_widget import TrainCSVDataTable
 from .figure_tab_widget import PlotTabWidget
 from .numeric_slider_input_widget import NumericSliderInputWidget
+from .dialog_widget import DialogWithCheckbox

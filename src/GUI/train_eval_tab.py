@@ -10,7 +10,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
+from GUI.Widgets import DatasetCheckBoxWidget, DialogWithCheckbox
 
 tab_keys = ['Train Loss Ev.', 'Val Loss Ev.', 'PR Evolution', 'mAP Evolution' ]
 
@@ -21,9 +21,20 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
 
+        ## --- Adds window selector to be able to add manually individual tests from variance_ stuff
+        self.dataset_checkboxes_extra = DatasetCheckBoxWidget(self.options_widget, dataset_handler, exclude = None, include="variance_", title_filter=["train_based_"], max_rows = 8)
+        self.dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.select_extra_button = QPushButton(" Select extra ")
+        self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        self.extra_dataset_dialog = DialogWithCheckbox(title="Extra dataset selector", checkbox_widget=self.dataset_checkboxes_extra, render_func = self.render_data)
+        self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
+        ## ---
+
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.deselect_all_button.clicked.connect(self.dataset_checkboxes.deselect_all)
+        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
 
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -36,6 +47,7 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.deselect_all_button)
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
+        self.buttons_layout.addWidget(self.select_extra_button)
    
 
     def save_plot(self):
@@ -47,10 +59,11 @@ class TrainEvalPlotter(BaseClassPlotter):
             self.figure_tab_widget.saveFigures(file_name)
 
     def render_data(self):
-        self.plot_loss_metrics_data()
+        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked()
+        self.plot_loss_metrics_data(checked)
         log(f"[{self.__class__.__name__}] Plot updated")
 
-    def plot_loss_metrics_data(self):
+    def plot_loss_metrics_data(self, checked_list):
 
         plot_data = {'Train Loss Ev.': {'py': ['train/box_loss', 'train/cls_loss', 'train/dfl_loss'], 'xlabel': "epoch"},
                      'Val Loss Ev.': {'py': ['val/box_loss', 'val/cls_loss', 'val/dfl_loss'], 'xlabel': "epoch"},
@@ -68,7 +81,7 @@ class TrainEvalPlotter(BaseClassPlotter):
             for index, py in enumerate(plot_data[canvas_key]['py']):
                 subplot[py] = self.figure_tab_widget[canvas_key].add_subplot(1, len(plot_data[canvas_key]['py']), index+1) # index + 1 as 0 is not allowed
                 subplot[py].set_title(f'{py}')
-                for key in self.dataset_checkboxes.getChecked():
+                for key in checked_list:
                     try:
                         if 'csv_data' not in self.dataset_handler[key]:
                             log(f"No CSV data associated to {key}", bcolors.ERROR)

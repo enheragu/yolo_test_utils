@@ -21,8 +21,7 @@ import mplcursors
 from config_utils import parseYaml
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget
-from GUI.Widgets.csv_table_widget import TrainCSVDataTable
+from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 
 tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve']
 
@@ -50,13 +49,24 @@ class TrainComparePlotter(BaseClassPlotter):
         self.select_all_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_all_button.clicked.connect(lambda: self.dataset_checkboxes.select_cond('all'))
 
+        ## --- Adds window selector to be able to add manually individual tests from variance_ stuff
+        self.dataset_checkboxes_extra = DatasetCheckBoxWidget(self.options_widget, dataset_handler, exclude = None, include="variance_", title_filter=["train_based_"], max_rows = 8)
+        self.dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.select_extra_button = QPushButton(" Select extra ")
+        self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        self.extra_dataset_dialog = DialogWithCheckbox(title="Extra dataset selector", checkbox_widget=self.dataset_checkboxes_extra, render_func = self.render_data)
+        self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
+        ## ---
+
         self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_button.clicked.connect(self.dataset_checkboxes.select_all)
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.deselect_all_button.clicked.connect(self.dataset_checkboxes.deselect_all)
+        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
 
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -73,10 +83,11 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
         self.buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
         self.buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
+        self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
 
        
         # Tab for CSV data
-        self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_checkboxes)
+        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
     def save_plot(self):
@@ -89,12 +100,14 @@ class TrainComparePlotter(BaseClassPlotter):
             self.csv_tab.save_data(file_name)
 
     def render_data(self):
-        self.plot_p_r_f1_data()
+
+        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked()
+        self.plot_p_r_f1_data(checked)
         self.csv_tab.load_table_data()
         log(f"[{self.__class__.__name__}] Plot and table updated")
 
     # Plots PR, P, R and F1 curve from each dataset involved
-    def plot_p_r_f1_data(self):
+    def plot_p_r_f1_data(self, checked_list):
         # PY is an interpolated versino to plot it with a consistent px value<
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
@@ -114,7 +127,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
             # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
-            for key in self.dataset_checkboxes.getChecked():
+            for key in checked_list:
                 data = self.dataset_handler[key]
                 if not data:
                     continue

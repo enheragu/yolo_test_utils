@@ -6,7 +6,7 @@
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QDialog
 
 max_rows_checkboxes = 5
 
@@ -60,7 +60,10 @@ class DatasetCheckBoxWidget(QScrollArea):
             col = iter // max_rows
             group_dict[group_name].layout().addWidget(checkbox, row, col)
             iter += 1
-            
+
+    def get_checked_states(self):
+        return {key: checkbox.isChecked() for key, checkbox in self.check_box_dict.items()}
+    
     def getChecked(self):
         return [key for key, checkbox in self.check_box_dict.items() if checkbox.isChecked()]
         
@@ -81,7 +84,6 @@ class DatasetCheckBoxWidget(QScrollArea):
     def deselect_all(self):
         for checkbox in self.check_box_dict.values():
             checkbox.setChecked(False)
-
 
 
 
@@ -153,3 +155,4 @@ class GroupCheckBoxWidget(QScrollArea):
     def deselect_all(self):
         for checkbox in self.check_box_dict.values():
             checkbox.setChecked(False)
+

@@ -15,8 +15,7 @@ import mplcursors
 
 from log_utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.Widgets.check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
-from GUI.Widgets.csv_table_widget import TrainCSVDataTable
+from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
 tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'mAP50', 'mAP50-95', 'P', 'R']
 
@@ -24,12 +23,12 @@ class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
         super().__init__(dataset_handler, tab_keys)
 
-        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", exclude = None, title = f"Variance analysis sets:", title_filter=["variance_"])
+        self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"Variance analysis sets:", title_filter=["variance_"])
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
         self.dataset_train_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_train_checkboxes,3)
-
+        
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_train_checkboxes.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
