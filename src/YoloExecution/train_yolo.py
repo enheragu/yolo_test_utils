@@ -17,6 +17,8 @@ from ultralytics import YOLO
 from config_utils import dataset_config_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
 from log_utils import log, bcolors
 
+from compress_label_folder import compress_output_labels
+
 
 def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0], batch = 16):
     train_iteration = 0
@@ -91,6 +93,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             
             
             log(f"Training and validation of model for {dataset} took {datetime.now() - dataset_start_time} (h/min/s)")
+            compress_output_labels(trainer.save_dir)
     
     clearCFGFIles(dataset_config_list)
     log("")
