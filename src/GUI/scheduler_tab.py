@@ -2,10 +2,11 @@
 # encoding: utf-8
 
 import os
+import uuid
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QComboBox, QSizePolicy, QTableWidget, QTableWidgetItem, QLabel, QPushButton, QLineEdit, QListWidget, QCheckBox, QGroupBox
-from PyQt6.QtGui import QColor, QAction
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QComboBox, QSizePolicy, QTableWidget, QTableWidgetItem, QLabel, QPushButton, QLineEdit, QListWidget, QCheckBox, QGroupBox, QStyle, QApplication
+from PyQt6.QtGui import QColor, QAction, QIcon
 
 from config_utils import parseYaml, dumpYaml, configArgParser
 from log_utils import log, bcolors
@@ -65,13 +66,13 @@ class SchedulerHandlerPlotter(QWidget):
         self.title_label = QLabel("Add new test to pending list:")
         self.title_label.setStyleSheet("font-weight: bold;")
         self.layout.addWidget(self.title_label)
-        post_test_widget = QGroupBox()
-        self.layout.addWidget(post_test_widget)
+        self.options_widget = QGroupBox()
+        self.layout.addWidget(self.options_widget)
 
         post_test_layout = QGridLayout()
         post_test_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Alineación vertical superior
-        post_test_widget.setLayout(post_test_layout)
-        post_test_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.options_widget.setLayout(post_test_layout)
+        self.options_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         row = 0
         col = 0
@@ -181,28 +182,40 @@ class SchedulerHandlerPlotter(QWidget):
         file_pending = f"{home_dir}/.cache/eeha_yolo_test/pending.yaml"
         file_executing = f"{home_dir}/.cache/eeha_yolo_test/executing.yaml"
 
-        def _fill_table(data, table):
-            
-            
+        def _fill_table(data, table, editable):            
             num_rows = len(data)
-            num_cols = len(self.options.keys())
+            num_cols = len(self.options.keys())+1
+            column_tiles = list(self.options.keys()) + ['ROW_ID']
+            id_hidden_col = num_cols-1
+            if editable:
+                num_cols += 1 # Plus button column buttons
+                column_tiles.append(' ')
+                id_hidden_col = num_cols-2
+
 
             table.setRowCount(num_rows)
             table.setColumnCount(num_cols)
 
-            table.setHorizontalHeaderLabels(self.options.keys())
+            table.setHorizontalHeaderLabels(column_tiles)
 
-            title_index_map = {title: i for i, title in enumerate(self.options)}
             for row, test in enumerate(data):
+
                 for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
                     for column_title, column_info in self.options.items():
                         if command == column_info['long'] or command == column_info['short']:
-                            column_index = title_index_map[column_title]
+                            column_index = list(self.options.keys()).index(column_title)
                             item = QTableWidgetItem(str(content))
                             cell_color = QColor(144, 238, 144)
                             item.setBackground(cell_color)
                             table.setItem(row, column_index, item)
                             break
+                
+                new_row_id = str(uuid.uuid4())
+                new_id_item = QTableWidgetItem(new_row_id)
+                table.setItem(row, id_hidden_col, new_id_item)
+
+                if editable:
+                    self.cell_buttons(table, row, num_cols = num_cols, row_id = new_row_id, id_hidden_col = id_hidden_col)
 
             # Fill empty cells with default
             for row in range(table.rowCount()):
@@ -210,23 +223,106 @@ class SchedulerHandlerPlotter(QWidget):
                     item = table.item(row, column)
                     if item is None or item.text() == "":
                         column_title = table.horizontalHeaderItem(column).text()
-                        default_value = self.options[column_title]['action'].default
-                        if default_value is not None:
-                            item = QTableWidgetItem(str(default_value))
-                            table.setItem(row, column, item)
+                        if column_title in self.options:
+                            default_value = self.options[column_title]['action'].default
+                            if default_value is not None:
+                                item = QTableWidgetItem(str(default_value))
+                                table.setItem(row, column, item)
 
             table.resizeColumnsToContents()
             table.resizeRowsToContents()
             
+            table.setColumnHidden(id_hidden_col, True)
 
         if os.path.exists(file_pending):
-            _fill_table(parseYaml(file_pending), self.table_pending)
+            _fill_table(parseYaml(file_pending), self.table_pending, editable = True)
 
         if os.path.exists(file_executing):
-            _fill_table(parseYaml(file_executing), self.table_executing)
+            _fill_table(parseYaml(file_executing), self.table_executing, editable = False)
     
+    def cell_buttons(self, table, row, num_cols, row_id, id_hidden_col):
+        edit_button = QPushButton()
+        edit_button.setIcon(QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)))
+        edit_button.setToolTip('Update test changes')
+        edit_button.clicked.connect(lambda _, r=row_id: self.update_test(r))
+
+        delete_button = QPushButton()
+        delete_button.setIcon(QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton)))
+        delete_button.setToolTip('Delete row')
+        delete_button.clicked.connect(lambda _, r=row_id: self.delete_test(r))
+        
+        duplicate_button = QPushButton()
+        duplicate_button.setIcon(QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ArrowForward)))
+        duplicate_button.setToolTip('Duplicate row')
+        duplicate_button.clicked.connect(lambda _, r=row_id, id=id_hidden_col: self.duplicate_row(r,id))
+
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0) # tight layout
+        button_layout.addWidget(edit_button)
+        button_layout.addWidget(duplicate_button)
+        button_layout.addWidget(delete_button)
+        button_container = QWidget()
+        button_container.setLayout(button_layout)
+        table.setCellWidget(row, num_cols-1, button_container)
+
+    def duplicate_row(self, row_id, id_hidden_col):
+        # log(f"[{self.__class__.__name__}::duplicate_row] Row with id: {row_id}")
+        for row in range(self.table_pending.rowCount()):
+            item = self.table_pending.item(row, len(self.options.keys()))  # Última columna es el ID
+            if item is not None and item.text() == row_id:
+                num_cols = self.table_pending.columnCount()
+
+                # Get data from duplicable row
+                row_data = []
+                for col in range(num_cols):
+                    item = self.table_pending.item(row, col)
+                    if item is not None:
+                        row_data.append(item.text())
+                    else:
+                        row_data.append('')
+
+
+                self.table_pending.insertRow(row + 1)
+                for col, data in enumerate(row_data):
+                    new_item = QTableWidgetItem(data)
+                    self.table_pending.setItem(row + 1, col, new_item)
+                    
+                # Insert data again with new id
+                new_row_id = str(uuid.uuid4())
+                new_id_item = QTableWidgetItem(new_row_id)
+                self.table_pending.setItem(row + 1, id_hidden_col, new_id_item)
+
+                self.cell_buttons(self.table_pending, row + 1, num_cols, new_row_id)
+                return
+
+    def update_test(self, row):
+        log(f"[{self.__class__.__name__}::edit_test] Row: {row}")
+
+    def delete_test(self, row_id):
+        # log(f"[{self.__class__.__name__}::delete_test] Row with id: {row_id}")
+
+        for row in range(self.table_pending.rowCount()):
+            item = self.table_pending.item(row, len(self.options.keys()))  # Última columna es el ID
+            if item is not None and item.text() == row_id:
+                # Eliminar la fila encontrada
+                self.table_pending.removeRow(row)
+                return
+
+    def toggle_options(self):
+        # Cambiar el estado del check basado en si las opciones están visibles o no
+        if self.options_widget.isVisible():
+            self.options_widget.hide()
+        else:
+            self.options_widget.show()
+
     def update_view_menu(self, archive_menu, view_menu, tools_menu):
         self.load_and_display_data()
+
+        self.show_options_action = QAction('Show Options Tab', self, checkable=True)
+        self.show_options_action.setShortcut(Qt.Key.Key_F11)
+        self.show_options_action.setChecked(True) 
+        self.show_options_action.triggered.connect(self.toggle_options)
+        view_menu.addAction(self.show_options_action)
 
         self.update_view_action = QAction("Update view", self)
         self.update_view_action.setShortcut(Qt.Key.Key_F5)
