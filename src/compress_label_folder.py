@@ -26,7 +26,7 @@ def create_tar(dict_info, check_path):
     members = [os.path.join(label_path, file) for file in os.listdir(label_path)]
     
     with tarfile.open(output_path, mode="w:gz") as tar:
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc=output_path.replace(check_path, "")) as pbar:
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(output_path).replace(check_path, "")) as pbar:
             processed_files = 0
             for member in members:
                 arcname = 'labels/' + os.path.basename(member)
@@ -56,5 +56,26 @@ def compress_output_labels(check_path, folder_compress_name = folder_compress):
         
 
 if __name__ == '__main__':
-    folder_check = '/home/arvc/Desktop/detect_3080_copy/variance_day_visible_b5_kaist_trained/day_visible' #'/home/arvc/Desktop/detect_3080_copy'
+    from config_utils import yolo_output_path
+    folder_check = yolo_output_path # '/home/arvc/Desktop/detect_3080_copy/variance_day_visible_b5_kaist_trained/day_visible' #'/home/arvc/Desktop/detect_3080_copy'
     compress_output_labels(folder_check)
+
+
+"""
+
+--- Pre ---
+[2024-02-29 10:06:40.641] Compressing 'labels' from /home/arvc/eeha/yolo_test_utils/runs/detect path
+196G runs/
+194G detect/
+
+4414109 files txt
+
+--- Post ---
+[2024-02-29 10:53:44.971] Compressing finished
+83G runs/
+81G detect/
+
+12  files txt
+183 tar.gz
+
+"""
