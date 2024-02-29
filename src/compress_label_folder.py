@@ -76,6 +76,6 @@ if __name__ == '__main__':
 81G detect/
 
 12  files txt
-183 tar.gz
+183 tar.gz generated
 
 """

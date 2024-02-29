@@ -13,26 +13,72 @@ from log_utils import log, bcolors
 from GUI.Widgets.checable_combobox import CheckableComboBox
 
 from test_scheduler import TestQueue
+from test_scheduler import pending_file_default, executing_file_default
+#######################################################################
+#   Generic functions to be used in other parts of sw (terminal UI)   #
+#######################################################################
+
+"""
+    Gets dict with options from argparse
+"""
+def getArgParseOptions(argparse = configArgParser()):
+    options = {}
+    for action in argparse._actions:
+            if action.option_strings and len(action.option_strings) > 1:
+                long_option = str(action.option_strings[1]).replace("--","").title()
+                if long_option != "Help":
+                    choices = action.choices  # Obtener las opciones 'choices' del objeto 'action'
+                    # Convertir las opciones a una lista si es un conjunto o un diccionario
+                    if isinstance(choices, (set, dict)):
+                        choices = list(choices)
+                    options[long_option] = {'title': long_option, 'long':action.option_strings[1], 'short':action.option_strings[0], 
+                                            'action': action, 'help': action.help, 'type': action.type, 'choices': choices,
+                                            'nargs': action.nargs, 'default': action.default}
+    return options
+
+"""
+    Gets list of lists (matrix) with the content of the given file processed. Data from 
+    file is displayed and the rest is filled with arg_options defaults.
+    Returns a binary mask with which data was configured
+"""
+def parseTestFile(yaml_path, arg_options = getArgParseOptions()):
+    data = parseYaml(yaml_path)
+
+    num_rows = len(data)
+    num_cols = len(arg_options.keys())
+    column_tiles = list(arg_options.keys())
+
+    rows = [['' for _ in range(num_cols)] for _ in range(num_rows)]
+    nondefault_mask = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
+    for row, test in enumerate(data):
+        for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
+            for column_title, column_info in arg_options.items():
+                if command == column_info['long'] or command == column_info['short']:
+                    column_index = list(arg_options.keys()).index(column_title)
+                    rows[row][column_index] = str(content)
+                    nondefault_mask[row][column_index] = 1
+    
+    # Fill empty cells with default
+    for row_idx, row in enumerate(rows):
+        for col_idx, data in enumerate(row):
+            if data == "":
+                column_title = column_tiles[col_idx]
+                if column_title in arg_options:
+                    default_value = arg_options[column_title]['action'].default
+                    if default_value is not None:
+                        rows[row_idx][col_idx] = str(default_value)
+    
+    rows.insert(0, column_tiles)   
+    nondefault_mask.insert(0, column_tiles)   
+    return rows, nondefault_mask
+
 
 class SchedulerHandlerPlotter(QWidget):
 
     def __init__(self):
         super().__init__()
         
-        self.parser = configArgParser()
-        self.options = {}
-        for action in self.parser._actions:
-                if action.option_strings and len(action.option_strings) > 1:
-                    long_option = str(action.option_strings[1]).replace("--","").title()
-                    if long_option != "Help":
-                        choices = action.choices  # Obtener las opciones 'choices' del objeto 'action'
-                        # Convertir las opciones a una lista si es un conjunto o un diccionario
-                        if isinstance(choices, (set, dict)):
-                            choices = list(choices)
-                        self.options[long_option] = {'title': long_option, 'long':action.option_strings[1], 'short':action.option_strings[0], 
-                                                     'action': action, 'help': action.help, 'type': action.type, 'choices': choices,
-                                                     'nargs': action.nargs, 'default': action.default}
-
+        self.options = getArgParseOptions()
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -177,70 +223,51 @@ class SchedulerHandlerPlotter(QWidget):
         clearTable(self.table_pending)
         clearTable(self.table_executing)
 
-        home_dir = os.getenv('HOME')
-        # Definir los nombres de los archivos
-        file_pending = f"{home_dir}/.cache/eeha_yolo_test/pending.yaml"
-        file_executing = f"{home_dir}/.cache/eeha_yolo_test/executing.yaml"
+        def _fill_table(file, table, editable):      
+            matrix, nondefault = parseTestFile(file, self.options)
+            # Remove first row which is titles
+            column_tiles = matrix.pop(0) + ['ROW_ID']
+            nondefault.pop(0)
 
-        def _fill_table(data, table, editable):            
-            num_rows = len(data)
-            num_cols = len(self.options.keys())+1
-            column_tiles = list(self.options.keys()) + ['ROW_ID']
-            id_hidden_col = num_cols-1
+            ## Add different ID to each row
+            for row in matrix:
+                row.append(new_row_id = str(uuid.uuid4()))
+
+            index_hidden_col = len(column_tiles)-1
+
+            # If editable a button col is added at the end of each row
             if editable:
-                num_cols += 1 # Plus button column buttons
                 column_tiles.append(' ')
-                id_hidden_col = num_cols-2
 
-
-            table.setRowCount(num_rows)
-            table.setColumnCount(num_cols)
+            table.setRowCount(len(matrix))
+            table.setColumnCount(len(matrix[0]))
 
             table.setHorizontalHeaderLabels(column_tiles)
 
-            for row, test in enumerate(data):
-
-                for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
-                    for column_title, column_info in self.options.items():
-                        if command == column_info['long'] or command == column_info['short']:
-                            column_index = list(self.options.keys()).index(column_title)
-                            item = QTableWidgetItem(str(content))
-                            cell_color = QColor(144, 238, 144)
-                            item.setBackground(cell_color)
-                            table.setItem(row, column_index, item)
-                            break
-                
-                new_row_id = str(uuid.uuid4())
-                new_id_item = QTableWidgetItem(new_row_id)
-                table.setItem(row, id_hidden_col, new_id_item)
+            for row, test in enumerate(matrix):
+                for column, item in enumerate(row):
+                    item = QTableWidgetItem(str(item))
+                    if nondefault[row][column] == 1:
+                        cell_color = QColor(144, 238, 144)
+                        item.setBackground(cell_color)
+                    table.setItem(row, column, item)
 
                 if editable:
-                    self.cell_buttons(table, row, num_cols = num_cols, row_id = new_row_id, id_hidden_col = id_hidden_col)
+                    self.cell_buttons(table, row, num_cols = len(matrix), row_id = matrix[-2], index_hidden_col = index_hidden_col)
 
-            # Fill empty cells with default
-            for row in range(table.rowCount()):
-                for column in range(table.columnCount()):
-                    item = table.item(row, column)
-                    if item is None or item.text() == "":
-                        column_title = table.horizontalHeaderItem(column).text()
-                        if column_title in self.options:
-                            default_value = self.options[column_title]['action'].default
-                            if default_value is not None:
-                                item = QTableWidgetItem(str(default_value))
-                                table.setItem(row, column, item)
 
             table.resizeColumnsToContents()
             table.resizeRowsToContents()
             
-            table.setColumnHidden(id_hidden_col, True)
+            table.setColumnHidden(index_hidden_col, True)
 
-        if os.path.exists(file_pending):
-            _fill_table(parseYaml(file_pending), self.table_pending, editable = True)
+        if os.path.exists(pending_file_default):
+            _fill_table(pending_file_default, self.table_pending, editable = True)
 
-        if os.path.exists(file_executing):
-            _fill_table(parseYaml(file_executing), self.table_executing, editable = False)
+        if os.path.exists(executing_file_default):
+            _fill_table(executing_file_default, self.table_executing, editable = False)
     
-    def cell_buttons(self, table, row, num_cols, row_id, id_hidden_col):
+    def cell_buttons(self, table, row, num_cols, row_id, index_hidden_col):
         edit_button = QPushButton()
         edit_button.setIcon(QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)))
         edit_button.setToolTip('Update test changes')
@@ -254,7 +281,7 @@ class SchedulerHandlerPlotter(QWidget):
         duplicate_button = QPushButton()
         duplicate_button.setIcon(QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ArrowForward)))
         duplicate_button.setToolTip('Duplicate row')
-        duplicate_button.clicked.connect(lambda _, r=row_id, id=id_hidden_col: self.duplicate_row(r,id))
+        duplicate_button.clicked.connect(lambda _, r=row_id, id=index_hidden_col: self.duplicate_row(r,id))
 
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 0, 0, 0) # tight layout
@@ -265,7 +292,7 @@ class SchedulerHandlerPlotter(QWidget):
         button_container.setLayout(button_layout)
         table.setCellWidget(row, num_cols-1, button_container)
 
-    def duplicate_row(self, row_id, id_hidden_col):
+    def duplicate_row(self, row_id, index_hidden_col):
         # log(f"[{self.__class__.__name__}::duplicate_row] Row with id: {row_id}")
         for row in range(self.table_pending.rowCount()):
             item = self.table_pending.item(row, len(self.options.keys()))  # Última columna es el ID
@@ -290,7 +317,7 @@ class SchedulerHandlerPlotter(QWidget):
                 # Insert data again with new id
                 new_row_id = str(uuid.uuid4())
                 new_id_item = QTableWidgetItem(new_row_id)
-                self.table_pending.setItem(row + 1, id_hidden_col, new_id_item)
+                self.table_pending.setItem(row + 1, index_hidden_col, new_id_item)
 
                 self.cell_buttons(self.table_pending, row + 1, num_cols, new_row_id)
                 return
@@ -328,3 +355,5 @@ class SchedulerHandlerPlotter(QWidget):
         self.update_view_action.setShortcut(Qt.Key.Key_F5)
         self.update_view_action.triggered.connect(self.load_and_display_data)
         tools_menu.addAction(self.update_view_action)
+
+

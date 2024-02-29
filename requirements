@@ -10,3 +10,4 @@ clint
 requests
 scipy
 mplcursors
+tabulate
