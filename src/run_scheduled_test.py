@@ -43,7 +43,7 @@ if __name__ == '__main__':
                         
                     elif mode == 'train':
                         from YoloExecution.train_yolo import TestTrainYolo
-                        TestTrainYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat, opts.batch)
+                        TestTrainYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat, opts.batch, opts.deterministic)
                 
                 # If stop is requested, pending iterations are added to queue, then
                 # queu handler will handle the stop not providing next test in queu e

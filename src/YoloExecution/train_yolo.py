@@ -20,7 +20,7 @@ from log_utils import log, bcolors
 from compress_label_folder import compress_output_labels
 
 
-def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0], batch = 16):
+def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0], batch = 16, deterministic = True):
     train_iteration = 0
 
     start_time = datetime.now()
@@ -72,6 +72,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['verbose'] = True
             args['save_conf'] = True
             args['patience'] = 10
+            args['deterministic'] = deterministic
 
             args['device'] = device
             args['cache'] = cache
