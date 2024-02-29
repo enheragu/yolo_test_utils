@@ -4,13 +4,19 @@
 """
     Prints in terminal the different files (pending, executing...) in tables
 """
+import os
 from tabulate import tabulate
 
-from log_utils import logCoolMessage, bcolors
+from log_utils import log, bcolors
 from GUI.scheduler_tab import parseTestFile
 from test_scheduler import pending_file_default, pending_stopped_default, executing_file_default, finished_file_ok_default, finished_file_failed_default
 
 def printColoredTable(file, title):
+
+    if not os.path.exists(file):
+        log(f"File not found, table wont be displayed: {file}", bcolors.ERROR)
+        return
+
     title = f"  {title}  "
     matrix, nondefault = parseTestFile(file)
 
