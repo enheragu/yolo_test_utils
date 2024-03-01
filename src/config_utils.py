@@ -10,7 +10,7 @@ import sys
 
 import shutil
 from pathlib import Path
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 
 import yaml
 from yaml.loader import SafeLoader
@@ -40,7 +40,7 @@ def parseYaml(file_path):
 
 def dumpYaml(file_path, data):
     with open(file_path, "w+") as file:
-        yaml.dump(data, file)
+        yaml.dump(data, file, encoding='utf-8')
         
 
 #################################
@@ -140,9 +140,22 @@ def configArgParser():
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
-    parser.add_argument('-ndet', '--deterministic', dest='deterministic', type=bool,
-                        default=True, help='Whether training process makes use of deterministic algorithms or not.')
     
+    def str2bool(v):
+        # Método para interpretar cadenas como booleanas
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('yes', 'true', 't', 'y', '1'):
+            return True
+        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+            return False
+        else:
+            raise ArgumentTypeError('Boolean value expected.')
+    
+    parser.add_argument('-det', '--deterministic', dest='deterministic', type=str2bool,
+                    nargs='?', const=True, default=True,
+                    help='Whether training process makes use of deterministic algorithms or not.')
+
     return parser
 
 def handleArguments(argument_list = sys.argv[1:]):

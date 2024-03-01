@@ -90,7 +90,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # xlabel = canvas_key
                 # ylabel = "Probability"
                 
-                bin_size = 7
+                bin_size = 9
                 ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
