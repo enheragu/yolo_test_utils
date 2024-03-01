@@ -105,8 +105,8 @@ def background_load_data(dataset_key_tuple):
     return data
 
 def background_save_cache(dataset_key_tuple):
-    key, dataset = dataset_key_tuple
-    filename = f"{cache_path}/{key.replace('/','_')}.yaml.cache"
+    key, dataset = dataset_key_tuple    
+    filename = f"{cache_path}/{key}.yaml.cache"
     # log(f"Data cache to be stored in {filename}")
     # if not os.path.exists(filename):
     dumpYaml(filename, dataset)
@@ -117,7 +117,7 @@ def background_save_cache(dataset_key_tuple):
         even with ignore file
 """
 def find_results_file(search_path = test_path, file_name = data_file_name, ignored = True):
-    log(f"Search all results.yaml files")
+    log(f"Search all {file_name} files")
 
     dataset_info = {}
     for root, dirs, files in os.walk(search_path):
@@ -140,29 +140,52 @@ def find_results_file(search_path = test_path, file_name = data_file_name, ignor
     myKeys.sort()
     dataset_info = {i: dataset_info[i] for i in myKeys}
     return dataset_info
-    
+
+"""
+    Equivalent to find_results_file when data is to be loaded directly from cache
+"""
+def find_cache_file(search_path = cache_path, file_name = '.cache.yaml'):
+    log(f"Search all {file_name} files")
+
+    dataset_info = {}
+    for root, dirs, files in os.walk(search_path):
+        if file_name in files:
+            abs_path = os.path.join(root, file_name)
+            key_name = abs_path.replace(file_name, "")
+            name = key_name.split("/")[-2] + "/" + key_name.split("/")[-1]
+            dataset_info[name] = {'name': key_name.split("/")[-1], 'path': abs_path, 'model': key_name.split("/")[-2], 'key': name}
+
+    myKeys = list(dataset_info.keys())
+    myKeys.sort()
+    dataset_info = {i: dataset_info[i] for i in myKeys}
+    return dataset_info
+
 class DataSetHandler:
     def __init__(self, update_cache = True, search_path = test_path):
         self.new(update_cache, search_path)
 
-    def new(self, update_cache = True, search_path = test_path):
+    def new(self, update_cache = True, search_path = test_path, load_from_cache = False):
         global cache_path
+        
+        if load_from_cache:
+            self.dataset_info = find_cache_file()
+        else:
+            # Prepares different cache path for Dataset Handler from different location than default
+            if search_path != test_path:
+                cache_path = cache_path + "_extra"
+                log(f"Loading data from different directory: {search_path}")
+                log(f"Redirecting cache to {cache_path}")
 
-        # Prepares different cache path for Dataset Handler from different location than default
-        if search_path != test_path:
-            cache_path = cache_path + "_extra"
-            log(f"Loading data from different directory: {search_path}")
-            log(f"Redirecting cache to {cache_path}")
+            self.update_cache = update_cache
+            if update_cache and os.path.exists(cache_path):
+                shutil.rmtree(cache_path)
+                log(f"Cleared previous cache files to be recached.")
+            # Ensure cache dir exists if cleared or firs execution in machine or...
+            if not os.path.exists(cache_path):
+                os.makedirs(cache_path)
 
-        self.update_cache = update_cache
-        if update_cache and os.path.exists(cache_path):
-            shutil.rmtree(cache_path)
-            log(f"Cleared previous cache files to be recached.")
-        # Ensure cache dir exists if cleared or firs execution in machine or...
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
+            self.dataset_info = find_results_file(search_path)
 
-        self.dataset_info = find_results_file(search_path)
         self.parsed_data = {}
         self.incomplete_dataset = {}
 
@@ -188,6 +211,13 @@ class DataSetHandler:
     def _save_cache_data(self, dataset_dict):
         with self.save_data_lock:
             log(f"Update cache data files for later executions")
+            
+            # Check that all cache folders exist before multiprocessing storage
+            for key in dataset_dict.keys():
+                path = f'{cache_path}/{key.split("/")[0]}'
+                if not os.path.exists(path):
+                    os.makedirs(path)
+
             self.executor_save = ProcessPoolExecutor()
             self.futures_save = {key: self.executor_save.submit(background_save_cache, (key, self.__getitem__(key))) for key in dataset_dict.keys()}
             
@@ -270,3 +300,12 @@ class DataSetHandler:
 
             # Apagar el pool de procesos
             self.executor.shutdown()
+
+
+
+"""
+    Main execution allows to cache data ind advance without loading the whole gui :)
+"""
+if __name__ == "__main__":
+    update_cache = True
+    dataset_handler = DataSetHandler(update_cache)

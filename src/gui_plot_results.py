@@ -61,11 +61,11 @@ class GUIPlotter(QMainWindow):
         self.tab_widget.currentChanged.connect(self.update_view_and_menu)
         self.update_view_and_menu()  # Actualizar el menú "View" cuando se abre la ventana
 
-    def reload_cached_datasetself(self):
-        self.dataset_handler.new(False)
+    def reload_cached_dataset(self):
+        self.dataset_handler.new(load_from_cache = True)
     
     def reload_raw_dataset(self):
-        self.dataset_handler.new(True)
+        self.dataset_handler.new(update_cache = True)
 
     def reload_incomplete_dataset(self):
         self.dataset_handler.reloadIncomplete()
@@ -74,7 +74,7 @@ class GUIPlotter(QMainWindow):
         search_path = QFileDialog.getExistingDirectory(self, "Select path")
         if search_path:
             log(f"Reloading data from path: {search_path}")
-            self.dataset_handler.new(True, search_path)
+            self.dataset_handler.new(update_cache = True, search_path = search_path)
         
 
     def update_view_and_menu(self):
@@ -85,7 +85,7 @@ class GUIPlotter(QMainWindow):
         self.reload_datasets_menu = QMenu('Reload datasets')
         
         self.use_cached_datasets_action = QAction('Reload cached datasets')
-        self.use_cached_datasets_action.triggered.connect(self.reload_cached_datasetself)
+        self.use_cached_datasets_action.triggered.connect(self.reload_cached_dataset)
         self.reload_datasets_menu.addAction(self.use_cached_datasets_action)
         
         self.reload_from_raw_action = QAction('Reload all from raw')

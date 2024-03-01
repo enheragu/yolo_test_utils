@@ -140,7 +140,7 @@ def configArgParser():
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
-    parser.add_argument('-ndet', '--deterministic', dest='deterministic', choices=[True, False],
+    parser.add_argument('-ndet', '--deterministic', dest='deterministic', type=bool,
                         default=True, help='Whether training process makes use of deterministic algorithms or not.')
     
     return parser

@@ -146,7 +146,7 @@ class SchedulerHandlerPlotter(QWidget):
             # label = QLabel(option['help'])
             # label.setWordWrap(True)
             # input_layout.addWidget(label)
-
+            # print(option)
             if option['choices'] and option['nargs'] == '*':
                 input_field = CheckableComboBox()
                 input_field.addItems(option['choices'])

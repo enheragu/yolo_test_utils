@@ -76,6 +76,23 @@ if __name__ == '__main__':
 81G detect/
 
 12  files txt
-183 tar.gz generated
+183 tar.gz generated :)
+
+
+
+--- Pre 2 GPUS ---
+[2024-03-01 08:48:08.670] Compressing 'labels' from /home/arvc/eeha/yolo_test_utils/runs/detect path
+45G	.
+45G	detect/
+
+1011255 files txt
+
+--- Post 2 GPUS ---
+[2024-03-01 08:53:35.789] Compressing finished
+21G	.
+20G	detect/
+
+0 files txt
+41 tar.gz generated :)
 
 """
