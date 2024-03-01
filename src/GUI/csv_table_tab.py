@@ -57,7 +57,7 @@ class CSVTablePlotter(BaseClassPlotter):
 
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, self.dataset_variance_checkboxes)
-        self.layout.addWidget(self.csv_tab)
+        self.layout.addWidget(self.csv_tab, 3)
    
     def update_checkbox(self):
         self.dataset_variance_checkboxes.update_checkboxes()

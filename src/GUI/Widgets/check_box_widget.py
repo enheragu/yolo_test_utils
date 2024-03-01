@@ -27,13 +27,14 @@ class DatasetCheckBoxWidget(QScrollArea):
         self.max_rows = max_rows
 
         self.setWidgetResizable(True)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # Hacerlo redimensionable solo horizontalmente
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Hacerlo redimensionable solo horizontalmente
 
         # Crear un widget que contendrá los grupos de checkboxes
-        scroll_widget = QWidget()
-        scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
-        self.setWidget(scroll_widget)
-        self.scroll_layout = QGridLayout(scroll_widget)
+        self.scroll_widget = QWidget()
+        self.scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
+        self.setWidget(self.scroll_widget)
+        self.scroll_layout = QGridLayout(self.scroll_widget)
 
         # Create group boxes to group checkboxes
         self.check_box_dict = {}
@@ -74,6 +75,7 @@ class DatasetCheckBoxWidget(QScrollArea):
             col = iter // self.max_rows
             group_dict[group_name].layout().addWidget(checkbox, row, col)
             iter += 1
+
 
     def get_checked_states(self):
         return {key: checkbox.isChecked() for key, checkbox in self.check_box_dict.items()}
@@ -120,10 +122,11 @@ class GroupCheckBoxWidget(QScrollArea):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # Hacerlo redimensionable solo horizontalmente
 
         # Crear un widget que contendrá los grupos de checkboxes
-        scroll_widget = QWidget()
-        scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
-        self.setWidget(scroll_widget)
-        self.scroll_layout = QGridLayout(scroll_widget)
+        self.scroll_widget = QWidget()
+        self.scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.scroll_widget.setMinimumHeight(max_rows) # por lo que sea poner un mínimo hace que evite el slider vertical lateral...
+        self.setWidget(self.scroll_widget)
+        self.scroll_layout = QGridLayout(self.scroll_widget)
 
         self.update_checkboxes()
 
@@ -159,6 +162,7 @@ class GroupCheckBoxWidget(QScrollArea):
                 LabelGroup.layout().addWidget(checkbox, row, col)
                 
                 iter += 1
+
                 
     def getChecked(self):
         return [key for key, checkbox in self.check_box_dict.items() if checkbox.isChecked()]

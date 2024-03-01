@@ -95,10 +95,10 @@ def getArgsYamlData(dataset):
 
 # Wrap function to be paralelized
 def background_load_data(dataset_key_tuple):
-    key, dataset, update_cache = dataset_key_tuple
+    key, dataset, update_cache, load_from_cache = dataset_key_tuple
     filename = f"{cache_path}/{key}{cache_extension}"
     
-    if os.path.exists(filename) and not update_cache:
+    if (os.path.exists(filename) and not update_cache) or load_from_cache:
         data = parseYaml(filename)
         # log(f"Loaded data from cache file in {filename}")
 
@@ -203,7 +203,7 @@ class DataSetHandler:
         # Load data in background
         self.futures_result = {}
         self.executor_load = ProcessPoolExecutor()
-        self.futures_load = {key: self.executor_load.submit(background_load_data, (key,info,self.update_cache)) for key, info in dataset_dict.items()}
+        self.futures_load = {key: self.executor_load.submit(background_load_data, (key,info,self.update_cache, self.load_from_cache)) for key, info in dataset_dict.items()}
         
         thread = threading.Thread(target=self._monitor_futures_load)
         thread.daemon = True
@@ -224,6 +224,8 @@ class DataSetHandler:
                             finally:
                                 del self.futures_load[key]
             self.executor_load.shutdown() # Clear executor
+            os.system('notify-send "GUI - Dataset manager" "Data loading is completed"')
+            os.system('paplay /usr/share/sounds/freedesktop/stereo/complete.oga')
             log(f"All executors finished loading data.")
         
 

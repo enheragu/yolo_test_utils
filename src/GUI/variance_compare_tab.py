@@ -126,7 +126,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
                     if std >0.001:       
                         
-                        x = np.linspace(mean-std*8, mean+std*8, 100)
+                        x = np.linspace(mean-std*5, mean+std*5, 100)
                         y = norm.pdf(x, mean, std)
                         ax.plot(x, y, linestyle='--', linewidth=2, color=next_color)
 

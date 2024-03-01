@@ -108,6 +108,7 @@ class GUIPlotter(QMainWindow):
         # Obtener la pestaña/tab actual
         current_tab_widget = self.tab_widget.currentWidget()
         current_tab_widget.update_view_and_menu(archive_menu, view_menu, tools_menu)
+        
 
 def handleArguments():
     global update_cache

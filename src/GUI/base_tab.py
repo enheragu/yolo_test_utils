@@ -27,11 +27,11 @@ class BaseClassPlotter(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.options_widget = QWidget(self)
-        self.layout.addWidget(self.options_widget)
+        self.layout.addWidget(self.options_widget,1)
 
         self.options_layout = QHBoxLayout()
         self.options_widget.setLayout(self.options_layout)
-        self.options_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.options_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         # Crear un widget que contendrá los grupos los botones
         self.buttons_widget = QWidget(self.options_widget)
@@ -42,7 +42,7 @@ class BaseClassPlotter(QWidget):
         if tab_keys:
             self.tab_keys = tab_keys
             self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
-            self.layout.addWidget(self.figure_tab_widget)
+            self.layout.addWidget(self.figure_tab_widget,3)
         
     
     def toggle_options(self):
