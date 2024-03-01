@@ -121,9 +121,10 @@ def configArgParser():
     parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
                         type=str, nargs='*', default=model_list_default, choices=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
-    parser.add_argument('-d', '--device', dest='device',
-                        default=None, choices=['cpu', '0', '1', 'None'],
-                        help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
+    # Commented for now as it is called using env var. Is set in handleArguments to None by default
+    #  parser.add_argument('-d', '--device', dest='device',
+                        # default=None, choices=['cpu', '0', '1', 'None'],
+                        # help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
                         type=str, default="ram", choices=['ram','disk'],
                         help="True/ram, disk or False. Use cache for data loading. To load '.npy' or '.npz' files disk option is needed.")
@@ -139,7 +140,7 @@ def configArgParser():
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
-    parser.add_argument('-ndet', '--nondeterministic', dest='deterministic', action='store_false',
+    parser.add_argument('-ndet', '--deterministic', dest='deterministic', choices=[True, False],
                         default=True, help='Whether training process makes use of deterministic algorithms or not.')
     
     return parser
@@ -158,6 +159,7 @@ def handleArguments(argument_list = sys.argv[1:]):
     if opts.dformat not in dataset_tags_default:
         raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")
 
+    opts.device = None
     if "EEHA_TRAIN_DEVICE" in os.environ:
         device_value = os.getenv("EEHA_TRAIN_DEVICE")
         if device_value.isdigit():
