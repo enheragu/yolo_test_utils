@@ -20,6 +20,10 @@ def printColoredTable(file, title):
     title = f"  {title}  "
     matrix, nondefault = parseTestFile(file)
 
+    if not matrix:
+        log(f"Empty matrix, no table to display.", bcolors.ERROR)
+        return
+
     for i in range(len(matrix)):
         for j in range(len(matrix[0])):
             if nondefault[i][j] == 1:

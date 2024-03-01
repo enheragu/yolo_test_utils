@@ -44,6 +44,10 @@ def getArgParseOptions(argparse = configArgParser()):
 def parseTestFile(yaml_path, arg_options = getArgParseOptions()):
     data = parseYaml(yaml_path)
 
+    if not data:
+        log(f"File seems to be empty, nothing to retrieve in {yaml_path}.", bcolors.WARNING)
+        return None, None
+    
     num_rows = len(data)
     num_cols = len(arg_options.keys())
     column_tiles = list(arg_options.keys())
@@ -225,6 +229,10 @@ class SchedulerHandlerPlotter(QWidget):
 
         def _fill_table(file, table, editable):      
             matrix, nondefault = parseTestFile(file, self.options)
+            if matrix is None:
+                log(f"No data retrieved from {file}. Cannot fill table.")
+                return
+
             # Remove first row which is titles
             column_tiles = matrix.pop(0) + ['ROW_ID']
             nondefault.pop(0)
