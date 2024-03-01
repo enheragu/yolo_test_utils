@@ -20,6 +20,10 @@ import concurrent.futures
 
 import csv
 
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+    
 from config_utils import yolo_output_path as test_path
 from config_utils import parseYaml, dumpYaml
 from log_utils import log, bcolors
