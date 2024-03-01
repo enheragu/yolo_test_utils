@@ -112,7 +112,7 @@ def background_load_data(dataset_key_tuple):
     ## Update cache data from data currently parsed
     cache_key_path = f'{cache_path}/{key.split("/")[0]}'
     os.makedirs(cache_key_path, exist_ok=True)
-    dumpYaml(filename, dataset)
+    dumpYaml(filename, data)
     
     return data
 
