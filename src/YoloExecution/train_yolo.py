@@ -4,6 +4,7 @@
 """
     Encapsulates YOLO training funtionality with custom dataset and logging handling
 """
+import os
 
 from pathlib import Path
 import glob
@@ -54,10 +55,14 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
 
             dataset_start_time = datetime.now()
             
+
+            id = ""
+            if "EEHA_TRAIN_DEVICE" in os.environ:
+                id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
             if path_name_in is None:
-                path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
+                path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:
-                path_name = path_name_in + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
+                path_name = path_name_in + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             
             args = {}
             args['mode'] = 'train'

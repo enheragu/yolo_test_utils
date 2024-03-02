@@ -27,7 +27,12 @@ import src # Imports __init__.py defined in paralel to this script
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
 pending_file_default = f'{cache_path}/pending.yaml'
 pending_stopped_default = f'{cache_path}/pending_stopped.yaml'
-executing_file_default = f'{cache_path}/executing.yaml'
+
+id = ""
+if "EEHA_TRAIN_DEVICE" in os.environ:
+    id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+
+executing_file_default = f'{cache_path}/executing{id}.yaml'
 finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
 stop_env_var = "EEHA_TEST_STOP_REQUESTED"

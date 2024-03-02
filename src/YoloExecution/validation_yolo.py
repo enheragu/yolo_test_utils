@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
+import os 
 from pathlib import Path
 import glob
 from datetime import datetime
@@ -23,11 +24,15 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
     for yolo_model in model_list: 
         for dataset in dataset_config_list:
             validation_iteration += 1
+            
 
+            id = ""
+            if "EEHA_TRAIN_DEVICE" in os.environ:
+                id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
             if path_name_in is None:
-                path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + "/"
+                path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:
-                path_name = path_name_in + "/"  + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") 
+                path_name = path_name_in + "/"  + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
 
             dataset_start_time = datetime.now()
             log("--------------------------------------------------------------------------")
