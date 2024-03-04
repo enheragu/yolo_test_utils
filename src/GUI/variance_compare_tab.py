@@ -55,8 +55,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
     def save_plot(self):
         # Open a file dialog to select the saving location
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)")
 
         if file_name:
             self.figure_tab_widget.saveFigures(file_name)
@@ -126,7 +125,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
                     if std >0.001:       
                         
-                        x = np.linspace(mean-std*5, mean+std*5, 100)
+                        x = np.linspace(mean-std*4, mean+std*4, 100)
                         y = norm.pdf(x, mean, std)
                         ax.plot(x, y, linestyle='--', linewidth=2, color=next_color)
 

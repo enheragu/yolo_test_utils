@@ -64,8 +64,7 @@ class CSVTablePlotter(BaseClassPlotter):
 
     def save_plot(self):
         # Open a file dialog to select the saving location
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)")
 
         if file_name:
             self.csv_tab.save_data(file_name)

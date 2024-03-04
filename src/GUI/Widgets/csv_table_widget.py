@@ -49,9 +49,7 @@ class TrainCSVDataTable(QWidget):
         self.csv_data = [] # raw list to be filled with the data which should be stored in csv file
 
     def save_data(self,file_name = None):
-        if file_name:
-            self.figure_tab_widget.saveFigures(file_name)
-          
+        if file_name:          
             with open(f'{file_name}.csv', 'w', newline='') as file:
                 log(f"[{self.__class__.__name__}] Summary CVS data in stored {file_name}.csv")
                 writer = csv.writer(file)
