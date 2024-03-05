@@ -19,7 +19,7 @@ import yaml
 import shutil
 
 import time
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 from utils import log, bcolors, getGPUTestID
 
@@ -56,10 +56,12 @@ def isTimetableActive():
             if init_time_dt <= now_time <= end_time_dt:
                 return True, None
             
-        return False, end_time_dt
+        log(f"Current time is {now_time}, schedule execution to {init_time}.")            
+        return False, init_time_dt
     
     # No EEHA_ACTIVE_TEST_TIMETABLE defined means always active
     else:
+        log(f"No timetable set")
         return True, None
 
 def sleep_until(target_time):

@@ -10,6 +10,7 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 SOURCE=$(readlink "$SOURCE")
 [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
+export EEHA_SCHEDULER_SCRIPTFILE_PATH=$SOURCE
 export EEHA_SCHEDULER_SCRIPT_PATH=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 function eeha_env(){
@@ -17,11 +18,12 @@ function eeha_env(){
 }
 
 function eeha_device0_scheduler() {
-    tmux new-session -d -s "scheduler_eeha_$EEHA_TRAIN_DEVICE" "export EEHA_TRAIN_DEVICE=0; eeha_run_scheduler $@"
+    tmux new-session -d -s "scheduler_eeha_0" "export EEHA_TRAIN_DEVICE_TAG=$EEHA_TRAIN_DEVICE_TAG; export EEHA_ACTIVE_TEST_TIMETABLE='20:12-07:00'; export EEHA_TRAIN_DEVICE=0; source $EEHA_SCHEDULER_SCRIPTFILE_PATH; eeha_run_scheduler $@; bash" 
 }
 
 function eeha_device1_scheduler() {
-    tmux new-session -d -s "scheduler_eeha_$EEHA_TRAIN_DEVICE" "export EEHA_TRAIN_DEVICE=1; eeha_run_scheduler $@"
+    export EEHA_TRAIN_DEVICE=1
+    tmux new-session -d -s "scheduler_eeha_1" "source $EEHA_SCHEDULER_SCRIPTFILE_PATH; eeha_run_scheduler $@;"
 }
 
 function eeha_stop_device0_scheduler() {
@@ -35,6 +37,9 @@ function eeha_stop_device1_scheduler() {
 }
 
 function eeha_run_scheduler() {
+    echo "EEHA_ACTIVE_TEST_TIMETABLE: $EEHA_ACTIVE_TEST_TIMETABLE"
+    echo "EEHA_TRAIN_DEVICE_TAG: $EEHA_TRAIN_DEVICE_TAG"
+
     ## Activates python vevn and launches script file with provided arguments
     ## Empty arguments will still make use of queued tests :)
     source $EEHA_SCHEDULER_SCRIPT_PATH/../../venv/bin/activate
@@ -98,8 +103,8 @@ function eeha_update_current_cache() {
 ## Schedule in 3090
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_trained_GPU3090" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_trained_GPU3090" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
 

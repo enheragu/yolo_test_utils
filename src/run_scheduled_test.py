@@ -34,11 +34,11 @@ if __name__ == '__main__':
 
             for index in range(opts.iterations):
                 
-                ret, end_time_dt = isTimetableActive()
+                ret, init_time = isTimetableActive()
                 if not ret:
                     log_ntfy(title="Pause tests", msg=f"Pause requested for tests in {getGPUTestIDTag()}.", tags = "")
-                    sleep_until(end_time_dt)
-                    log_ntfy(title="Resume tests", msg=f"Pause requested for tests in {getGPUTestIDTag()}.", tags = "")
+                    sleep_until(init_time)
+                    log_ntfy(title="Resume tests", msg=f"Pause finished for tests in {getGPUTestIDTag()}.", tags = "")
 
                 for mode in opts.run_mode:
                     # Both YoloExecution functions are added here so that variables

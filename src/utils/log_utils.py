@@ -56,6 +56,7 @@ class Logger(object):
     def _create_log_file(self):
         timetag = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         self.log_file_name = f"{self.output_path}/{timetag}_test_yolo.log"
+
         if os.path.exists(self.executing_symlink):
             log(f"Refresh previous 'executing' simlink with new on pointing to current execution log: {self.log_file_name}.", bcolors.WARNING)
             os.unlink(self.executing_symlink)
@@ -79,6 +80,7 @@ class Logger(object):
             os.unlink(self.executing_symlink)
         if os.path.exists(self.latest_symlink):
             os.unlink(self.latest_symlink)
+            
         os.symlink(self.log_file_name, self.latest_symlink)
         
     def __del__(self):
