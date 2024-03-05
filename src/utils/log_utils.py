@@ -5,7 +5,7 @@ import sys
 import os
 
 from datetime import datetime
-from utils import getGPUTestID
+from .id_tag import getGPUTestID
 
 import logging
 
