@@ -18,6 +18,9 @@ import fcntl
 import yaml
 import shutil
 
+import time
+from datetime import datetime, time, timedelta
+
 from utils import log, bcolors, getGPUTestID
 
 sys.path.append('.')
@@ -33,6 +36,46 @@ executing_file_default = f'{cache_path}/executing{getGPUTestID()}.yaml'
 finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
 stop_env_var = f'{cache_path}/STOP_REQUESTED{getGPUTestID()}'
+night_only_execution_env_var = 'EEHA_ACTIVE_TEST_TIMETABLE'
+
+
+# Makes use of something like export EEHA_ACTIVE_TEST_TIMETABLE="15:00-07:00"
+def isTimetableActive():
+    horario = os.getenv("EEHA_ACTIVE_TEST_TIMETABLE")
+    if horario:
+        init_time, end_time = horario.split("-")
+        
+        init_time_dt = datetime.strptime(init_time, "%H:%M").time()
+        end_time_dt = datetime.strptime(end_time, "%H:%M").time()
+        now_time = datetime.now().time()
+        
+        # Is the end time from the following day?
+        if end_time_dt < init_time_dt:
+            if init_time_dt <= now_time or now_time <= end_time_dt:
+                return True, None
+        else:
+            if init_time_dt <= now_time <= end_time_dt:
+                return True, None
+            
+        return False, end_time_dt
+    
+    # No EEHA_ACTIVE_TEST_TIMETABLE defined means always active
+    else:
+        return True, None
+
+def sleep_until(target_time):
+    current_datetime = datetime.now()
+    target_datetime = datetime.combine(current_datetime.date(), target_time)
+    
+    # Si el momento objetivo ya ha pasado hoy, agregar un día
+    if target_datetime < current_datetime:
+        target_datetime += timedelta(days=1)
+    
+    sleep_time = (target_datetime - current_datetime).total_seconds()
+    log(f"Sleep is programmed until {target_datetime}. Delaying {sleep_time}s")
+    if sleep_time > 0:
+        time.sleep(sleep_time)
+
 
 """
     Class that handles safe lock/unlock mechanism for files. It is set
@@ -115,12 +158,15 @@ class TestQueue:
         Interface method to get next test to execute
     """
     def get_next_test(self):
-
         if os.path.exists(stop_env_var):
             log("Env {stop_env_var} detected. Stopping execution.")
             self._handleStoppedTests()
             return None
         
+        ret, end_time_dt = isTimetableActive()
+        if not ret:
+            sleep_until(end_time_dt)
+
         next_test = self._popFirst(self.pending_file)
 
         FileLock(self.executing_file)

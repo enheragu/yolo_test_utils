@@ -182,6 +182,10 @@ def handleArguments(argument_list = sys.argv[1:]):
         else:
             raise TypeError(f"Invalid device set thorugh ENV(EEHA_TRAIN_DEVICE). Is not a number: {device_number}")
 
+    if "EEHA_ACTIVE_TEST_TIMETABLE" in os.environ:
+        timetable = os.getenv("EEHA_TRAIN_DEVICE")
+        log(f"Timetable configured, tests will only be executed between {timetable} hours")
+
     log(f"Options parsed:\n\t· condition_list: {condition_list}\n\t· option_list: {option_list}\n\t· model_list: {model_list};\n\t· run mode: {run_modes}")
     log(f"Extra options are: {opts}")
     return condition_list, option_list, model_list, opts
