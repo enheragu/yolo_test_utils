@@ -5,6 +5,7 @@
     Prints in terminal the different files (pending, executing...) in tables
 """
 import os
+import glob
 from tabulate import tabulate
 
 from utils import log, bcolors
@@ -46,4 +47,11 @@ def printColoredTable(file, title):
 if __name__ == "__main__":
     printColoredTable(pending_file_default, "Pending Test table")
 
-    printColoredTable(executing_file_default, "Executing Test table")
+    def iterate_executing(patron):
+        # Iterar sobre los archivos que coinciden con el patrón
+        for archivo in glob.glob(patron):
+            yield archivo
+
+    executing_file_template = executing_file_default.replace(".yaml", "*.yaml")
+    for executing in iterate_executing(executing_file_template):
+        printColoredTable(executing, "Executing Test table")

@@ -17,17 +17,11 @@ function eeha_env(){
 }
 
 function eeha_device0_scheduler() {
-    export EEHA_TRAIN_DEVICE=0
-    eeha_run_scheduler $@
-    #tmux new-session -d -s scheduler_eeha_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
-    #tmux detach -s scheduler_eeha_$EEHA_TRAIN_DEVICE
+    tmux new-session -d -s "scheduler_eeha_$EEHA_TRAIN_DEVICE" "export EEHA_TRAIN_DEVICE=0; eeha_run_scheduler $@"
 }
 
 function eeha_device1_scheduler() {
-    export EEHA_TRAIN_DEVICE=1
-    eeha_run_scheduler $@
-    #tmux new-session -d -s scheduler_eeha_$EEHA_TRAIN_DEVICE "eeha_run_scheduler $@"
-    #tmux detach -s scheduler_eeha_$EEHA_TRAIN_DEVICE
+    tmux new-session -d -s "scheduler_eeha_$EEHA_TRAIN_DEVICE" "export EEHA_TRAIN_DEVICE=1; eeha_run_scheduler $@"
 }
 
 function eeha_stop_device0_scheduler() {
@@ -109,12 +103,12 @@ function eeha_update_current_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
 
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 4
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained_A30" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained_A30" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_A30" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_A30" --iterations 4
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_A30" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_A30" --iterations 5
 
 
 ## Schedule in 4090

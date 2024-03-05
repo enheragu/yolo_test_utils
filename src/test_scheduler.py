@@ -31,7 +31,6 @@ cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
 pending_file_default = f'{cache_path}/pending.yaml'
 pending_stopped_default = f'{cache_path}/pending_stopped.yaml'
 
-
 executing_file_default = f'{cache_path}/executing{getGPUTestID()}.yaml'
 finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
@@ -76,6 +75,9 @@ def sleep_until(target_time):
     if sleep_time > 0:
         time.sleep(sleep_time)
 
+def stop_test():
+    with open(stop_env_var, 'w'):
+        pass 
 
 """
     Class that handles safe lock/unlock mechanism for files. It is set
@@ -163,10 +165,6 @@ class TestQueue:
             self._handleStoppedTests()
             return None
         
-        ret, end_time_dt = isTimetableActive()
-        if not ret:
-            sleep_until(end_time_dt)
-
         next_test = self._popFirst(self.pending_file)
 
         FileLock(self.executing_file)

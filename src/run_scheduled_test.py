@@ -7,9 +7,10 @@ import traceback
 
 from update_datset import checkKaistDataset
 from test_scheduler import TestQueue, stop_env_var
+from test_scheduler import isTimetableActive, sleep_until
 
 from utils import Logger, log, log_ntfy, logCoolMessage, bcolors
-from utils import handleArguments, yolo_outpu_log_path
+from utils import handleArguments, yolo_outpu_log_path, getGPUTestIDTag
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -32,6 +33,12 @@ if __name__ == '__main__':
             checkKaistDataset(option_list, opts.dformat)
 
             for index in range(opts.iterations):
+                
+                ret, end_time_dt = isTimetableActive()
+                if not ret:
+                    log_ntfy(title="Pause tests", msg=f"Pause requested for tests in {getGPUTestIDTag()}.", tags = "")
+                    sleep_until(end_time_dt)
+                    log_ntfy(title="Resume tests", msg=f"Pause requested for tests in {getGPUTestIDTag()}.", tags = "")
 
                 for mode in opts.run_mode:
                     # Both YoloExecution functions are added here so that variables
@@ -58,6 +65,7 @@ if __name__ == '__main__':
                         pass
                     test_queue.add_new_test(nex_test)
                     log("Env {stop_env_var} detected. Stopping execution.", bcolors.WARNING)
+                    log_ntfy(title="Stop requested", msg=f"Stop requested for tests in {getGPUTestIDTag()}.", tags = "")
                     break
 
                 log(f"Options executed (iteration: {index+1}/{opts.iterations}) were:\n\t· {condition_list = }\n\t· {option_list = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
@@ -76,7 +84,7 @@ if __name__ == '__main__':
             
             logCoolMessage(f"EXCEPTION. FAILED TEST EXECUTION", bcolors.ERROR)
 
-            raw_msg = f"Options failed (at index {index}/{opts.iterations})  were: {condition_list = }; {option_list = }; {model_list = }; run mode = {opts.run_mode}\n"
+            raw_msg = f"Options failed (at index {index}/{opts.iterations}) in {getGPUTestIDTag()}  were: {condition_list = }; {option_list = }; {model_list = }; run mode = {opts.run_mode}\n"
             raw_msg += f"Catched exception: {e}"
             log_ntfy(raw_msg, success=False)
             test_queue.finished_test(False)
@@ -90,4 +98,4 @@ if __name__ == '__main__':
         if nex_test:
             logger.renew()
     
-    log_ntfy(title="Finished all tests", msg="No more test to execute in queue. Process will be finished, add more test to be executed if you have any pending 😀", tags = "tada,woman_dancing")
+    log_ntfy(title="Finished all tests", msg=f"No more test to execute in queue in {getGPUTestIDTag()}. Process will be finished, add more test to be executed if you have any pending 😀", tags = "tada,woman_dancing")
