@@ -20,8 +20,8 @@ for add_path in ultralitics_rel_path + yolo_test_paths:
         sys.path.append(add_path) # Or os.getcwd() for this directory
 
 
-from config_utils import handleArguments
-from log_utils import log, bcolors
+from utils import handleArguments
+from utils import log, bcolors
 from YoloExecution.train_yolo import TestTrainYolo
 from YoloExecution.validation_yolo import TestValidateYolo
 from update_datset import checkKaistDataset

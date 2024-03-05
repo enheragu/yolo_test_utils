@@ -30,6 +30,16 @@ function eeha_device1_scheduler() {
     #tmux detach -s scheduler_eeha_$EEHA_TRAIN_DEVICE
 }
 
+function eeha_stop_device0_scheduler() {
+    touch $HOME/.cache/eeha_yolo_test/STOP_REQUESTED_GPU0
+    # Remove file :) -> rm $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
+}
+
+function eeha_stop_device1_scheduler() {
+    touch $HOME/.cache/eeha_yolo_test/STOP_REQUESTED_GPU1
+    # Remove file :) -> rm $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
+}
+
 function eeha_run_scheduler() {
     ## Activates python vevn and launches script file with provided arguments
     ## Empty arguments will still make use of queued tests :)
@@ -43,8 +53,8 @@ function eeha_schedule_new_test() {
 }
 
 function eeha_stop_scheduler() {
-    export EEHA_TEST_STOP_REQUESTED
-    # Delete variable -> unset EEHA_TEST_STOP_REQUESTED
+    touch $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
+    # Remove file :) -> rm $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
 }
 
 function eeha_run_gui() {
@@ -96,8 +106,8 @@ function eeha_update_current_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
-# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained_GPU3090" --iterations 5
 
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5

@@ -6,10 +6,10 @@ import sys
 import traceback
 
 from update_datset import checkKaistDataset
-from test_scheduler import TestQueue
+from test_scheduler import TestQueue, stop_env_var
 
-from log_utils import Logger, log, log_ntfy, logCoolMessage, bcolors
-from config_utils import handleArguments, yolo_outpu_log_path
+from utils import Logger, log, log_ntfy, logCoolMessage, bcolors
+from utils import handleArguments, yolo_outpu_log_path
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -47,7 +47,7 @@ if __name__ == '__main__':
                 
                 # If stop is requested, pending iterations are added to queue, then
                 # queu handler will handle the stop not providing next test in queu e
-                if os.getenv("EEHA_TEST_STOP_REQUESTED"):
+                if os.path.exists(stop_env_var):
                     missing_iterations = opts.iterations - index + 1
 
                     try:
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                     except ValueError:
                         pass
                     test_queue.add_new_test(nex_test)
-                    log("Env EEHA_TEST_STOP_REQUESTED detected. Stopping execution.", bcolors.WARNING)
+                    log("Env {stop_env_var} detected. Stopping execution.", bcolors.WARNING)
                     break
 
                 log(f"Options executed (iteration: {index+1}/{opts.iterations}) were:\n\t· {condition_list = }\n\t· {option_list = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")

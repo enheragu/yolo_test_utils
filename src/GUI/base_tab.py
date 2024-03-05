@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import QHBoxLayout, QWidget, QScrollArea, QSizePolicy, QVBoxLayout
 
-from config_utils import parseYaml
-from log_utils import log, bcolors
+from utils import parseYaml
+from utils import log, bcolors
 from .Widgets import PlotTabWidget
 
 

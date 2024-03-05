@@ -5,6 +5,8 @@ import sys
 import os
 
 from datetime import datetime
+from utils import getGPUTestID
+
 import logging
 
 # """
@@ -37,9 +39,7 @@ class Logger(object):
         
         self.output_path = output_path
         self.log_file_name = ""
-        id = ""
-        if "EEHA_TRAIN_DEVICE" in os.environ:
-            id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+        id = getGPUTestID()
         self.executing_symlink = f'{self.output_path}/../now_executing{id}.log'
         self.latest_symlink = f'{self.output_path}/../latest{id}.log'
 

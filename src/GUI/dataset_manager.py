@@ -25,9 +25,9 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
     
-from config_utils import yolo_output_path as test_path
-from config_utils import parseYaml, dumpYaml
-from log_utils import log, bcolors
+from utils import yolo_output_path as test_path
+from utils import parseYaml, dumpYaml
+from utils import log, bcolors
 
 data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from .constants import dataset_options, kaist_yolo_dataset_path
 
 lwir = "/lwir/"

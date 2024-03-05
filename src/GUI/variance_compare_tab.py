@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 

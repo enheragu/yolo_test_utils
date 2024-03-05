@@ -9,7 +9,7 @@ from yaml.loader import SafeLoader
 import cv2 as cv
 import numpy as np
 
-from config_utils import dataset_config_yaml, kaist_yolo_dataset_path, yolo_output_path
+from utils import dataset_config_yaml, kaist_yolo_dataset_path, yolo_output_path
 
 
 

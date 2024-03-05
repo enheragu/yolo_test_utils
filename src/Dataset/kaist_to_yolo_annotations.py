@@ -23,7 +23,7 @@ if __name__ == "__main__":
     sys.path.append('./src')
 
 from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
-from log_utils import log, bcolors
+from utils import log, bcolors
 
 lwir = "/lwir/"
 visible = "/visible/"

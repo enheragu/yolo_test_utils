@@ -15,7 +15,7 @@ import xtarfile as tarfile
 from tqdm import tqdm
 from clint.textui import progress
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from Dataset import kaistToYolo, make_dataset, dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
 
 

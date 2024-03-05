@@ -18,8 +18,8 @@ from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSiz
 
 import mplcursors
 
-from config_utils import parseYaml
-from log_utils import log, bcolors
+from utils import parseYaml
+from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 

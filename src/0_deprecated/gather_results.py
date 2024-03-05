@@ -19,9 +19,9 @@ import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool, ThreadPool
 from functools import partial
 
-from config_utils import yolo_output_path as test_path
-from config_utils import parseYaml
-from log_utils import log, bcolors
+from utils import yolo_output_path as test_path
+from utils import parseYaml
+from utils import log, bcolors
 
 ## CONFIGURATION
 gather_csv_data = False

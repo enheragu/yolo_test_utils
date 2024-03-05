@@ -12,9 +12,9 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from config_utils import yolo_output_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, dataset_tags_default
-from log_utils import log, bcolors
-
+from utils import yolo_output_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, dataset_tags_default
+from utils import log, bcolors
+from utils import getGPUTestID
     
 def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0]):
     validation_iteration = 0
@@ -26,9 +26,8 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             validation_iteration += 1
             
 
-            id = ""
-            if "EEHA_TRAIN_DEVICE" in os.environ:
-                id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+            id = getGPUTestID()
+
             if path_name_in is None:
                 path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:

@@ -15,7 +15,7 @@ import argparse
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QMenu, QFileDialog
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from GUI import DataSetHandler, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
 
 sys.path.append('.')

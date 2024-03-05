@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 from scipy.ndimage.filters import gaussian_filter1d
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, DialogWithCheckbox
 

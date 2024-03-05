@@ -15,8 +15,9 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from config_utils import dataset_config_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
-from log_utils import log, bcolors
+from utils import dataset_config_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
+from utils import log, bcolors
+from utils import getGPUTestID
 
 from compress_label_folder import compress_output_labels
 
@@ -56,9 +57,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             dataset_start_time = datetime.now()
             
 
-            id = ""
-            if "EEHA_TRAIN_DEVICE" in os.environ:
-                id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+            id = getGPUTestID()
             if path_name_in is None:
                 path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:

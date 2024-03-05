@@ -15,7 +15,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 
-from config_utils import kaist_annotation_path, kaist_images_path
+from utils import kaist_annotation_path, kaist_images_path
 
 kaist_annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
 kaist_images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"

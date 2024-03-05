@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.base_tab import BaseClassPlotter
 from GUI.dataset_manager import DataSetHandler

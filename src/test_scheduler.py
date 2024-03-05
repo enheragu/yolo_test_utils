@@ -18,7 +18,7 @@ import fcntl
 import yaml
 import shutil
 
-from log_utils import log, bcolors
+from utils import log, bcolors, getGPUTestID
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -28,13 +28,11 @@ cache_path = f"{os.getenv('HOME')}/.cache/eeha_yolo_test"
 pending_file_default = f'{cache_path}/pending.yaml'
 pending_stopped_default = f'{cache_path}/pending_stopped.yaml'
 
-id = ""
-if "EEHA_TRAIN_DEVICE" in os.environ:
-    id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
-executing_file_default = f'{cache_path}/executing{id}.yaml'
+
+executing_file_default = f'{cache_path}/executing{getGPUTestID()}.yaml'
 finished_file_ok_default = f'{cache_path}/finished_ok.yaml'
 finished_file_failed_default = f'{cache_path}/finished_failed.yaml'
-stop_env_var = "EEHA_TEST_STOP_REQUESTED"
+stop_env_var = f'{cache_path}/STOP_REQUESTED{getGPUTestID()}'
 
 """
     Class that handles safe lock/unlock mechanism for files. It is set
@@ -68,8 +66,8 @@ class TestQueue:
         self.finished_file_failed = finished_file_failed
 
         ## Reset previous stop request if any
-        if os.getenv("EEHA_TEST_STOP_REQUESTED"):
-            os.environ.pop("EEHA_TEST_STOP_REQUESTED")
+        if os.path.exists(stop_env_var):
+            os.remove(stop_env_var)
         
         # Create cache path if it does not exist
         if not os.path.exists(cache_path):
@@ -118,8 +116,8 @@ class TestQueue:
     """
     def get_next_test(self):
 
-        if os.getenv("EEHA_TEST_STOP_REQUESTED"):
-            log("Env EEHA_TEST_STOP_REQUESTED detected. Stopping execution.")
+        if os.path.exists(stop_env_var):
+            log("Env {stop_env_var} detected. Stopping execution.")
             self._handleStoppedTests()
             return None
         

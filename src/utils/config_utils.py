@@ -15,8 +15,10 @@ from argparse import ArgumentParser, ArgumentTypeError
 import yaml
 from yaml.loader import SafeLoader
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from Dataset import dataset_options_keys, dataset_keys, kaist_yolo_dataset_path
+
+from .id_tag import getGPUTestID
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -29,6 +31,8 @@ yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
 templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
                  'kaist': f"{dataset_config_path}/dataset_kaist_option.j2"
                  }
+
+
 
 ################################
 #      YAML parsing stuff      #
@@ -63,9 +67,7 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     
     cfg_generated_files = []
     
-    id = ""
-    if "EEHA_TRAIN_DEVICE" in os.environ:
-        id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+    id = getGPUTestID()
 
     tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}"
     if os.path.exists(tmp_cfg_path):
@@ -96,9 +98,7 @@ def clearCFGFIles(cfg_generated_files):
             os.remove(file)
     
     try:
-        id = ""
-        if "EEHA_TRAIN_DEVICE" in os.environ:
-            id = f'_GPU{os.getenv("EEHA_TRAIN_DEVICE")}'
+        id = getGPUTestID()
             
         tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}/"
         os.rmdir(tmp_cfg_path)

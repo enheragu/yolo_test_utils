@@ -9,7 +9,7 @@
 import numpy as np
 import cv2 as cv
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 
 def draw_text(img, text,
           font=cv.FONT_HERSHEY_PLAIN,

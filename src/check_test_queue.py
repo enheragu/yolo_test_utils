@@ -7,7 +7,7 @@
 import os
 from tabulate import tabulate
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from GUI.scheduler_tab import parseTestFile
 from test_scheduler import pending_file_default, pending_stopped_default, executing_file_default, finished_file_ok_default, finished_file_failed_default
 

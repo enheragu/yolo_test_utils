@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 
 class TrainCSVDataTable(QWidget):

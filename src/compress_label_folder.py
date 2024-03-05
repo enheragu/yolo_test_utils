@@ -5,7 +5,7 @@ from multiprocessing import Pool
 from functools import partial
 import shutil
 
-from log_utils import log, bcolors
+from utils import log, bcolors
 
 folder_compress = 'labels'
 
@@ -56,7 +56,7 @@ def compress_output_labels(check_path, folder_compress_name = folder_compress):
         
 
 if __name__ == '__main__':
-    from config_utils import yolo_output_path
+    from utils import yolo_output_path
     folder_check = yolo_output_path # '/home/arvc/Desktop/detect_3080_copy/variance_day_visible_b5_kaist_trained/day_visible' #'/home/arvc/Desktop/detect_3080_copy'
     compress_output_labels(folder_check)
 
