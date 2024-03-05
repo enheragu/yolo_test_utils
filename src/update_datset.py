@@ -16,7 +16,7 @@ from tqdm import tqdm
 from clint.textui import progress
 
 from log_utils import log, bcolors
-from Dataset import kaistToYolo,make_dataset, dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
+from Dataset import kaistToYolo, make_dataset, dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
 
 
 def getKaistData():
@@ -92,9 +92,9 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
 if __name__ == '__main__':
     parser = ArgumentParser(description="Checks if kaist dataset exists in expected location and generates it if not (download, extract, reformat or regenerate).")
     parser.add_argument('-o', '--option', action='store', dest='olist',
-                        type=str, nargs='*', default=dataset_options_keys.keys(),
-                        help=f"Extra options of the datasets to be included (apart from downloaded lwir and visible). Available options are {dataset_options_keys.keys()}. Usage: -c item1 item2, -c item3")
-    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_keys[0],
+                        type=str, nargs='*', default=dataset_options_keys,
+                        help=f"Extra options of the datasets to be included (apart from downloaded lwir and visible). Available options are {dataset_options_keys}. Usage: -c item1 item2, -c item3")
+    parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_keys[1],
                         help=f"Format of the dataset to be generated. One of the following: {dataset_keys}")
     
     opts = parser.parse_args()
@@ -105,4 +105,10 @@ if __name__ == '__main__':
     if dataset_format not in dataset_keys:
         raise KeyError(f"Dataset format provided ({dataset_format}) is not part of the ones avalable: {dataset_keys}.")
 
-    checkKaistDataset(option_list_default, dataset_format) # 'rgbt', 'hsvt' ... see rgb_thermal_mix.py for more info
+    log(f"Update datasets with options: {opts}")
+    answer = ""
+    while answer not in ["y", "n"]:
+        answer = input("Do you want to continue [Y/N]? ").lower()
+    
+    if answer == "y":
+        checkKaistDataset(option_list_default, dataset_format) # 'rgbt', 'hsvt' ... see rgb_thermal_mix.py for more info

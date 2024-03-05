@@ -239,7 +239,7 @@ class SchedulerHandlerPlotter(QWidget):
 
             ## Add different ID to each row
             for row in matrix:
-                row.append(new_row_id = str(uuid.uuid4()))
+                row.append(str(uuid.uuid4()))
 
             index_hidden_col = len(column_tiles)-1
 
@@ -248,20 +248,21 @@ class SchedulerHandlerPlotter(QWidget):
                 column_tiles.append(' ')
 
             table.setRowCount(len(matrix))
-            table.setColumnCount(len(matrix[0]))
+            table.setColumnCount(len(column_tiles))
 
             table.setHorizontalHeaderLabels(column_tiles)
 
             for row, test in enumerate(matrix):
-                for column, item in enumerate(row):
-                    item = QTableWidgetItem(str(item))
-                    if nondefault[row][column] == 1:
+                for column, item in enumerate(test):
+                    table_item = QTableWidgetItem(str(item))
+                    # print(f"{test = }; {len(nondefault[0]) = }; {row = }; {column = }")
+                    if len(nondefault[0]) < column and nondefault[row][column] == 1:
                         cell_color = QColor(144, 238, 144)
-                        item.setBackground(cell_color)
-                    table.setItem(row, column, item)
+                        table_item.setBackground(cell_color)
+                    table.setItem(row, column, table_item)
 
                 if editable:
-                    self.cell_buttons(table, row, num_cols = len(matrix), row_id = matrix[-2], index_hidden_col = index_hidden_col)
+                    self.cell_buttons(table, row, num_cols = len(column_tiles), row_id = test[-2], index_hidden_col = index_hidden_col)
 
 
             table.resizeColumnsToContents()

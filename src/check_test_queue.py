@@ -12,7 +12,6 @@ from GUI.scheduler_tab import parseTestFile
 from test_scheduler import pending_file_default, pending_stopped_default, executing_file_default, finished_file_ok_default, finished_file_failed_default
 
 def printColoredTable(file, title):
-
     if not os.path.exists(file):
         log(f"File not found, table wont be displayed: {file}", bcolors.ERROR)
         return
@@ -21,7 +20,7 @@ def printColoredTable(file, title):
     matrix, nondefault = parseTestFile(file)
 
     if not matrix:
-        log(f"Empty matrix, no table to display.", bcolors.ERROR)
+        log(f"Empty matrix, no table to display from {file}.", bcolors.ERROR)
         return
 
     for i in range(len(matrix)):
@@ -38,6 +37,7 @@ def printColoredTable(file, title):
 
 
     print("\n")
+    log(f"Get test queue from {file}")
     print(f"{bcolors.OKCYAN}{title_dashes}{title}{title_dashes}{bcolors.ENDC}\n")
     for line in formatted_table.splitlines():
         print(line)
