@@ -33,6 +33,7 @@ data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
+test_key_clean = ['_GPU3090', '_GPUA30'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -121,6 +122,7 @@ def background_load_data(dataset_key_tuple):
         even with ignore file
 """
 def find_results_file(search_path = test_path, file_name = data_file_name, ignored = True):
+    global test_key_clean
     log(f"Search all {file_name} files in {search_path}")
 
     dataset_info = {}
@@ -136,10 +138,14 @@ def find_results_file(search_path = test_path, file_name = data_file_name, ignor
             if "validate" in abs_path: # Avoid validation tests, only training
                 log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
                 continue
-            name = abs_path.split("/")[-3] + "/" + abs_path.split("/")[-2]
-            dataset_info[name] = {'name': abs_path.split("/")[-2], 'path': abs_path, 'model': abs_path.split("/")[-3], 'key': name}
+            name = abs_path.split("/")[-2]
+            model = abs_path.split("/")[-3]
+            for clear_tag in test_key_clean:
+                model = model.replace(clear_tag, "")
+            key = f"{model}/{name}"
+            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key}
 
-    # # Order dataset by name
+    ## Order dataset by name
     myKeys = list(dataset_info.keys())
     myKeys.sort()
     dataset_info = {i: dataset_info[i] for i in myKeys}
@@ -149,6 +155,7 @@ def find_results_file(search_path = test_path, file_name = data_file_name, ignor
     Equivalent to find_results_file when data is to be loaded directly from cache
 """
 def find_cache_file(search_path = cache_path, file_name = cache_extension):
+    global test_key_clean
     log(f"Search all {file_name} files in {search_path}")
 
     dataset_info = {}
@@ -158,8 +165,12 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
             if file_name in file:
                 abs_path = os.path.join(root, file)
                 key_name = abs_path.replace(file_name, "")
-                name = key_name.split("/")[-2] + "/" + key_name.split("/")[-1]
-                dataset_info[name] = {'name': key_name.split("/")[-1], 'path': abs_path, 'model': key_name.split("/")[-2], 'key': name}
+                name = key_name.split("/")[-1]
+                model = key_name.split("/")[-2]
+                for clear_tag in test_key_clean:
+                    model = model.replace(clear_tag, "")
+                key = f"{model}/{name}"
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key}
 
     myKeys = list(dataset_info.keys())
     myKeys.sort()

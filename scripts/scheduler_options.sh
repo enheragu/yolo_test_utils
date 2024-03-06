@@ -18,12 +18,21 @@ function eeha_env(){
 }
 
 function eeha_device0_scheduler() {
-    tmux new-session -d -s "scheduler_eeha_0" "export EEHA_TRAIN_DEVICE_TAG=$EEHA_TRAIN_DEVICE_TAG; export EEHA_ACTIVE_TEST_TIMETABLE='20:12-07:00'; export EEHA_TRAIN_DEVICE=0; source $EEHA_SCHEDULER_SCRIPTFILE_PATH; eeha_run_scheduler $@; bash" 
+    # export EEHA_ACTIVE_TEST_TIMETABLE='15:30-06:00'
+    # Propagate options ti child
+    tmux new-session -d -s "scheduler_eeha_0" "export EEHA_TRAIN_DEVICE_TAG=$EEHA_TRAIN_DEVICE_TAG;  
+                                               export EEHA_ACTIVE_TEST_TIMETABLE=$EEHA_ACTIVE_TEST_TIMETABLE; 
+                                               export EEHA_TRAIN_DEVICE=0; 
+                                               source $EEHA_SCHEDULER_SCRIPTFILE_PATH; 
+                                               eeha_run_scheduler $@;" 
 }
 
 function eeha_device1_scheduler() {
-    export EEHA_TRAIN_DEVICE=1
-    tmux new-session -d -s "scheduler_eeha_1" "source $EEHA_SCHEDULER_SCRIPTFILE_PATH; eeha_run_scheduler $@;"
+    tmux new-session -d -s "scheduler_eeha_1" "export EEHA_TRAIN_DEVICE_TAG=$EEHA_TRAIN_DEVICE_TAG;  
+                                               export EEHA_ACTIVE_TEST_TIMETABLE=$EEHA_ACTIVE_TEST_TIMETABLE; 
+                                               export EEHA_TRAIN_DEVICE=1; 
+                                               source $EEHA_SCHEDULER_SCRIPTFILE_PATH; 
+                                               eeha_run_scheduler $@;"
 }
 
 function eeha_stop_device0_scheduler() {

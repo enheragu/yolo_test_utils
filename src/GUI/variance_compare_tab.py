@@ -217,7 +217,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                             self.dataset_handler.markAsIncomplete(key)
 
                     if not py_vec:
-                        log(f"[{self.__class__.__name__}] Vector of PY data empty. {key} variance curve wont be plotted.", bcolors.WARNING)
+                        log(f"[{self.__class__.__name__}] Vector of PY data empty. {group} variance curve wont be plotted.", bcolors.WARNING)
                         continue
 
                     data_matrix = np.array(py_vec)
