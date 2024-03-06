@@ -65,7 +65,7 @@ def processXML(xml_path, output_paths, dataset_format):
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
                 # For now Kaist format takes only into account persons
-                elif dataset_format == 'kaist' and obj_name == "person":
+                elif (dataset_format == 'kaist_small' or dataset_format == 'kaist_small') and obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
             for file in output_paths:

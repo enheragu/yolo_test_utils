@@ -27,9 +27,13 @@ dataset_config_path = f"{repo_path}/yolo_config"
 yolo_output_path = f"{repo_path}/runs/detect"
 yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
 
-# Templates for TMP YOLO dataset configuration
+## Templates for TMP YOLO dataset configuration
+# kaist_coco -> makes use of kaist_small but with class dict as defined by coco
+# kaist_small -> kaist with reduced version (less images)
+# kaist_full -> kaist with all images
 templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
-                 'kaist': f"{dataset_config_path}/dataset_kaist_option.j2"
+                 'kaist_small': f"{dataset_config_path}/dataset_kaist_small_option.j2",
+                 'kaist_full': f"{dataset_config_path}/dataset_kaist_full_option.j2"
                  }
 
 
