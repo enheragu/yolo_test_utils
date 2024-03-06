@@ -1,6 +1,6 @@
 
 
-from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_1ch
+from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_1ch, combine_vt_1ch
 from .pca_fa_compression import combine_rgbt_pca_to1ch, combine_rgbt_pca_to2ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_fa_to2ch, combine_rgbt_fa_to1ch
 from pathlib import Path
 
@@ -26,17 +26,20 @@ dataset_options = {
                     '4ch': {'merge': combine_4ch, 'extension': '.npy' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
-                    'lwir_1ch' : {'merge': combine_lwir_1ch, 'extension': '.npy' }
-                }
+                    'lwir_1ch' : {'merge': combine_lwir_1ch, 'extension': '.npy' },
+                    'lwir_1ch' : {'merge': combine_vt_1ch, 'extension': '.npy' }
+                  }
 
-fa_pca_options = {'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
-           'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
-           'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
-        #    'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
-           'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' },
-           'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
-           'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
-          }
+fa_pca_options = {'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
+                  'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' }
+                  }
+         # Modified YOLO dataloader so it only loads needed stuff
+         #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
+         #   'pca_rgbt_2ch' : {'merge': combine_rgbt_pca_to2ch, 'extension': '.npy' },
+         #   'pca_hsvt_3ch' : {'merge': combine_hsvt_pca_to3ch, 'extension': '.png' }, # -> Result is really bad, makes no sense to look for covariance in that format
+         #   'fa_rgbt_2ch' : {'merge': combine_rgbt_fa_to2ch, 'extension': '.npy' },
+         #   'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
+          
 
 
 dataset_options.update(fa_pca_options)
