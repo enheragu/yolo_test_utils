@@ -101,7 +101,7 @@ def combine_lwir_1ch(visible_image, thermal_image, path):
     return th_channel
 
 
-def combine_vt_1ch(visible_image, thermal_image, path):
+def combine_vt_2ch(visible_image, thermal_image, path):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
     vt_image = cv.merge([v,th_channel])

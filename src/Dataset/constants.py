@@ -1,10 +1,11 @@
 
 
-from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_1ch, combine_vt_1ch
+from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_1ch, combine_vt_2ch
 from .pca_fa_compression import combine_rgbt_pca_to1ch, combine_rgbt_pca_to2ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_fa_to2ch, combine_rgbt_fa_to1ch
 from pathlib import Path
 
 home = Path.home()
+repo_path = f"{home}/eeha/yolo_test_utils"
 
 # Path setup for dataset parsing and generation
 kaist_path = f"{home}/eeha/kaist-cvpr15"
@@ -13,6 +14,12 @@ kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
 kaist_images_path = f"{kaist_path}/images"
 kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format
 
+dataset_config_path = f"{repo_path}/yolo_config"
+
+labels_folder_name = "labels"
+images_folder_name = "images"
+lwir_folder_name = "lwir"
+visible_folder_name = "visible"
 
 ## Whitelist/blacklist to add or exclude datasets from generation
 dataset_blacklist = []
@@ -27,11 +34,11 @@ dataset_options = {
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
                     'lwir_1ch' : {'merge': combine_lwir_1ch, 'extension': '.npy' },
-                    'lwir_1ch' : {'merge': combine_vt_1ch, 'extension': '.npy' }
+                    'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npy' }
                   }
 
-fa_pca_options = {'pca_rgbt_3ch' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.png' },
-                  'fa_rgbt_3ch' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.png' }
+fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npy' },
+                  'fa_rgbt_npy' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npy' }
                   }
          # Modified YOLO dataloader so it only loads needed stuff
          #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
@@ -50,4 +57,20 @@ class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # pe
               'kaist_small': {  'person': 0,  'cyclist': 1, 'people': 2 },
               'kaist_full': {  'person': 0,  'cyclist': 1, 'people': 2 },
              }
+
+## Templates for TMP YOLO dataset configuration
+# kaist_coco -> makes use of kaist_small but with class dict as defined by coco
+# kaist_small -> kaist with reduced version (less images)
+# kaist_full -> kaist with all images
+templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
+                 'kaist_small': f"{dataset_config_path}/dataset_kaist_small_option.j2",
+                 'kaist_full': f"{dataset_config_path}/dataset_kaist_full_option.j2"
+                 }
+
 dataset_keys = list(class_data.keys())
+
+
+condition_list_default = ['day','night','all']
+option_list_default = dataset_options_keys
+model_list_default = ['yoloCh1x.yaml','yoloCh2x.yaml','yoloCh3x.yaml','yoloCh4x.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+dataset_tags_default = dataset_keys   # Just list of availables :)

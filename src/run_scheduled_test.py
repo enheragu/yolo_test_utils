@@ -5,12 +5,13 @@ import os
 import sys
 import traceback
 
-from update_datset import checkKaistDataset
+from Dataset.update_datset import checkKaistDataset
 from test_scheduler import TestQueue, stop_env_var
 from test_scheduler import isTimetableActive, sleep_until
 
 from utils import Logger, log, log_ntfy, logCoolMessage, bcolors
-from utils import handleArguments, yolo_outpu_log_path, getGPUTestIDTag
+from utils import getGPUTestIDTag
+from argument_parser import handleArguments, yolo_outpu_log_path
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script

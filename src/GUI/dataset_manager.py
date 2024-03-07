@@ -25,7 +25,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
     
-from utils import yolo_output_path as test_path
+from argument_parser import yolo_output_path
 from utils import parseYaml, dumpYaml
 from utils import log, bcolors
 
@@ -121,7 +121,7 @@ def background_load_data(dataset_key_tuple):
     :param: ignored ignore or not the folders with ignore files. False to process all
         even with ignore file
 """
-def find_results_file(search_path = test_path, file_name = data_file_name, ignored = True):
+def find_results_file(search_path = yolo_output_path, file_name = data_file_name, ignored = True):
     global test_key_clean
     log(f"Search all {file_name} files in {search_path}")
 
@@ -178,10 +178,10 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
     return dataset_info
 
 class DataSetHandler:
-    def __init__(self, update_cache = True, search_path = test_path):
+    def __init__(self, update_cache = True, search_path = yolo_output_path):
         self.new(update_cache, search_path)
 
-    def new(self, update_cache = True, search_path = test_path, load_from_cache = False):
+    def new(self, update_cache = True, search_path = yolo_output_path, load_from_cache = False):
         global cache_path
         self.update_cache = update_cache
         self.load_from_cache = load_from_cache
@@ -190,7 +190,7 @@ class DataSetHandler:
             self.dataset_info = find_cache_file()
         else:
             # Prepares different cache path for Dataset Handler from different location than default
-            if search_path != test_path:
+            if search_path != yolo_output_path:
                 cache_path = cache_path + "_extra"
                 log(f"Loading data from different directory: {search_path}")
                 log(f"Redirecting cache to {cache_path}")

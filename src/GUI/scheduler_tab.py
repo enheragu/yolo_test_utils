@@ -8,7 +8,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QComboBox, QSizePolicy, QTableWidget, QTableWidgetItem, QLabel, QPushButton, QLineEdit, QListWidget, QCheckBox, QGroupBox, QStyle, QApplication
 from PyQt6.QtGui import QColor, QAction, QIcon
 
-from utils import parseYaml, dumpYaml, configArgParser
+from utils import parseYaml, dumpYaml
+from argument_parser import configArgParser
 from utils import log, bcolors
 from GUI.Widgets.checable_combobox import CheckableComboBox
 

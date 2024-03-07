@@ -98,30 +98,12 @@ function eeha_update_current_cache() {
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 32 --path-name "variance_day_visible_b32_kaist_trained" --iterations 5
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4x.yaml' --path-name "variance_night_4ch_kaist_trained" --iterations 2
-# eeha_schedule_new_test -c 'night' -o 'pca_rgbt_3ch' -m 'yoloCh3x.yaml' --path-name "variance_night_pca_kaist_trained" --iterations 2
-
-# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3x.yaml' --path-name "variance_night_vt_kaist_trained" --iterations 2
-# eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' --path-name "variance_night_lwir_kaist_trained" --iterations 2
-# eeha_schedule_new_test -c 'day' -o 'vt' -m 'yoloCh3x.yaml' --path-name "variance_day_vt_kaist_trained" --iterations 2
-# eeha_schedule_new_test -c 'day' -o 'hsvt' -m 'yoloCh3x.yaml' --path-name "variance_day_hsvt_kaist_trained" --iterations 2
-
-# eeha_run_scheduler
-
+# eeha_schedule_new_test -c 'night' -o 'pca_rgbt_npy' -m 'yoloCh3x.yaml' --path-name "variance_night_pca_kaist_trained" --iterations 2
 
 
 ## Schedule in 3090
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
-
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 20 --path-name "variance_day_visible_b20_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 4
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 5
 
 
@@ -131,4 +113,43 @@ function eeha_update_current_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 10
 # EXEC # eeha_schedule_new_test -c 'day' -o 'hsvt' -m 'yoloCh3x.yaml' --path-name "variance_day_hsvt_kaist_trained" --iterations 9
 # EXEC # eeha_schedule_new_test -c 'day' -o 'vt' -m 'yoloCh3x.yaml' --path-name "variance_day_vt_kaist_trained" --iterations 6
-# EXEC # eeha_schedule_new_test -c 'day' -o 'vt' -m 'yoloCh3x.yaml' --path-name "variance_day_vt_kaist_trained" --iterations 6
+
+
+
+## PAPER SIMPOSIO
+# EXEC # eeha_schedule_new_test -c 'night' -o 'fa_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'fa_rgbt_npy' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'fa_rgbt_npy' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'fa_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'fa_rgbt_npy' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'fa_rgbt_npy' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'pca_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'pca_rgbt_npy' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'pca_rgbt_npy' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'pca_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'pca_rgbt_npy' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'day' -o 'pca_rgbt_npy' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+
+# EXEC # eeha_schedule_new_test -c 'day' -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
+
+# EXEC # eeha_schedule_new_test -c 'day' -o 'vt_2ch' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o 'vt_2ch' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
+
+# EXEC # eeha_schedule_new_test -c 'day' -o '4ch' -m 'yoloCh4x.yaml' --dataset-format "kaist_full" --cache "disk"
+# EXEC # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4x.yaml' --dataset-format "kaist_full" --cache "disk"
+
+# eeha_schedule_new_test -c 'day' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'pca_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'fa_rgbt_npy' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"
+# eeha_schedule_new_test -c 'night' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_full"

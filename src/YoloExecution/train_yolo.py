@@ -15,9 +15,9 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from utils import dataset_config_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, yolo_output_path, dataset_tags_default
-from utils import log, bcolors
-from utils import getGPUTestID
+from utils import parseYaml, log, bcolors, getGPUTestID
+from Dataset import generateCFGFiles, clearCFGFIles, dataset_tags_default, dataset_config_path
+from argument_parser import handleArguments, yolo_outpu_log_path
 
 from compress_label_folder import compress_output_labels
 

@@ -16,8 +16,9 @@ from tqdm import tqdm
 from clint.textui import progress
 
 from utils import log, bcolors
-from Dataset import kaistToYolo, make_dataset, dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
-
+from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
+from .kaist_to_yolo_annotations import kaistToYolo
+from .rgb_thermal_mix import make_dataset
 
 def getKaistData():
     filename="kaist-cvpr15.tar.gz"
@@ -46,6 +47,7 @@ def getKaistData():
         for member in tqdm(iterable=tar.getmembers(), total=len(tar.getmembers())):
             # Extract member
             tar.extract(member=member)
+
 
 def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
     # Ensure input is a list
@@ -88,7 +90,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
             make_dataset(option)
         else:
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
-            
+
 if __name__ == '__main__':
     parser = ArgumentParser(description="Checks if kaist dataset exists in expected location and generates it if not (download, extract, reformat or regenerate).")
     parser.add_argument('-o', '--option', action='store', dest='olist',

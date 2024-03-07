@@ -23,13 +23,10 @@ if __name__ == "__main__":
     sys.path.append('./src')
 
 from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
+from .constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
+# from .check_dataset import checkImageLabelPairs
+
 from utils import log, bcolors
-
-lwir = "/lwir/"
-visible = "/visible/"
-
-label_folder = "/labels/"
-images_folder = "/images/"
 
 
 def processXML(xml_path, output_paths, dataset_format):
@@ -65,7 +62,9 @@ def processXML(xml_path, output_paths, dataset_format):
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
                 # For now Kaist format takes only into account persons
-                elif (dataset_format == 'kaist_small' or dataset_format == 'kaist_small') and obj_name == "person":
+                # Assumes kaist regular format
+                # (dataset_format == 'kaist_small' or dataset_format == 'kaist_full')
+                elif obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
             for file in output_paths:
@@ -75,20 +74,20 @@ def processXML(xml_path, output_paths, dataset_format):
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
 def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
-    for data_type in (lwir, visible):
+    for data_type in (lwir_folder_name, visible_folder_name):
         line = line.replace("\n", "")
         path = line.split("/")
         path = (path[0], path[1], data_type, path[2])
         # labelling
 
-        root_label_path = f"{kaist_annotation_path}/{line}.xml"
-        output_paths = [f"{folder}/{path[0]}_{path[1]}_{path[3]}.txt" for folder in  new_dataset_label_paths]
+        root_label_path = os.path.join(kaist_annotation_path,f"{line}.xml")
+        output_paths = [os.path.join(folder,f"{path[0]}_{path[1]}_{path[3]}.txt") for folder in  new_dataset_label_paths]
         # log(output_paths)
         processXML(root_label_path, output_paths, dataset_format)
 
         # Create images
-        root_image_path = kaist_images_path + "/" + "/".join(path) + ".jpg"
-        new_image_path = f"{kaist_yolo_dataset_path}{data_set_name}{data_type}{images_folder}{path[0]}_{path[1]}_{path[3]}.png"
+        root_image_path = os.path.join(kaist_images_path,"/".join(path) + ".jpg")
+        new_image_path = os.path.join(kaist_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{path[0]}_{path[1]}_{path[3]}.png")
         # log(new_image_path)
         # Create or update symlink if already exists
         try:
@@ -125,10 +124,12 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
             # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
 
             # Create new folder structure
-            new_dataset_label_paths = (kaist_yolo_dataset_path + "/" + data_set_name + lwir + label_folder,
-                                kaist_yolo_dataset_path + "/" + data_set_name + visible + label_folder)
-            new_dataset_kaist_images_paths = (kaist_yolo_dataset_path + "/" + data_set_name + lwir + images_folder,
-                                kaist_yolo_dataset_path + "/" + data_set_name + visible + images_folder)
+            new_dataset_label_paths = (
+                os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,labels_folder_name),
+                os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,labels_folder_name))
+            new_dataset_kaist_images_paths = (
+                os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,images_folder_name),
+                os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,images_folder_name))
             
             for folder in (new_dataset_label_paths + new_dataset_kaist_images_paths):
                 # log(folder)
@@ -144,6 +145,7 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
                 log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
             dataset_processed += 1
                         
+    # checkImageLabelPairs(kaist_yolo_dataset_path)
     log(f"[KaistToYolo::KaistToYolo] Finished procesing {dataset_processed} datasets. Output datasests are located in {kaist_yolo_dataset_path}")
     log(f"[KaistToYolo::KaistToYolo] Class dict is now: {class_data[dataset_format]}")
 

@@ -18,13 +18,9 @@ if __name__ == "__main__":
     sys.path.append('./src')
 
 from utils import log, bcolors
-from .constants import dataset_options, kaist_yolo_dataset_path
+# from .check_dataset import checkImageLabelPairs
+from .constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
 
-lwir = "/lwir/"
-visible = "/visible/"
-
-label_folder = "/labels/"
-images_folder = "/images/"
 
 test = None
 test_plot = False
@@ -32,8 +28,8 @@ test_plot = False
 def process_image(folder, combine_method, option_path, image):
     # log(f"Processing image {image} from {folder} dataset")
 
-    thermal_image_path = f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{images_folder}/{image}"
-    rgb_image_path = f"{kaist_yolo_dataset_path}/{folder}/{visible}/{images_folder}/{image}"
+    thermal_image_path = os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
+    rgb_image_path = os.path.join(kaist_yolo_dataset_path,folder,visible_folder_name,images_folder_name,image)
 
     rgb_img = cv.imread(rgb_image_path)
     th_img = cv.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
@@ -52,17 +48,17 @@ def make_dataset(option):
     # Iterate each of the datasets
     log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
     for folder in os.listdir(kaist_yolo_dataset_path):
-        if not os.path.isdir(f"{kaist_yolo_dataset_path}/{folder}"):
+        if not os.path.isdir(os.path.join(kaist_yolo_dataset_path,folder)):
              continue
         
         # Images as new dataset option to new path with its labels
-        option_path = f"{kaist_yolo_dataset_path}/{folder}/{option}/{images_folder}/".replace("//", "/")
+        option_path = os.path.join(kaist_yolo_dataset_path,folder,option,images_folder_name)
         Path(option_path).mkdir(parents=True, exist_ok=True)
-        shutil.copytree(f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{label_folder}", 
-                        f"{kaist_yolo_dataset_path}/{folder}/{option}/{label_folder}", 
+        shutil.copytree(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
+                        os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name), 
                         dirs_exist_ok=True)
 
-        images_list = os.listdir(f"{kaist_yolo_dataset_path}/{folder}/{lwir}/{images_folder}")
+        images_list = os.listdir(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name))
         images_list_create = [image for image in images_list if image not in processed_images]
         images_list_symlink = [image for image in images_list if image in processed_images]
         
@@ -93,7 +89,7 @@ def make_dataset(option):
         for image in images_list_symlink:
             symlink_created +=1
             current_image = processed_images[image].replace('.png', dataset_options[option]['extension'])
-            img_path = f"{option_path}/{image}".replace('.png', dataset_options[option]['extension'])
+            img_path = os.path.join(option_path,image).replace('.png', dataset_options[option]['extension'])
             try:
                 os.symlink(current_image, img_path)
             except OSError as e:
@@ -105,12 +101,14 @@ def make_dataset(option):
         log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
 
         dataset_processed += 1
-        processed_images = {**processed_images, **{image: f"{option_path}/{image}" for image in images_list_create}}
+        processed_images = {**processed_images, **{image: os.path.join(option_path,image) for image in images_list_create}}
         # log(f"Not creating images as they already exist, creating symlink to previous generated image: {images_list_symlink}")
         
         if test:
             log(f"Test mode enabled for {test} images. Finished processing {folder}.")
             break
+
+        # checkImageLabelPairs(os.path.join(kaist_yolo_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
 
 if __name__ == '__main__':

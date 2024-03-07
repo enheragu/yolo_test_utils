@@ -8,106 +8,18 @@
 import os
 import sys
 
-import shutil
 from pathlib import Path
 from argparse import ArgumentParser, ArgumentTypeError
 
-import yaml
-from yaml.loader import SafeLoader
 
 from utils import log, bcolors
-from Dataset import dataset_options_keys, dataset_keys, kaist_yolo_dataset_path
-
-from .id_tag import getGPUTestID
+from Dataset import dataset_tags_default, option_list_default, model_list_default, condition_list_default
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
 
-dataset_config_path = f"{repo_path}/yolo_config"
 yolo_output_path = f"{repo_path}/runs/detect"
 yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
-
-## Templates for TMP YOLO dataset configuration
-# kaist_coco -> makes use of kaist_small but with class dict as defined by coco
-# kaist_small -> kaist with reduced version (less images)
-# kaist_full -> kaist with all images
-templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
-                 'kaist_small': f"{dataset_config_path}/dataset_kaist_small_option.j2",
-                 'kaist_full': f"{dataset_config_path}/dataset_kaist_full_option.j2"
-                 }
-
-
-
-################################
-#      YAML parsing stuff      #
-################################
-
-def parseYaml(file_path):
-    with open(file_path) as file:
-        return yaml.load(file, Loader=SafeLoader)
-
-def dumpYaml(file_path, data):
-    with open(file_path, "w+") as file:
-        yaml.dump(data, file, encoding='utf-8')
-        
-
-#################################
-#       Dinamic CFG stuff       #
-#################################
-
-condition_list_default = ['day','night','all']
-option_list_default = dataset_options_keys
-model_list_default = ['yoloCh1x.yaml','yoloCh2x.yaml','yoloCh3x.yaml','yoloCh4x.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
-dataset_tags_default = dataset_keys   # Just list of availables :)
-
-def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None, dataset_tag = dataset_tags_default[0]):
-    from jinja2 import Template
-
-    global condition_list_default, option_list_default, kaist_yolo_dataset_path
-    
-    condition_list = condition_list_in if condition_list_in is not None else condition_list_default
-    option_list = option_list_in if option_list_in is not None else option_list_default
-    data_path = data_path_in if data_path_in is not None else kaist_yolo_dataset_path
-    
-    cfg_generated_files = []
-    
-    id = getGPUTestID()
-
-    tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}"
-    if os.path.exists(tmp_cfg_path):
-        shutil.rmtree(tmp_cfg_path)
-    Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
-    
-    
-    with open(templates_cfg[dataset_tag]) as file:
-        template = Template(file.read())
-        log(f"[ConfigUtils::generateCFGFiles] Generate GCF files with template from {templates_cfg[dataset_tag]}")
-
-    for condition in condition_list:
-        for option in option_list:
-            data = template.render(condition=condition, option=option, data_path=data_path)
-
-            file_path = f"{tmp_cfg_path}/dataset_{condition}_{option}.yaml"
-            with open(file_path, mode='w') as f:
-                f.write(data)
-            cfg_generated_files.append(file_path)
-
-    return cfg_generated_files
-    
-def clearCFGFIles(cfg_generated_files):
-    # Note that if files are not cleared, rmdir will not work as folder would not be empty
-    
-    for file in cfg_generated_files:
-        if os.path.isfile(file):
-            os.remove(file)
-    
-    try:
-        id = getGPUTestID()
-            
-        tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}/"
-        os.rmdir(tmp_cfg_path)
-    except Exception as e:
-        log(f"Catched exception removing tmf folder: {e}")
 
 
 ###################################
@@ -130,7 +42,7 @@ def configArgParser():
                         # default=None, choices=['cpu', '0', '1', 'None'],
                         # help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
     parser.add_argument('-ca', '--cache', dest='cache',
-                        type=str, default="ram", choices=['ram','disk'],
+                        type=str, default="ram", choices=['ram','disk'], # Disk needed to load npy images
                         help="True/ram, disk or False. Use cache for data loading. To load '.npy' or '.npz' files disk option is needed.")
     parser.add_argument('-p', '--pretrained', dest='pretrained',
                         type=bool, default=False, 

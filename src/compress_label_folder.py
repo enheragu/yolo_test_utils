@@ -56,7 +56,7 @@ def compress_output_labels(check_path, folder_compress_name = folder_compress):
         
 
 if __name__ == '__main__':
-    from utils import yolo_output_path
+    from argument_parser import yolo_output_path
     folder_check = yolo_output_path # '/home/arvc/Desktop/detect_3080_copy/variance_day_visible_b5_kaist_trained/day_visible' #'/home/arvc/Desktop/detect_3080_copy'
     compress_output_labels(folder_check)
 

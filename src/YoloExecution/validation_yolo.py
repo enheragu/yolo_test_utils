@@ -12,10 +12,10 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from utils import yolo_output_path, parseYaml, generateCFGFiles, clearCFGFIles, handleArguments, dataset_tags_default
-from utils import log, bcolors
-from utils import getGPUTestID
-    
+from utils import parseYaml, log, bcolors, getGPUTestID
+from Dataset import generateCFGFiles, clearCFGFIles, dataset_tags_default
+from argument_parser import handleArguments, yolo_outpu_log_path
+
 def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0]):
     validation_iteration = 0
     start_time = datetime.now()

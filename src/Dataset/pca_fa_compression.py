@@ -151,7 +151,8 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
 
 def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
-    cv.imwrite(path, image)
+    # cv.imwrite(path, image)
+    np.save(path.replace('.png',''), image)
     return image
 
 def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
@@ -168,7 +169,8 @@ def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
-    cv.imwrite(path, image)
+    # cv.imwrite(path, image)
+    np.save(path.replace('.png',''), image)
     return image    
 
 def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
