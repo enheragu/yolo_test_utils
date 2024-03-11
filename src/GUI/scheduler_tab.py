@@ -56,6 +56,9 @@ def parseTestFile(yaml_path, arg_options = getArgParseOptions()):
     rows = [['' for _ in range(num_cols)] for _ in range(num_rows)]
     nondefault_mask = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
     for row, test in enumerate(data):
+        if not test:
+            log(f"Test seems to be empty in {yaml_path}.", bcolors.WARNING)
+            return None, None
         for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
             for column_title, column_info in arg_options.items():
                 if command == column_info['long'] or command == column_info['short']:

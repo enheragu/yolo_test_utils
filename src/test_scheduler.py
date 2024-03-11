@@ -163,7 +163,7 @@ class TestQueue:
     """
     def get_next_test(self):
         if os.path.exists(stop_env_var):
-            log("Env {stop_env_var} detected. Stopping execution.")
+            log("File {stop_env_var} detected. Stopping execution.")
             self._handleStoppedTests()
             return None
         

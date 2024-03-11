@@ -210,7 +210,10 @@ class DataSetHandler:
 
         self._load_data(self.dataset_info)
         
-    def _load_data(self, dataset_dict):
+    def _load_data(self, dataset_dict, update_cache = None):
+        if update_cache:
+            self.update_cache = update_cache
+
         # Load data in background
         self.futures_result = {}
         self.executor_load = ProcessPoolExecutor()
@@ -259,9 +262,9 @@ class DataSetHandler:
 
     def __delitem__(self, key):
         if key in self.parsed_data:
-            self.dataset_info.pop(key)
+            dataset_info = self.dataset_info.pop(key)
             eliminate = self.parsed_data.pop(key)
-            return eliminate
+            return dataset_info
         else:
             raise KeyError(f'[{self.__class__.__name__}] Key {key} is not in parsed_data dict.')
         
@@ -294,5 +297,12 @@ class DataSetHandler:
     Main execution allows to cache data ind advance without loading the whole gui :)
 """
 if __name__ == "__main__":
-    update_cache = True
+    import argparse
+    parser = argparse.ArgumentParser(description="GUI to review training results.")
+    parser.add_argument('--update_cache', action='store_true', help='Actualizar archivos de caché si es verdadero')
+
+    # Parsear los argumentos de la línea de comandos
+    args = parser.parse_args()
+
+    update_cache = args.update_cache
     dataset_handler = DataSetHandler(update_cache)
