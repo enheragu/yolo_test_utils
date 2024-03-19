@@ -1,7 +1,7 @@
 
 
-from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_1ch, combine_vt_2ch
-from .pca_fa_compression import combine_rgbt_pca_to1ch, combine_rgbt_pca_to2ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_fa_to2ch, combine_rgbt_fa_to1ch
+from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
+from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full
 from pathlib import Path
 
 home = Path.home()
@@ -33,12 +33,14 @@ dataset_options = {
                     '4ch': {'merge': combine_4ch, 'extension': '.npy' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
-                    'lwir_1ch' : {'merge': combine_lwir_1ch, 'extension': '.npy' },
-                    'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npy' }
+                    'lwir_npy' : {'merge': combine_lwir_npy, 'extension': '.npz' },
+                    'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npz' }
                   }
 
-fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npy' },
-                  'fa_rgbt_npy' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npy' }
+fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
+                  'fa_rgbt_npy' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
+                  'pca_full_npy' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
+                  'fa_full_npy' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
                   }
          # Modified YOLO dataloader so it only loads needed stuff
          #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },

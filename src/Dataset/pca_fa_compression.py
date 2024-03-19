@@ -152,38 +152,40 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
 def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
     # cv.imwrite(path, image)
-    np.save(path.replace('.png',''), image)
+    # np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image
 
-def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
-    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
-    # np.savez_compressed(path.replace('.png',''), image = image)
-    np.save(path.replace('.png',''), image)
-    return image    
+# def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
+#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
+#     # np.savez_compressed(path.replace('.png',''), image = image)
+#     np.save(path.replace('.png',''), image)
+#     return image    
 
-def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
-    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
-    # np.savez_compressed(path.replace('.png',''), image = image)
-    np.save(path.replace('.png',''), image)
-    return image    
+# def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
+#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
+#     # np.savez_compressed(path.replace('.png',''), image = image)
+#     np.save(path.replace('.png',''), image)
+#     return image    
 
 def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
     # cv.imwrite(path, image)
-    np.save(path.replace('.png',''), image)
+    # np.save(path.replace('.png',''), image)
+    np.savez_compressed(path.replace('.png',''), image = image)
     return image    
 
-def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
-    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
-    # np.savez_compressed(path.replace('.png',''), image = image)
-    np.save(path.replace('.png',''), image)
-    return image    
+# def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
+#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
+#     # np.savez_compressed(path.replace('.png',''), image = image)
+#     np.save(path.replace('.png',''), image)
+#     return image    
 
-def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
-    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
-    # np.savez_compressed(path.replace('.png',''), image = image)
-    np.save(path.replace('.png',''), image)
-    return image    
+# def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
+#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
+#     # np.savez_compressed(path.replace('.png',''), image = image)
+#     np.save(path.replace('.png',''), image)
+#     return image    
 
 
 def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
@@ -203,3 +205,57 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     return image
 
 
+"""
+    Gets PCA eigenvectors and eigenvalues for given dataset
+"""
+pca_output_path = '~/.cache/eeha_yolo_test/pca_sorted_eigenvectors.npy'
+fa_output_path = '~/.cache/eeha_yolo_test/fa_sorted_eigenvectors.npy'
+pca_eigen_vectors = None        # Avoid multiple load of data. Load once and reuse
+fa_eigen_vectors = None
+
+def preprocess_rgbt_pca_full(option, path, dataset_format):
+    log(f"Compute general PCA eigenvectors and values to later compress images.")
+    pass
+
+"""
+    Gets FA eigenvectors and eigenvalues for given dataset
+"""
+def preprocess_rgbt_fa_full(option, path, dataset_format):
+    log(f"Compute general FA eigenvectors and values to later compress images.")
+    pass
+
+def combine_rgbt_pca_full(visible_image, thermal_image, path):
+    global pca_eigen_vectors
+    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+
+    b,g,r = cv.split(visible_imgage_filered)
+    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    img_shape = th.shape
+
+    data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
+    data_vector_std = (data_vector - data_vector.mean()) / data_vector.std() # standarize 
+    
+    if not pca_eigen_vectors:
+        pca_eigen_vectors = np.load(pca_output_path)
+    image = np.matmul(data_vector_std, pca_eigen_vectors[:,:4])
+
+    np.save(path.replace('.png',''), image)
+    return image
+
+def combine_rgbt_fa_full(visible_image, thermal_image, path):
+    global fa_eigen_vectors
+    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+
+    b,g,r = cv.split(visible_imgage_filered)
+    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    img_shape = th.shape
+
+    if not fa_eigen_vectors:
+        fa_eigen_vectors = np.load(fa_output_path)
+    data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
+    image = np.matmul(data_vector, fa_eigen_vectors[:,:4])
+
+    np.save(path.replace('.png',''), image)
+    return image

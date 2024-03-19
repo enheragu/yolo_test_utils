@@ -17,6 +17,7 @@ from clint.textui import progress
 
 from utils import log, bcolors
 from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
+from .constants import dataset_options
 from .kaist_to_yolo_annotations import kaistToYolo
 from .rgb_thermal_mix import make_dataset
 
@@ -83,10 +84,13 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco'):
     # log(f"{kaist_yolo_dataset_path = }")
     # log(f"[UpdateDataset::checkKaistDataset] {setfolders = };\n{options_found =}\n")
 
+
     # Check that needed versions exist or create them
     for option in options:
         if option not in options_found:
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
+            if "preprocess" in dataset_options[option]:
+                dataset_options[option]["preprocess"](option, kaist_yolo_dataset_path, dataset_format)
             make_dataset(option)
         else:
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
