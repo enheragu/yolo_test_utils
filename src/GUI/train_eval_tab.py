@@ -7,6 +7,7 @@
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 from scipy.ndimage.filters import gaussian_filter1d
+import seaborn as sns
 
 from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
@@ -93,9 +94,14 @@ class TrainEvalPlotter(BaseClassPlotter):
                         data = self.dataset_handler[key]['csv_data']
                         data_x = [int(x) for x in data['epoch']]
                         data_y = [float(y) for y in data[py]]
-                        subplot[py].plot(data_x, data_y, marker='.', label=key, linewidth=4, markersize=10)  # actual results
-                        subplot[py].plot(data_x, gaussian_filter1d(data_y, sigma=3), ':', label=f'{key}-smooth', linewidth=4)  # smoothing line
+                        # subplot[py].plot(data_x, data_y, marker='.', label=key, linewidth=4, markersize=10)  # actual results
+                        # subplot[py].plot(data_x, gaussian_filter1d(data_y, sigma=3), ':', label=f'{key}-smooth', linewidth=4)  # smoothing line
                         # subplot[py].plot(data_x, data_y, linewidth=1)  # plot(confidence, metric)
+
+                        sns.lineplot(x=data_x, y=data_y, marker='.', label=key, linewidth=4, markersize=10, ax = subplot[py])
+                        smoothed_data_y = gaussian_filter1d(data_y, sigma=3)
+                        sns.lineplot(x=data_x, y=smoothed_data_y, linestyle=':', label=f'{key}-smooth', linewidth=4, ax = subplot[py])
+
 
                         # Configurar leyenda
                         subplot[py].set_xlabel("epoch")

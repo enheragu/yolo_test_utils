@@ -10,6 +10,7 @@ import csv
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.colors import to_rgba
 
 from PyQt6.QtCore import Qt
@@ -106,7 +107,14 @@ class TrainCSVDataTable(QWidget):
                     # log(f"\t {data}")
                     date_tag = datetime.fromisoformat(end_date_tag).strftime('%Y-%m-%d_%H:%M:%S')
                     test_title = f'{model}_{dataset}_{date_tag}_{class_type}'
-                    condition = 'night' if 'night' in dataset_type[0] else 'day'
+                    if 'night' in dataset_type[0]:
+                        condition = 'night'
+                    elif 'day' in dataset_type[0]:
+                        condition = 'day'
+                    elif 'all' in dataset_type[0]:
+                        condition = 'all'
+                    else:
+                        condition = "Unknown"
                     row_list.append([model, condition, "_".join(dataset_type[1:]),
                                     "{:.4f}".format(data_class['P']), 
                                     "{:.4f}".format(data_class['R']), 
@@ -173,7 +181,14 @@ class TrainCSVDataTable(QWidget):
 
                 date_tag = "-"
                 test_title = f'{model}_{dataset}_{class_type}'
-                condition = 'night' if 'night' in dataset_type[0] else 'day'
+                if 'night' in dataset_type[0]:
+                    condition = 'night'
+                elif 'day' in dataset_type[0]:
+                    condition = 'day'
+                elif 'all' in dataset_type[0]:
+                    condition = 'all'
+                else:
+                    condition = "Unknown"
                 row_list_averaged.append([model, condition, "_".join(dataset_type[1:]),
                                 f"(mean) {np.mean(p_vec_vec, axis = 0):.4f}", 
                                 f"(mean) {np.mean(r_vec_vec, axis = 0):.4f}", 
@@ -231,7 +246,7 @@ class TrainCSVDataTable(QWidget):
         # Agregar las filas a la tabla
         row_color = {}
         def addRowsColored(row_list, alpha_value = 20):
-            colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+            colors_list = sns.color_palette()
             color_iterator = itertools.cycle(colors_list)
             for row_position, row_data in enumerate(row_list[1:]):
                 # row_position = self.csv_table.rowCount()

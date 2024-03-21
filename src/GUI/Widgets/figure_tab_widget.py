@@ -53,6 +53,6 @@ class PlotTabWidget(QTabWidget):
     def saveFigures(self, path):
         for key in self.figure.keys():
             # Save the plot to the selected location as a PNG image
-            plot_name = path + "_" + key.replace(" ", "_") + ".png"
-            self.figure[key].savefig(plot_name, format='png')
+            plot_name = path + "_" + key.replace(" ", "_") + ".pdf" #".png"
+            self.figure[key].savefig(plot_name)#, format='png')
             print(f"Plot saved to {plot_name}.png")

@@ -5,6 +5,8 @@
 """
 
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import QHBoxLayout, QWidget, QScrollArea, QSizePolicy, QVBoxLayout
@@ -12,7 +14,6 @@ from PyQt6.QtWidgets import QHBoxLayout, QWidget, QScrollArea, QSizePolicy, QVBo
 from utils import parseYaml
 from utils import log, bcolors
 from .Widgets import PlotTabWidget
-
 
 class BaseClassPlotter(QWidget):
     def __init__(self, dataset_handler, tab_keys):
@@ -44,7 +45,8 @@ class BaseClassPlotter(QWidget):
             self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
             self.layout.addWidget(self.figure_tab_widget,3)
         
-    
+        sns.set_palette("colorblind")
+
     def toggle_options(self):
         # Cambiar el estado del check basado en si las opciones están visibles o no
         if self.options_widget.isVisible():

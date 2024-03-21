@@ -8,6 +8,7 @@ import itertools
 import numpy as np
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.stats import norm
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
@@ -83,7 +84,7 @@ class VarianceComparePlotter(BaseClassPlotter):
         for canvas_key in self.tab_keys:
             
             if canvas_key == 'mAP50' or canvas_key == 'mAP50-95' or canvas_key == 'P' or canvas_key == 'R':
-                colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+                colors_list = sns.color_palette()
                 color_iterator = itertools.cycle(colors_list)
                 # Limpiar el gráfico anterior
                 # xlabel = canvas_key
@@ -118,7 +119,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                     # log(f"{group}: {len(data_y) = }")
                     next_color = next(color_iterator)
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
-                    ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=next_color, edgecolor=next_color)
+                    # ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=next_color, edgecolor=next_color)
+                    sns.histplot(data=data_y, bins=bin_size, stat="density", alpha=0.4, label=f'{label}; n = {len(data_y)}', palette=next_color, edgecolor='none', ax=ax)
                     
                     mean = np.mean(data_y)
                     std = np.std(data_y)
@@ -127,10 +129,13 @@ class VarianceComparePlotter(BaseClassPlotter):
                         
                         x = np.linspace(mean-std*4, mean+std*4, 100)
                         y = norm.pdf(x, mean, std)
-                        ax.plot(x, y, linestyle='--', linewidth=2, color=next_color)
+                        # ax.plot(x, y, linestyle='--', linewidth=2, color=next_color)
+                        sns.lineplot(x=x, y=y, linestyle='--', linewidth=2, color=next_color, ax=ax)
 
                         for pos in np.arange(mean-std*2, mean+std*2, std):
-                            ax.axvline(x=pos, color=next_color, linewidth=1)
+                            # ax.axvline(x=pos, color=next_color, linewidth=1)
+                            # sns.lineplot(x=[pos, pos], y=[0, norm.pdf(pos, mean, std)], color=next_color, linewidth=1, ax=ax)
+                            ax.vlines(x=pos, ymin=0, ymax=norm.pdf(pos, mean, std), colors=next_color, linewidth=1, linestyles='solid')
                     else:
                         log(f"[{self.__class__.__name__}] STD of data is <0 ({std = }) for {canvas_key} plot with n={len(data_y)} for {group}", bcolors.ERROR)
 
@@ -160,29 +165,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                     model = raw_data_dict['validation_best']['model'].split("/")[-1]
                     return px,py,names,model
                 
-                ## Plot each training result
-                colors_list = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+                colors_list = sns.color_palette()
                 color_iterator = itertools.cycle(colors_list)
-                for index, key in enumerate(self.dataset_train_checkboxes.getChecked()):
-                    data = self.dataset_handler[key]
-                    if not data:
-                        continue
-                    try:
-                        best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
-                        px, py, names, model = getLastEpochData(py_tag, data)
-                        
-                        for i, y in enumerate(py):
-                            index_max = len(y)-1
-                            # Filter by max recall values so to not have interpolated diagram
-                            if canvas_key == 'PR Curve':
-                                r = data['pr_data_best']['r'][i]
-                                max_r = max(r)
-                                index_max = next((i for i, x in enumerate(px) if x > max_r), None)
-                            ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator))  # plot(confidence, metric)
-
-                    except KeyError as e:
-                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
-                        self.dataset_handler.markAsIncomplete(key)
 
                 ## Plot each variance group
                 # number_std = self.std_plot_widget.value
@@ -233,8 +217,34 @@ class VarianceComparePlotter(BaseClassPlotter):
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")
                     
                     next_color=next(color_iterator)
-                    ax.plot(px, mean, label=f"{label}; n = {len(py_vec)}", color=next_color)
-                    ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=next_color)
+                    # ax.plot(px, mean, label=f"{label}; n = {len(py_vec)}", color=next_color)
+                    # ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=next_color)
+                    sns.lineplot(x=px, y=mean, label=f"{label}; n = {len(py_vec)}", color=next_color, ax=ax)
+                    ax.fill_between(px, min_vals, max_vals, alpha=0.3, color=next_color)
+
+                ## Plot each training result
+                for index, key in enumerate(self.dataset_train_checkboxes.getChecked()):
+                    data = self.dataset_handler[key]
+                    if not data:
+                        continue
+                    try:
+                        best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+                        px, py, names, model = getLastEpochData(py_tag, data)
+                        
+                        for i, y in enumerate(py):
+                            index_max = len(y)-1
+                            # Filter by max recall values so to not have interpolated diagram
+                            if canvas_key == 'PR Curve':
+                                r = data['pr_data_best']['r'][i]
+                                max_r = max(r)
+                                index_max = next((i for i, x in enumerate(px) if x > max_r), None)
+                            # ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator))  # plot(confidence, metric)
+                            sns.lineplot(x=px[:index_max], y=y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator), ax=ax)
+
+                    except KeyError as e:
+                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        self.dataset_handler.markAsIncomplete(key)
+
 
                 ax.set_xlim(0, 1)
                 ax.set_ylim(0, 1)

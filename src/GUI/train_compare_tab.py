@@ -17,6 +17,7 @@ import numpy as np
 from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
+import seaborn as sns
 
 from utils import parseYaml
 from utils import log, bcolors
@@ -151,7 +152,11 @@ class TrainComparePlotter(BaseClassPlotter):
                             max_r = max(r)
                             index_max = next((i for i, x in enumerate(px) if x > max_r), None)
                             y = y[:index_max] + [np.nan] * (len(y) - index_max)
-                        ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+                        
+                        # ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+                        sns.lineplot(x=px, y=y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", ax = ax)
+
+                        
 
                 except KeyError as e:
                     log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
