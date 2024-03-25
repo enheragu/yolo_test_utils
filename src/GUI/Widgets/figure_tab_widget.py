@@ -6,6 +6,7 @@
 """
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QDialog, QLineEdit, QPushButton
@@ -66,6 +67,10 @@ class PlotTabWidget(QTabWidget):
             tab.layout.addWidget(self.tab_canvas[key] )
             tab.setLayout(tab.layout)
             self.addTab(tab, key)
+
+
+        # sns.set_palette("colorblind")
+        sns.set_palette(sns.color_palette(["#0171ba","#78b01c","#f6ae2d","#f23535","#a66497","#769393","#2a2b2e"]))
 
     def __getitem__(self, key):
         return self.figure[key]
