@@ -51,6 +51,10 @@ def parseCSV(file_path):
 def getResultsYamlData(dataset):
     data = parseYaml(dataset['path'])
     data_filtered = {}
+    if not data:
+        log(f"[{inspect.currentframe().f_code.co_name}] Empty data in {dataset['key']}).", bcolors.ERROR)
+        return {}
+
     try:
         ## FILTER UNUSED DATA TO AVOID MEMORY CONSUMPTION
         last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)

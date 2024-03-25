@@ -22,7 +22,7 @@ lwir_folder_name = "lwir"
 visible_folder_name = "visible"
 
 ## Whitelist/blacklist to add or exclude datasets from generation
-dataset_blacklist = []
+dataset_blacklist = ['test-all-01-Seq']
 dataset_whitelist = [] #['train-day-04', 'train-day-20', 'test-day-01', 'test-day-20', 'train-night-02', 'train-night-04', 'test-night-01', 'test-night-20']
 
 

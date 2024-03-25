@@ -33,6 +33,10 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
         ## ---
 
+        self.select_all_button = QPushButton(" Select All ", self)
+        self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all()))
+
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
@@ -45,11 +49,18 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
+        self.buttons_layout.addWidget(self.select_all_button)
         self.buttons_layout.addWidget(self.deselect_all_button)
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
-        self.buttons_layout.addWidget(self.select_extra_button)
-   
+        self.buttons_layout.addWidget(self.select_extra_button)   
+        
+        if tab_keys:
+            self.change_labels_button = QPushButton(" Edit labels ", self)
+            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
+            self.buttons_layout.addWidget(self.change_labels_button)
+            
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
         self.dataset_checkboxes_extra.update_checkboxes()
@@ -110,7 +121,9 @@ class TrainEvalPlotter(BaseClassPlotter):
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] Key error problem generating Train/Val plots for {key}. Row wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                         self.dataset_handler.markAsIncomplete(key)
-            
+
+                self.figure_tab_widget[canvas_key].ax.append(subplot[py])
+
             self.figure_tab_widget[canvas_key].subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9)
             self.figure_tab_widget[canvas_key].tight_layout()
 

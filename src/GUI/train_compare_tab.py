@@ -85,7 +85,12 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
         self.buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
         self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
-
+        
+        if tab_keys:
+            self.change_labels_button = QPushButton(" Edit labels ", self)
+            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
+            self.buttons_layout.addWidget(self.change_labels_button, 5,0,1,3)
        
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra])
@@ -171,6 +176,7 @@ class TrainComparePlotter(BaseClassPlotter):
             
             # Configurar leyenda
             ax.legend()
+            self.figure_tab_widget[canvas_key].ax.append(ax)
 
             # Use a Cursor to interactively display the label for a selected line.
             self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)

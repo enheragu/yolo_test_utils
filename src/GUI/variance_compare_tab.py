@@ -30,6 +30,10 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.dataset_train_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_train_checkboxes,3)
         
+        self.select_all_button = QPushButton(" Select All ", self)
+        self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.select_all_button.clicked.connect(lambda: (self.dataset_train_checkboxes.select_all(), self.dataset_variance_checkboxes.select_all()))
+
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_train_checkboxes.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
@@ -42,9 +46,17 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
 
+
+        self.buttons_layout.addWidget(self.select_all_button)
         self.buttons_layout.addWidget(self.deselect_all_button)
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
+        
+        if tab_keys:
+            self.change_labels_button = QPushButton(" Edit labels ", self)
+            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
+            self.buttons_layout.addWidget(self.change_labels_button)
 
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_train_checkboxes,self.dataset_variance_checkboxes])
@@ -120,12 +132,14 @@ class VarianceComparePlotter(BaseClassPlotter):
                     next_color = next(color_iterator)
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
                     # ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=next_color, edgecolor=next_color)
-                    sns.histplot(data=data_y, bins=bin_size, stat="density", alpha=0.4, label=f'{label}; n = {len(data_y)}', palette=next_color, edgecolor='none', ax=ax)
+                    sns.histplot(data_y, bins=bin_size, stat="density", alpha=0.4, label=f'{label}; n = {len(data_y)}', color=next_color, 
+                                 edgecolor='none', ax=ax)
+                    # ax.set_yscale('log')
                     
                     mean = np.mean(data_y)
                     std = np.std(data_y)
 
-                    if std >0.001:       
+                    if std >0.000001:       
                         
                         x = np.linspace(mean-std*4, mean+std*4, 100)
                         y = norm.pdf(x, mean, std)
@@ -263,6 +277,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
             # Configurar leyenda
             ax.legend()
+            self.figure_tab_widget[canvas_key].ax.append(ax)
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
