@@ -50,6 +50,8 @@ class PlotTabWidget(QTabWidget):
         self.tab_canvas = {}
         self.figure = {}
         self.cursor = {}
+        
+        plt.rc('font', size=14)
 
         # Crear pestañas para cada conjunto de datos
         for key in tab_keys:
@@ -91,10 +93,13 @@ class PlotTabWidget(QTabWidget):
 
     def saveFigures(self, path):
         for key in self.figure.keys():
-            # Save the plot to the selected location as a PNG image
-            plot_name = path + "_" + key.replace(" ", "_") + ".pdf" #".png"
-            self.figure[key].savefig(plot_name)#, format='png')
-            print(f"Plot saved to {plot_name}.png")
+            self.figure[key].set_size_inches(7.2, 8)  # Width x Height in inches
+                        
+            plot_name = f"{path}_{key.replace(' ', '_')}.pdf"
+            self.figure[key].savefig(plot_name, format='pdf')
+            print(f"Plot saved to {plot_name}")
+
+
         
     def edit_labels(self):
         labels_dict = {}

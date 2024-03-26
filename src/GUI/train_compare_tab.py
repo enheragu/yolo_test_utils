@@ -135,7 +135,7 @@ class TrainComparePlotter(BaseClassPlotter):
             # log(f"Plotting {ylabel}-{xlabel} Curve")
 
             # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
-            ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
+            ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
             for key in checked_list:
                 data = self.dataset_handler[key]
                 if not data:
@@ -159,7 +159,9 @@ class TrainComparePlotter(BaseClassPlotter):
                             y = y[:index_max] + [np.nan] * (len(y) - index_max)
                         
                         # ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
-                        sns.lineplot(x=px, y=y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", ax = ax)
+                        ax_label = f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})"
+                        ax_label = f"{self.dataset_handler.getInfo()[key]['name'].split('_')[0].title()} {self.dataset_handler.getInfo()[key]['name'].split('_')[1].upper()}"
+                        sns.lineplot(x=px, y=y, linewidth=2, label=ax_label, ax = ax)
 
                         
 

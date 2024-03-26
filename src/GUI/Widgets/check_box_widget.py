@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollA
 
 max_rows_checkboxes = 5
 
-
+# Remove machine tag
+title_filter_global = ["_4090", "_3090"]
 class DatasetCheckBoxWidget(QScrollArea):
     """
         :param: include  Str pattern of tests that will be included in the checbox widget
@@ -18,12 +19,13 @@ class DatasetCheckBoxWidget(QScrollArea):
         :param: title_filter: list of substrings to filter from Group title
     """
     def __init__(self, widget, dataset_handler, include = None, exclude = "variance_", max_rows = max_rows_checkboxes, title_filter = []):
+        global title_filter_global
         super().__init__(widget)
 
         self.dataset_handler = dataset_handler
         self.include = include
         self.exclude = exclude
-        self.title_filter = title_filter
+        self.title_filter = title_filter + title_filter_global
         self.max_rows = max_rows
 
         self.setWidgetResizable(True)
@@ -68,6 +70,8 @@ class DatasetCheckBoxWidget(QScrollArea):
                 group_dict[group_name].setStyleSheet("font-weight: bold;")
                 self.scroll_layout.addWidget(group_dict[group_name], 0, len(group_dict) - 1)
 
+            for filter in self.title_filter:
+                test_name = test_name.replace(filter, "")
             checkbox = QCheckBox(test_name)
             checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
             self.check_box_dict[key] = checkbox
@@ -109,13 +113,14 @@ class GroupCheckBoxWidget(QScrollArea):
                 as 'train_' or 'variance_'
     """
     def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes, title_filter = []):
+        global title_filter_global
         super().__init__(widget)
 
         self.title = title
         self.dataset_handler = dataset_handler
         self.include = include
         self.exclude = exclude
-        self.title_filter = title_filter
+        self.title_filter = title_filter + title_filter_global
         self.max_rows = max_rows
 
         self.setWidgetResizable(True)

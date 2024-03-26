@@ -22,9 +22,9 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 1:
         log(f"Add new test to queue: {sys.argv[1:]}")
-        test_queue.add_new_test(sys.argv[1:])  
-
-    nex_test = test_queue.get_next_test()
+        nex_test = sys.argv[1:]
+    else:
+        nex_test = test_queue.get_next_test()
     while nex_test:
 
         logCoolMessage(f"START TEST EXECUTION")

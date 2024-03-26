@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
-## NEEDS PYQT 5: pip install PyQt6  
-## Using "export QT_DEBUG_PLUGINS=1" to see pluggin issues. Some might be missing. Install with apt
+## NEEDS PYQT 6: pip install PyQt6  
 ## Also needs to install lib: sudo apt install libxcb-cursor0
 ## might need an update -> pip install --upgrade pip
 
