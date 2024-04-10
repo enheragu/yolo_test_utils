@@ -4,6 +4,8 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
+import warnings
+
 import itertools
 import numpy as np
 
@@ -112,7 +114,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                         if not data:
                             continue
                         try:
-                            data_y = np.append(data_y, data['validation_best']['data']['all'][canvas_key])
+                            # Some 'all' cases have mP instead of only P as tag...
+                            data_y = np.append(data_y, data['validation_best']['data']['all'].get(canvas_key, data['validation_best']['data']['all'].get(f"m{canvas_key}")))
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
@@ -219,10 +222,12 @@ class VarianceComparePlotter(BaseClassPlotter):
                         continue
 
                     data_matrix = np.array(py_vec)
-                    # nanmean make average ignoring NAN stuff
-                    mean = np.nanmean(data_matrix, axis = 0)
-                    max_vals = np.nanmax(data_matrix, axis=0)
-                    min_vals = np.nanmin(data_matrix, axis=0)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=RuntimeWarning)
+                        # nanmean make average ignoring NAN stuff
+                        mean = np.nanmean(data_matrix, axis = 0)
+                        max_vals = np.nanmax(data_matrix, axis=0)
+                        min_vals = np.nanmin(data_matrix, axis=0)
 
                     # std = np.std(data_matrix, axis = 0, ddof=1)
                     # conf_interval = std*number_std

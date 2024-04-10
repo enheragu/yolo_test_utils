@@ -115,9 +115,10 @@ class TrainCSVDataTable(QWidget):
                         condition = 'all'
                     else:
                         condition = "Unknown"
+
                     row_list.append([model, condition, "_".join(dataset_type[1:]),
-                                    "{:.4f}".format(data_class['P']), 
-                                    "{:.4f}".format(data_class['R']), 
+                                    "{:.4f}".format(data_class.get('P', data_class.get(f"mP"))), 
+                                    "{:.4f}".format(data_class.get('R', data_class.get(f"mR"))), 
                                     "{:.4f}".format(data_class['mAP50']), 
                                     "{:.4f}".format(data_class['mAP50-95']), 
                                     class_type, 
@@ -158,8 +159,8 @@ class TrainCSVDataTable(QWidget):
                 try:
                     bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
                     train_duration_vec.append(data['train_data']['train_duration_h'])
-                    p_vec_vec.append(data_class['P'])
-                    r_vec_vec.append(data_class['R'])
+                    p_vec_vec.append(data_class.get('P', data_class.get(f"mP")))
+                    r_vec_vec.append(data_class.get('R', data_class.get(f"mR")))
                     mAP50_vec.append(data_class['mAP50'])
                     mAP50_95_vec.append(data_class['mAP50-95'])
                     for class_type, data_class in data['validation_best']['data'].items():

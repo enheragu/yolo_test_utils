@@ -260,8 +260,8 @@ class DataSetHandler:
     
     # Remove dataset from execution as it is giving problems
     def markAsIncomplete(self, key):
-        log(f"[{self.__class__.__name__}] Incomplete dataset data {key}. Won't be taken into account.", bcolors.WARNING)
         incomplete_data = self.__delitem__(key)
+        log(f"[{self.__class__.__name__}] Incomplete dataset data {key}. Won't be taken into account. Test data in: {incomplete_data['path'].replace('results.yaml', '')}", bcolors.WARNING)
         self.incomplete_dataset[key] = incomplete_data
 
     def __delitem__(self, key):
