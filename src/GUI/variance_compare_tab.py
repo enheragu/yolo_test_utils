@@ -115,7 +115,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                             continue
                         try:
                             # Some 'all' cases have mP instead of only P as tag...
-                            data_y = np.append(data_y, data['validation_best']['data']['all'].get(canvas_key, data['validation_best']['data']['all'].get(f"m{canvas_key}")))
+                            data_y = np.append(data_y, data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
@@ -176,8 +176,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                 py_tag = plot_data[canvas_key]['py']
 
                 def getLastEpochData(key_data, raw_data_dict):
-                    px = raw_data_dict['pr_data_best']['px']
-                    py = raw_data_dict['pr_data_best'][key_data]
+                    px = raw_data_dict['pr_data_best'].get('px_plot', raw_data_dict['pr_data_best'].get('px'))
+                    py = raw_data_dict['pr_data_best'].get(f'{key_data}_plot', raw_data_dict['pr_data_best'].get(key_data))
                     names = raw_data_dict['pr_data_best']['names']
                     model = raw_data_dict['validation_best']['model'].split("/")[-1]
                     return px,py,names,model
@@ -205,18 +205,21 @@ class VarianceComparePlotter(BaseClassPlotter):
                                 # between all recall curves involved in mean and max/min
                                 index_max = len(y)-1
                                 if canvas_key == 'PR Curve':
-                                    r = data['pr_data_best']['r'][i]
+                                    r_list = data['pr_data_best'].get('r_plot', data['pr_data_best'].get('r'))
+                                    r = r_list[i]
                                     max_r = max(r)
-                                    index_max = next((i for i, x in enumerate(px) if x > max_r), None)
+                                    index_max = next((i for i, x in enumerate(px) if x > max_r), len(y)-1)
                                 
                                 # FIll from index_max to the end with NAN data
                                 y = y[:index_max] + [np.nan] * (len(y) - index_max)
                                 py_vec.append(y) #[:index_max])
 
                         except KeyError as e:
-                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
-
+                        except TypeError as e:
+                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            
                     if not py_vec:
                         log(f"[{self.__class__.__name__}] Vector of PY data empty. {group} variance curve wont be plotted.", bcolors.WARNING)
                         continue
@@ -254,7 +257,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                             index_max = len(y)-1
                             # Filter by max recall values so to not have interpolated diagram
                             if canvas_key == 'PR Curve':
-                                r = data['pr_data_best']['r'][i]
+                                r_list = data['pr_data_best'].get('r_plot', data['pr_data_best'].get('r'))
+                                r = r_list[i]
                                 max_r = max(r)
                                 index_max = next((i for i, x in enumerate(px) if x > max_r), None)
                             # ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator))  # plot(confidence, metric)
@@ -263,7 +267,9 @@ class VarianceComparePlotter(BaseClassPlotter):
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                         self.dataset_handler.markAsIncomplete(key)
-
+                    except TypeError as e:
+                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            
 
                 ax.set_xlim(0, 1)
                 ax.set_ylim(0, 1)

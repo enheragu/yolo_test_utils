@@ -113,7 +113,6 @@ class TrainEvalPlotter(BaseClassPlotter):
                         smoothed_data_y = gaussian_filter1d(data_y, sigma=3)
                         sns.lineplot(x=data_x, y=smoothed_data_y, linestyle=':', label=f'{key}-smooth', linewidth=4, ax = subplot[py])
 
-
                         # Configurar leyenda
                         subplot[py].set_xlabel("epoch")
                         # subplot[py].set_ylabel(py)

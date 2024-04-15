@@ -144,16 +144,16 @@ class TrainComparePlotter(BaseClassPlotter):
 
                 try:
                     best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
-
-                    px = data['pr_data_best']['px']
-                    py = data['pr_data_best'][py_tag]
+                    px = data['pr_data_best'].get('px_plot', data['pr_data_best'].get('px'))
+                    py = data['pr_data_best'].get(f'{py_tag}_plot', data['pr_data_best'].get(py_tag))
                         
                     names = data['pr_data_best']['names']
                     model = data['validation_best']['model'].split("/")[-1]
                     for i, y in enumerate(py):
                         # Filter by max recall values so to not have interpolated diagram
                         if canvas_key == 'PR Curve':
-                            r = data['pr_data_best']['r'][i]
+                            r_list = data['pr_data_best'].get('r_plot', data['pr_data_best'].get('r'))
+                            r = r_list[i]
                             max_r = max(r)
                             index_max = next((i for i, x in enumerate(px) if x > max_r), None)
                             y = y[:index_max] + [np.nan] * (len(y) - index_max)
@@ -168,7 +168,9 @@ class TrainComparePlotter(BaseClassPlotter):
                 except KeyError as e:
                     log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                     self.dataset_handler.markAsIncomplete(key)
-
+                except TypeError as e:
+                    log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.set_xlim(0, 1)
