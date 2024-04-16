@@ -11,7 +11,7 @@
     · Class numbers are zero-indexed (start from 0).
 """
 import untangle
-import os, errno
+import os
 from pathlib import Path
 
 from multiprocessing.pool import Pool
@@ -22,7 +22,8 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_path, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
+from utils import updateSymlink
+from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_paths, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
 from .constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
 # from .check_dataset import checkImageLabelPairs
 
@@ -67,9 +68,14 @@ def processXML(xml_path, output_paths, dataset_format):
                 elif obj_name == "person":
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
-            for file in output_paths:
-                with open(file, 'w+') as output:
-                    output.write(txt_data)
+            # for file in output_paths:
+            if len(output_paths) >=2:
+                log(f"len(output_paths) >=2 - {len(output_paths) = }", bcolors.ERROR)
+            
+            # First file made, second is symlink to first one
+            with open(output_paths[0], 'w+') as output:
+                output.write(txt_data)
+            updateSymlink(output_paths[0], output_paths[1])
 
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
@@ -85,19 +91,13 @@ def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
         # log(output_paths)
         processXML(root_label_path, output_paths, dataset_format)
 
+
         # Create images
         root_image_path = os.path.join(kaist_images_path,"/".join(path) + ".jpg")
         new_image_path = os.path.join(kaist_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{path[0]}_{path[1]}_{path[3]}.png")
         # log(new_image_path)
         # Create or update symlink if already exists
-        try:
-            os.symlink(root_image_path, new_image_path)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                os.remove(new_image_path)
-                os.symlink(root_image_path, new_image_path)
-            else:
-                raise e
+        updateSymlink(root_image_path, new_image_path)
             
     # log(f"[KaistToYolo::processLine] Process {root_label_path}")
 
@@ -108,42 +108,43 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
     dataset_processed = 0
     # Goes to imageSets folder an iterate through the images an processes all image sets
     log(f"[KaistToYolo::KaistToYolo] Kaist To Yolo formatting in '{dataset_format}' format:")
-    for file in os.listdir(kaist_sets_path):
-        file_path = os.path.join(kaist_sets_path, file)
-        if os.path.isfile(file_path):
-            data_set_name = file.replace(".txt", "")
+    for kaist_sets_path in kaist_sets_paths:
+        for file in os.listdir(kaist_sets_path):
+            file_path = os.path.join(kaist_sets_path, file)
+            if os.path.isfile(file_path):
+                data_set_name = file.replace(".txt", "")
 
-            # Check that is not empty
-            if data_set_name not in dataset_whitelist and dataset_whitelist:
-                log(f"\t· Dataset {data_set_name} is not in whitelist. Not processed")
-                continue
-            elif data_set_name in dataset_blacklist:
-                log(f"\t· Dataset {data_set_name} is in blacklist. Not processed")
-                continue
+                # Check that is not empty
+                if data_set_name not in dataset_whitelist and dataset_whitelist:
+                    log(f"\t· Dataset {data_set_name} is not in whitelist. Not processed")
+                    continue
+                elif data_set_name in dataset_blacklist:
+                    log(f"\t· Dataset {data_set_name} is in blacklist. Not processed")
+                    continue
 
-            # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
+                # log(f"\t[{dataset_processed}] Processing dataset {data_set_name}")
 
-            # Create new folder structure
-            new_dataset_label_paths = (
-                os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,labels_folder_name),
-                os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,labels_folder_name))
-            new_dataset_kaist_images_paths = (
-                os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,images_folder_name),
-                os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,images_folder_name))
-            
-            for folder in (new_dataset_label_paths + new_dataset_kaist_images_paths):
-                # log(folder)
-                Path(folder).mkdir(parents=True, exist_ok=True)
+                # Create new folder structure
+                new_dataset_label_paths = (
+                    os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,labels_folder_name),
+                    os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,labels_folder_name))
+                new_dataset_kaist_images_paths = (
+                    os.path.join(kaist_yolo_dataset_path,data_set_name,lwir_folder_name,images_folder_name),
+                    os.path.join(kaist_yolo_dataset_path,data_set_name,visible_folder_name,images_folder_name))
+                
+                for folder in (new_dataset_label_paths + new_dataset_kaist_images_paths):
+                    # log(folder)
+                    Path(folder).mkdir(parents=True, exist_ok=True)
 
-            # Process all lines in imageSet file to create labelling in the new folder structure
-            with open(file_path, 'r') as file:
-                lines_list = [line.rstrip() for line in file]
-                with Pool() as pool:
-                    func = partial(processLine, new_dataset_label_paths, data_set_name, dataset_format)
-                    pool.map(func, lines_list)
+                # Process all lines in imageSet file to create labelling in the new folder structure
+                with open(file_path, 'r') as file:
+                    lines_list = [line.rstrip() for line in file]
+                    with Pool() as pool:
+                        func = partial(processLine, new_dataset_label_paths, data_set_name, dataset_format)
+                        pool.map(func, lines_list)
 
-                log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
-            dataset_processed += 1
+                    log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
+                dataset_processed += 1
                         
     # checkImageLabelPairs(kaist_yolo_dataset_path)
     log(f"[KaistToYolo::KaistToYolo] Finished procesing {dataset_processed} datasets. Output datasests are located in {kaist_yolo_dataset_path}")

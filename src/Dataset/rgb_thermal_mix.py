@@ -17,9 +17,10 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
-from utils import log, bcolors
+from utils import log, bcolors, updateSymlink
 # from .check_dataset import checkImageLabelPairs
 from .constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
+
 
 
 test = None
@@ -54,9 +55,12 @@ def make_dataset(option):
         # Images as new dataset option to new path with its labels
         option_path = os.path.join(kaist_yolo_dataset_path,folder,option,images_folder_name)
         Path(option_path).mkdir(parents=True, exist_ok=True)
-        shutil.copytree(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
-                        os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name), 
-                        dirs_exist_ok=True)
+        # Symlink to labels instead of deepcopy to save memory
+        updateSymlink(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
+                        os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name))
+        # shutil.copytree(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
+        #                 os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name), 
+        #                 dirs_exist_ok=True)
 
         images_list = os.listdir(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name))
         images_list_create = [image for image in images_list if image not in processed_images]
@@ -90,14 +94,7 @@ def make_dataset(option):
             symlink_created +=1
             current_image = processed_images[image].replace('.png', dataset_options[option]['extension'])
             img_path = os.path.join(option_path,image).replace('.png', dataset_options[option]['extension'])
-            try:
-                os.symlink(current_image, img_path)
-            except OSError as e:
-                if e.errno == errno.EEXIST:
-                    os.remove(img_path)
-                    os.symlink(current_image, img_path)
-                else:
-                    raise e
+            updateSymlink(current_image, img_path)
         log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
 
         dataset_processed += 1
