@@ -20,7 +20,7 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'mAP50', 'mAP50-95', 'P', 'R']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'mAP50', 'mAP50-95', 'P', 'R', 'MR']
 
 class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
@@ -88,7 +88,8 @@ class VarianceComparePlotter(BaseClassPlotter):
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
-                     'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'}}
+                     'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
+                     'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'}}
         
         # Borrar gráficos previos
         self.figure_tab_widget.clear()
@@ -96,8 +97,12 @@ class VarianceComparePlotter(BaseClassPlotter):
         # Plotear los datos de los datasets seleccionados
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
-            
-            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95' or canvas_key == 'P' or canvas_key == 'R':
+            if canvas_key == 'MR Curve' or canvas_key == 'MR':
+                ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
+                ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
+                continue
+
+            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95' or canvas_key == 'P' or canvas_key == 'R' or canvas_key == 'MR':
                 colors_list = sns.color_palette()
                 color_iterator = itertools.cycle(colors_list)
                 # Limpiar el gráfico anterior
@@ -117,14 +122,13 @@ class VarianceComparePlotter(BaseClassPlotter):
                             # Some 'all' cases have mP instead of only P as tag...
                             data_y = np.append(data_y, data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
                         except KeyError as e:
-                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}; {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
                             continue
                     
-                    if np.size(data_y) == 0:
-                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {group}", bcolors.ERROR)
+                    if np.size(data_y) == 0 or data_y is None or np.all(data_y == None):
+                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {group}; {py_tag} plot", bcolors.ERROR)
                         continue
-                    
                     
                     # If all data are exactly the same plotting will have issues (STD=0)
                     # Add little noise for plotting
