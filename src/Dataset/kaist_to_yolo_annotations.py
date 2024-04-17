@@ -21,10 +21,11 @@ from functools import partial
 if __name__ == "__main__":
     import sys
     sys.path.append('./src')
+    sys.path.append('./src/Dataset')
 
 from utils import updateSymlink
-from .constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_paths, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
-from .constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
+from Dataset.constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_paths, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
+from Dataset.constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
 # from .check_dataset import checkImageLabelPairs
 
 from utils import log, bcolors
@@ -69,8 +70,8 @@ def processXML(xml_path, output_paths, dataset_format):
                         txt_data += f"{obj_class_dict[obj_name]} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
 
             # for file in output_paths:
-            if len(output_paths) >=2:
-                log(f"len(output_paths) >=2 - {len(output_paths) = }", bcolors.ERROR)
+            if len(output_paths) >=3:
+                log(f"len(output_paths) >=3 - {len(output_paths) = }: {output_paths}", bcolors.ERROR)
             
             # First file made, second is symlink to first one
             with open(output_paths[0], 'w+') as output:
