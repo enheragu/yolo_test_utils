@@ -4,6 +4,7 @@
 
 import os  
 from pathlib import Path
+from itertools import zip_longest
 import copy
 
 home = Path.home()
@@ -12,6 +13,7 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
 labels_folder_name = "labels"
 images_folder_name = "images"
 visible_folder_name = "visible"
+from tabulate import tabulate
 
 """
     Script that evaluates how many images there are on each case along with how many
@@ -22,18 +24,12 @@ import os
 
 # Main directory where the directories of interest are located
 
-# Dictionary to store the count of images and lines of output dataset
-count_dict = {
-    "test": {"all": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
-             "day": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
-             "night": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()}},
-    "train": {"all": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
-              "day": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
-              "night": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()}}
-}
+
  
-# Output dataset whitelist
-white_list = [] #'test-all-01','train-all-01','test-day-01','train-day-02','test-night-01','train-night-02']
+# Output dataset whitelist (default is original Kaist sets)
+white_list = ['test-all-01','test-day-20','train-all-01','train-all-20','train-day-20','train-night-20',
+              'test-all-20','test-night-01','train-all-02','train-day-02','train-night-02',
+              'test-day-01','test-night-20','train-all-04','train-day-04','train-night-04']
 
 # Function to count images in a directory
 def count_images(path, unique_images = None):
@@ -68,7 +64,17 @@ def count_backgrounds(path):
     return backgrounds
 
 
-def evaluateOutputDataset(white_list = white_list, print_latex_table = True, count = copy.deepcopy(count_dict)):
+def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
+    
+    # Dictionary to store the count of images and lines of output dataset
+    count = {"all": {"test": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
+                     "train": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()}},
+             "day": {"test": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
+                     "train": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()}},
+             "night": {"test": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
+                       "train": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()}}
+            }
+
     evaluated_dirs = []
     # Iterate over the directories and count images and lines
     for root, dirs, files in os.walk(kaist_yolo_dataset_path):
@@ -80,9 +86,9 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True, cou
                     if len(parts) == 3:
                         type, condition, id = parts
                         visible_path = os.path.join(root, directory, visible_folder_name)
-                        count[type][condition]["images"] += count_images(os.path.join(visible_path, images_folder_name), count[type][condition]["unique_images"])
-                        count[type][condition]["instances"] += count_lines(os.path.join(visible_path, labels_folder_name))
-                        count[type][condition]["backgrounds"] += count_backgrounds(visible_path)
+                        count[condition][type]["images"] += count_images(os.path.join(visible_path, images_folder_name), count[condition][type]["unique_images"])
+                        count[condition][type]["instances"] += count_lines(os.path.join(visible_path, labels_folder_name))
+                        count[condition][type]["backgrounds"] += count_backgrounds(visible_path)
                     else:
                         print(f"Ignoring directory '{directory}' as it doesn't match the expected format.")
                 else:
@@ -91,7 +97,7 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True, cou
 
 
     # Print results
-    print(f"Evaluated dirs: {evaluated_dirs}\n")
+    print(f"Evaluated dirs: {evaluated_dirs}")
     if print_latex_table:
         print("\t\t& Images & Backgrounds & Instances & Unique Images \\\\")
         print("\t\t\\hline")
@@ -101,24 +107,42 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True, cou
         set_unique = set()
         total_len = 0
         for type in ["test", "train"]:
-            count[type][condition]["b_percent"] = (count[type][condition]['backgrounds']*100.0/count[type][condition]['images'])
-            set_unique.update(count[type][condition]['unique_images'])
-            total_len += len(count[type][condition]['unique_images'])
-            count[type][condition]["unique_images"] = len(set_unique)/total_len if total_len != 0 else total_len
+            n_images = count[condition][type]['images']
+            if n_images == 0:
+                del count[condition][type]
+                continue
+            count[condition][type]["b_percent"] = round(count[condition][type]['backgrounds']*100.0/n_images, 3)
+            set_unique.update(count[condition][type]['unique_images'])
+            total_len += len(count[condition][type]['unique_images'])
+            count[condition][type]["unique_images"] = len(set_unique)/total_len if total_len != 0 else total_len
 
             if print_latex_table:
-                print(f"\t\t{type.title()} {condition} & {count[type][condition]['images']} & {count[type][condition]['backgrounds']} & {count[type][condition]['instances']} & {count[type][condition]['unique_images']} \\\\")
+                print(f"\t\t{type.title()} {condition} & {count[condition][type]['images']} & {count[condition][type]['backgrounds']} & {count[condition][type]['instances']} & {count[condition][type]['unique_images']} \\\\")
+                print("\t\t\\hline")
             
-            # log_str+=f"{type.title()} {condition}: images: {count[type][condition]['images']}; backgrounds: {count[type][condition]['backgrounds']}; labels: {count[type][condition]['instances']}; unique: {len(count[type][condition]['unique_images'])}\n"
-
+            # log_str+=f"{type.title()} {condition}: images: {count[condition][type]['images']}; backgrounds: {count[condition][type]['backgrounds']}; labels: {count[condition][type]['instances']}; unique: {len(count[condition][type]['unique_images'])}\n"
         # log_str+=f"{condition}: Unique images between both train/test: {len(set_unique)}/{total_len}\n"
-        print("\t\t\\hline")
+        
 
-    print(f"\n\n{log_str}")
-    for traintest, data in count.items():
-        for condition, values in data.items():
-            print(f"{traintest.title()} {condition}: {values}")
+    # print(f"\n\n{log_str}")
+    # for traintest, data in count.items():
+    #     for condition, values in data.items():
+    #         print(f"{traintest.title()} {condition}: {values}")
 
+    headers = [""] + list(count['day']['test'].keys())
+    # row_header = [f"{key} {sub_key}" for key in count.keys() for sub_key in count[key].keys()]
+
+    # Crear una lista de listas para los datos de la tabla
+    table_data = []
+    for key, value in count.items():
+        for sub_key, sub_value in value.items():
+            row = [f"{sub_key} {key}"] + [sub_value[key] for key in sub_value.keys()]
+            table_data.append(row)
+
+    # Imprimir la tabla utilizando tabulate
+    print(tabulate(table_data, headers=headers, tablefmt="pretty"))
+
+    return count
 
 
 ### Train ###
@@ -162,58 +186,71 @@ def evaluateInputDataset():
 
     print(f"\nTotal day: {set_info['day']['num_img']}\nTotal night: {set_info['night']['num_img']}\n")
 
-    print(f"Split img   -> (train - test)")
-    print(f"Day   70-30 -> {int(set_info['day']['num_img']*0.7)} - {int(set_info['day']['num_img']*0.3)}")
-    print(f"Night 70-30 -> {int(set_info['night']['num_img']*0.7)} - {int(set_info['night']['num_img']*0.3)}")
-    print(f"Day   80-20 -> {int(set_info['day']['num_img']*0.8)} - {int(set_info['day']['num_img']*0.2)}")
-    print(f"Night 80-20 -> {int(set_info['night']['num_img']*0.8)} - {int(set_info['night']['num_img']*0.2)}")
-    print(f"Day   90-10 -> {int(set_info['day']['num_img']*0.9)} - {int(set_info['day']['num_img']*0.1)}")
-    print(f"Night 90-10 -> {int(set_info['night']['num_img']*0.9)} - {int(set_info['night']['num_img']*0.1)}")
+    # print(f"Split img   -> (train - test)")
+    # print(f"Day   70-30 -> {int(set_info['day']['num_img']*0.7)} - {int(set_info['day']['num_img']*0.3)}")
+    # print(f"Night 70-30 -> {int(set_info['night']['num_img']*0.7)} - {int(set_info['night']['num_img']*0.3)}")
+    # print(f"Day   80-20 -> {int(set_info['day']['num_img']*0.8)} - {int(set_info['day']['num_img']*0.2)}")
+    # print(f"Night 80-20 -> {int(set_info['night']['num_img']*0.8)} - {int(set_info['night']['num_img']*0.2)}")
+    # print(f"Day   90-10 -> {int(set_info['day']['num_img']*0.9)} - {int(set_info['day']['num_img']*0.1)}")
+    # print(f"Night 90-10 -> {int(set_info['night']['num_img']*0.9)} - {int(set_info['night']['num_img']*0.1)}")
 
 def splitDatsets():
     percentajes = [0.7,0.8,0.9]
+
+    sets_img = {}
     for condition, values in set_info.items():
+        for folder_set in os.listdir(kaist_dataset_path):
+            if folder_set in values['sets']:
+                sets_img[folder_set] = []
+                for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
+                    path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
+                    if os.path.isdir(path_set):
+                        visible_folder = os.path.join(path_set, visible_folder_name)
+                        if os.path.exists(visible_folder):
+                            for root, dirs, files in os.walk(visible_folder):
+                                for file in files:
+                                    if file.endswith((".jpg", ".jpeg", ".png", ".npy", ".npz")):
+                                        img_path_name = os.path.splitext(os.path.join(folder_set, subfolder_set, file))[0]
+                                        sets_img[folder_set].append(img_path_name)
+
+        sets_img_ordered = {k: sets_img[k] for k in sorted(sets_img.keys())}
+        keys = list(sets_img_ordered.keys())
+
+        # Concatenates training sets, and intercaaltes test sets so that are taken equally
+        test_images = [elem for pair in zip_longest(sets_img_ordered[keys[3]] + sets_img_ordered[keys[4]] + sets_img_ordered[keys[5]]) for elem in pair if elem is not None]
+        img_list = sets_img_ordered[keys[0]] + sets_img_ordered[keys[1]] + sets_img_ordered[keys[2]] + test_images[::-1]
+        
         for percentaje in percentajes:
+            # print(f"Datasests for {condition} with training {percentaje} of images are {sets_img_ordered.keys()}")
             values['train'] = []
             values['test'] = []
 
-            n_train_images = values['num_img']*percentaje
+            n_train_images = len(img_list)*percentaje
             n_test_images = values['num_img'] - n_train_images
 
             num_added = 0
-            for folder_set in os.listdir(kaist_dataset_path):
-                if folder_set in values['sets']:
-                    for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
-                        path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
-                        if os.path.isdir(path_set):
-                            visible_folder = os.path.join(path_set, visible_folder_name)
-                            if os.path.exists(visible_folder):
-                                for root, dirs, files in os.walk(visible_folder):
-                                    for file in files:
-                                        if file.endswith((".jpg", ".jpeg", ".png", ".npy", ".npz")):
-                                            img_path_name = os.path.splitext(os.path.join(folder_set, subfolder_set, file))[0]
-                                            if num_added > n_train_images:
-                                                values['test'] += [img_path_name]
-                                                num_added += 1
-                                            else:
-                                                values['train'] += [img_path_name]
-                                                num_added += 1
-                                            
 
-            file_name = f"kaist_imageSets/train-{condition}-{int(percentaje*100)}_{int(100-percentaje*100)}"
+            for img in img_list:
+                if num_added > n_train_images:
+                    values['test'] += [img]
+                    num_added += 1
+                else:
+                    values['train'] += [img]
+                    num_added += 1
+                                                
+            file_name = f"kaist_imageSets/train-{condition}-{int(percentaje*100)}_{int(100-percentaje*100)}.txt"
             with open(file_name, 'w') as file:
                 for item in values['train']:
                     file.write(item + '\n')
-    
             
-            file_name = f"kaist_imageSets/test-{condition}-{int(percentaje*100)}_{int(100-percentaje*100)}"
+            file_name = f"kaist_imageSets/test-{condition}-{int(percentaje*100)}_{int(100-percentaje*100)}.txt"
             with open(file_name, 'w') as file:
                 for item in values['test']:
                     file.write(item + '\n')
 
 
 if __name__ == '__main__':
-    #   ()
+    evaluateOutputDataset()
     evaluateInputDataset()
     splitDatsets()
 
