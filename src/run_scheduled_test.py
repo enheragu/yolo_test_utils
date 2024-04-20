@@ -69,7 +69,7 @@ if __name__ == '__main__':
                     log_ntfy(title="Stop requested", msg=f"Stop requested for tests in {getGPUTestIDTag()}.", tags = "")
                     break
 
-                log(f"Options executed (iteration: {index+1}/{opts.iterations}) were:\n\t· {condition_list = }\n\t· {option_list = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
+                log(f"Options executed (iteration: {index+1}/{opts.iterations}) in {getGPUTestIDTag()} were:\n\t· {condition_list = }\n\t· {option_list = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
                 raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: {condition_list = }; {option_list = }; {model_list = }; run mode = {opts.run_mode}"
                 log_ntfy(raw_msg, success=True)
             logCoolMessage(f"CLEAN FINISH TEST EXECUTION")

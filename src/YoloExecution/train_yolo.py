@@ -72,6 +72,9 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['epochs'] = 500
             args['batch'] = batch
             # args['save'] = False
+            # args['save_json'] = True
+            # args['save_hybrid'] = True
+
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True

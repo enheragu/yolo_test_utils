@@ -76,6 +76,7 @@ def processXML(xml_path, output_paths, dataset_format):
             # First file made, second is symlink to first one
             with open(output_paths[0], 'w+') as output:
                 output.write(txt_data)
+            
             updateSymlink(output_paths[0], output_paths[1])
 
 # Process line from dataset file so to paralelice process
@@ -91,7 +92,6 @@ def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
         output_paths = [os.path.join(folder,f"{path[0]}_{path[1]}_{path[3]}.txt") for folder in  new_dataset_label_paths]
         # log(output_paths)
         processXML(root_label_path, output_paths, dataset_format)
-
 
         # Create images
         root_image_path = os.path.join(kaist_images_path,"/".join(path) + ".jpg")
