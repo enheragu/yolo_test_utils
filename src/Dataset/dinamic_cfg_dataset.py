@@ -33,14 +33,18 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
     
     
-    with open(templates_cfg[dataset_tag]) as file:
+    with open(templates_cfg[dataset_tag]['template']) as file:
         template = Template(file.read())
-        log(f"[ConfigUtils::generateCFGFiles] Generate GCF files with template from {templates_cfg[dataset_tag]}")
+        log(f"[ConfigUtils::generateCFGFiles] Generate GCF files with template from {templates_cfg[dataset_tag]['template']}")
 
     for condition in condition_list:
         for option in option_list:
-            data = template.render(condition=condition, option=option, data_path=data_path)
-
+            if 'extra' in templates_cfg[dataset_tag]:
+                extra_arguments = templates_cfg[dataset_tag]['extra']
+                data = template.render(condition=condition, option=option, data_path=data_path, **extra_arguments)
+            else:
+                data = template.render(condition=condition, option=option, data_path=data_path)
+                
             file_path = f"{tmp_cfg_path}/dataset_{condition}_{option}.yaml"
             with open(file_path, mode='w') as f:
                 f.write(data)

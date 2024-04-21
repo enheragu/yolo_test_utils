@@ -55,18 +55,25 @@ dataset_options.update(fa_pca_options)
 dataset_options_keys = ['visible', 'lwir'] + list(dataset_options.keys())
 
 # Dataset class to take into account when generating YOLO style dataset
+default_kaist = {  'person': 0,  'cyclist': 1, 'people': 2 }
 class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag
-              'kaist_small': {  'person': 0,  'cyclist': 1, 'people': 2 },
-              'kaist_full': {  'person': 0,  'cyclist': 1, 'people': 2 },
+              'kaist_small': default_kaist,
+              'kaist_full': default_kaist,
+              'kaist_90_10': default_kaist,
+              'kaist_80_20': default_kaist,
+              'kaist_70_30': default_kaist
              }
 
 ## Templates for TMP YOLO dataset configuration
 # kaist_coco -> makes use of kaist_small but with class dict as defined by coco
 # kaist_small -> kaist with reduced version (less images)
 # kaist_full -> kaist with all images
-templates_cfg = {'kaist_coco': f"{dataset_config_path}/dataset_kaist_coco_option.j2",
-                 'kaist_small': f"{dataset_config_path}/dataset_kaist_small_option.j2",
-                 'kaist_full': f"{dataset_config_path}/dataset_kaist_full_option.j2"
+templates_cfg = {'kaist_coco': {'template': f"{dataset_config_path}/dataset_kaist_coco_option.j2"},
+                 'kaist_small': {'template': f"{dataset_config_path}/dataset_kaist_small_option.j2"},
+                 'kaist_full': {'template': f"{dataset_config_path}/dataset_kaist_full_option.j2"},
+                 'kaist_90_10': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '90_10'}}, # Extra arguments that can be provided to the template
+                 'kaist_80_20': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '80_20'}}, # Extra arguments that can be provided to the template
+                 'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}} # Extra arguments that can be provided to the template
                  }
 
 dataset_keys = list(class_data.keys())
