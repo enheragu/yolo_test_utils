@@ -10,7 +10,6 @@ from itertools import zip_longest
 import copy
 from tabulate import tabulate
 from tqdm import tqdm
-import queue
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,9 +33,8 @@ white_list = ['test-all-01','test-day-20','train-all-01','train-all-20','train-d
               'test-day-01','test-night-20','train-all-04','train-day-04','train-night-04']
 
 
-image_queue = queue.Queue()
 
-def save_images(img1, img2, hist1, hist2, filename):
+def save_images(img1, img2, hist1, hist2, filename, img_path):
     plt.figure()
     plt.subplot(2, 2, 1)
     plt.imshow(img1)
@@ -57,6 +55,12 @@ def save_images(img1, img2, hist1, hist2, filename):
     plt.title('Eq Histogram')
     
     plt.tight_layout()
+
+    plt.annotate(f'Img: {img_path}',
+                    xy = (1.0, -0.17), xycoords='axes fraction',
+                    ha='right', va="center", fontsize=8,
+                    color='black', alpha=0.2)
+    
     plt.savefig(os.path.join(store_path,filename))
 
 def gethistEqCLAHE(img):
@@ -72,77 +76,101 @@ def gethistEq(img):
 
     return eq_img, hist
 
+
+def extract_hist(img_path, img_type, plot = False):
+    b, g, r, lwir = [], [], [], []
+    eq_b, eq_g, eq_r, eq_lwir = [], [], [], []
+
+    if img_type == 'rgb':
+        img = cv.imread(img_path)
+        assert img is not None, "file could not be read, check with os.path.exists()"
+        b = [cv.calcHist([img], [0], None, [256], [0, 256])]
+        g = [cv.calcHist([img], [1], None, [256], [0, 256])]
+        r = [cv.calcHist([img], [2], None, [256], [0, 256])]
+        
+        b_ch,g_ch,r_ch = cv.split(img)
+        eq_b = [gethistEqCLAHE(b_ch)[1]]
+        eq_g = [gethistEqCLAHE(g_ch)[1]]
+        eq_r = [gethistEqCLAHE(r_ch)[1]]
+
+    elif img_type == 'lwir':
+        img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+        assert img is not None, "file could not be read, check with os.path.exists()"
+        
+        lwir = [cv.calcHist([img], [0], None, [256], [0, 256])]
+        eq_lwir = [gethistEqCLAHE(img)[1]]
+        
+       
+    return (b, g, r, lwir), (eq_b, eq_g, eq_r, eq_lwir)
+
+
 def process_image(path, image_type):
     b, g, r, lwir = [], [], [], []
     eq_b, eq_g, eq_r, eq_lwir = [], [], [], []
     for file in os.listdir(path):
         if file.endswith((".jpg", ".jpeg", ".pdf", ".npy", ".npz")):
             img_path = os.path.join(path, file)
-            if image_type == 'rgb':
-                img = cv.imread(img_path)
-                assert img is not None, f"file could not be read, check with os.path.exists() -> {file}"
-                b.append(cv.calcHist([img], [0], None, [256], [0, 256]))
-                g.append(cv.calcHist([img], [1], None, [256], [0, 256]))
-                r.append(cv.calcHist([img], [2], None, [256], [0, 256]))
-                
-                b_ch,g_ch,r_ch = cv.split(img)
-                eq_b.append(gethistEqCLAHE(b_ch)[1])
-                eq_g.append(gethistEqCLAHE(g_ch)[1])
-                eq_r.append(gethistEqCLAHE(r_ch)[1])
+            ret_rgb, ret_lwir = extract_hist(img_path, image_type)
 
-            elif image_type == 'lwir':
-                img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-                assert img is not None, f"file could not be read, check with os.path.exists() -> {file}"
-                lwir.append(cv.calcHist([img], [0], None, [256], [0, 256]))
-                
-                eq_lwir.append(gethistEqCLAHE(img)[1])
-                
-                # Just saved once
-                if save_lock.acquire(blocking=False): # not released, only to be executed once
-                    # climplimig is a threshold to limit contrast. Usually between 2 and 5.
-                    eq_img, clahe_hist = gethistEqCLAHE(img)
-                    image_queue.put((img, eq_img, lwir[-1], clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison.pdf'))
-                    
-                    eq_img, eq_hist = gethistEq(img)
-                    image_queue.put((img, eq_img, lwir[-1], eq_hist, 'lwir_histogram_comparison.pdf'))
+            b.extend(ret_rgb[0])
+            g.extend(ret_rgb[1])
+            r.extend(ret_rgb[2])
+            lwir.extend(ret_rgb[3])
+
+            eq_b.extend(ret_lwir[0])
+            eq_g.extend(ret_lwir[1])
+            eq_r.extend(ret_lwir[2])
+            eq_lwir.extend(ret_lwir[3])
 
     return (b, g, r, lwir), (eq_b, eq_g, eq_r, eq_lwir)
 
 
 
-def save_histogram_image(hist, title, filename, color):
+def save_histogram_image(hist, title, filename, color, n_images):
     plt.figure()
-    plt.plot(hist, color = color)
+    # plt.plot(hist, color = color)
     # plt.fill_between(np.arange(len(hist)), hist, color=color, alpha=0.3)
     # plt.hist(hist, bins=range(len(hist)), color=color, alpha=0.7)
-    plt.title(f'Histogram {title}')
+
+    plt.plot(hist[0], color = color, label = f"histogram max-min {title} channel")
+    plt.plot(hist[1], color = color)
+    plt.fill_between(np.arange(len(hist[0])), hist[1], hist[0], color=color, alpha=0.3)
+
+    plt.title(f'max-min histogram {title} channel ({n_images} images)')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency')
     plt.savefig(filename)
     plt.close()
 
 
-def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'averaged_histograms.pdf'):
+def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms.pdf', n_images = 0):
     plt.figure(figsize=(12, 12))
 
+    # First subplot
     plt.subplot(2, 1, 1)
-    for index, (hist, title, color) in enumerate(zip([b_hist, g_hist, r_hist], titles, colors)):
-        
+    for index, (hist, title, color) in enumerate(zip([b_hist, g_hist, r_hist], titles, colors)):     
         # plt.hist(channel, bins=range(len(channel)), color=color, alpha=0.7)
-        # plt.fill_between(np.arange(len(hist)), hist, color=color, alpha=0.3)
-        plt.plot(hist, color = color, label = f"{title} channel")
-        plt.title(f'Averaged histogram of RGB channel')
-        plt.xlabel('Pixel Value')
-        plt.ylabel('Frequency')
-        save_histogram_image(hist, title, os.path.join(store_path, f'average_histogram_{title.lower()}.pdf'), color=color)
+        plt.plot(hist[0], color = color, label = f"histogram max-min {title} channel")
+        plt.plot(hist[1], color = color)
+        plt.fill_between(np.arange(len(hist[0])), hist[1], hist[0], color=color, alpha=0.3)
+        save_histogram_image(hist, title, os.path.join(store_path, f'histograms_{title.lower()}_n_{n_images}_images.pdf'), color=color, n_images = n_images)
     
-    plt.subplot(2, 1, 2)
-    plt.title(f'Averaged histogram of LWIR channel')
+    plt.legend()
+    plt.title(f'max-min histogram of RGB channel ({n_images} images)')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency')
-    plt.plot(lwir_hist, color = colors[-1], label = f"{titles[-1]} channel")
-    save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'average_histogram_{titles[-1].lower()}.pdf'), color=colors[-1])
-    
+
+    # Second subplot
+    plt.subplot(2, 1, 2)
+    plt.plot(lwir_hist[0], color = colors[-1], label = f"histogram max-min {titles[-1]} channel")
+    plt.plot(lwir_hist[1], color = colors[-1])
+    plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], lwir_hist[0], color=colors[-1], alpha=0.3)
+    save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'histograms_{titles[-1].lower()}_n_{n_images}_images.pdf'), color=colors[-1], n_images = n_images)
+    plt.legend()
+    plt.title(f'max-min histogram of LWIR channel ({n_images} images)')
+    plt.xlabel('Pixel Value')
+    plt.ylabel('Frequency')
+
     plt.tight_layout()  # Ajusta automáticamente las subfiguras para evitar solapamientos
     plt.savefig(os.path.join(store_path,filename))
     # plt.show()
@@ -156,6 +184,7 @@ def evaluateInputDataset():
 
     with ThreadPoolExecutor() as executor:
         futures = []
+        first_time = True
         for folder_set in os.listdir(kaist_dataset_path):
             for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
                 path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
@@ -168,6 +197,10 @@ def evaluateInputDataset():
                     if os.path.exists(lwir_folder):
                         futures.append(executor.submit(process_image, lwir_folder, 'lwir'))
                         # process_image(lwir_folder, 'lwir')
+                if first_time:
+                    import time
+                    time.sleep(1)
+                    first_time = False
                 break
             break
 
@@ -182,36 +215,42 @@ def evaluateInputDataset():
             eq_r_hist.extend(eq_r)
             eq_lwir_hist.extend(eq_lwir)
     
-    b_average = np.mean(b_hist, axis=0)[:,0]
-    g_average = np.mean(g_hist, axis=0)[:,0]
-    r_average = np.mean(r_hist, axis=0)[:,0]
-    lwir_average = np.mean(lwir_hist, axis=0)[:,0]
+    b_data = (np.min(b_hist, axis=0)[:,0], np.max(b_hist, axis=0)[:,0])
+    g_data = (np.min(g_hist, axis=0)[:,0], np.max(g_hist, axis=0)[:,0])
+    r_data = (np.min(r_hist, axis=0)[:,0], np.max(r_hist, axis=0)[:,0])
+    lwir_data = (np.min(lwir_hist, axis=0)[:,0], np.max(lwir_hist, axis=0)[:,0])
 
 
-    eq_b_average = np.mean(eq_b_hist, axis=0)[:,0]
-    eq_g_average = np.mean(eq_g_hist, axis=0)[:,0]
-    eq_r_average = np.mean(eq_r_hist, axis=0)[:,0]
-    eq_lwir_average = np.mean(eq_lwir_hist, axis=0)[:,0]
+    eq_b_data = (np.min(eq_b_hist, axis=0)[:,0], np.max(eq_b_hist, axis=0)[:,0])
+    eq_g_data = (np.min(eq_g_hist, axis=0)[:,0], np.max(eq_g_hist, axis=0)[:,0])
+    eq_r_data = (np.min(eq_r_hist, axis=0)[:,0], np.max(eq_r_hist, axis=0)[:,0])
+    eq_lwir_data = (np.min(eq_lwir_hist, axis=0)[:,0], np.max(eq_lwir_hist, axis=0)[:,0])
 
-    plot_histograms(b_average, g_average, r_average, lwir_average,
-                    ["b".title(),"g".title(),"r".title(),"lwir".title()], 
+    plot_histograms(b_data, g_data, r_data, lwir_data,
+                    ["b","g","r","lwir"], 
                     ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'averaged_histograms_n_{len(b_hist)}_images.pdf')
+                    f'histograms_all_n_{len(b_hist)}_images.pdf',
+                    n_images=len(b_hist))
     
 
-    plot_histograms(eq_b_average, eq_g_average, eq_r_average, eq_lwir_average,
-                    ["eq_b".title(),"eq_g".title(),"eq_r".title(),"eq_lwir".title()], 
+    plot_histograms(eq_b_data, eq_g_data, eq_r_data, eq_lwir_data,
+                    ["eq_b","eq_g","eq_r","eq_lwir"], 
                     ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'eq_averaged_histograms_n_{len(eq_b_hist)}_images.pdf')
+                    f'histograms_eq_all_n_{len(eq_b_hist)}_images.pdf',
+                    n_images=len(eq_b_hist))
 
 
 if __name__ == '__main__':
     evaluateInputDataset()
 
-    while True:
-        try:
-            img, eq_img, lwir_hist_orig, lwir_hist_eq, filename = image_queue.get(timeout=1)
-            save_images(img, eq_img, lwir_hist_orig, lwir_hist_eq, filename)
-        except queue.Empty:
-            # La cola está vacía, salimos del bucle
-            break
+    # Img plot for comparison
+    img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
+    clean_path = img_path.replace(str(home), "").replace("/eeha", "")
+    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    lwir = cv.calcHist([img], [0], None, [256], [0, 256])
+
+    eq_img, clahe_hist = gethistEqCLAHE(img)
+    save_images(img, eq_img, lwir, clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison.pdf', clean_path)
+    
+    eq_img, eq_hist = gethistEq(img)
+    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_comparison.pdf', clean_path)
