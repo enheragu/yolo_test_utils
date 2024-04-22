@@ -146,7 +146,8 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --path-name "variance_day_visible_kaist_trained" --iterations 10
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --deterministic False --path-name "variance_day_visible_kaist_nondet_trained" --iterations 10
 
-
+## PRETRAINED TESTS
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yolov8x.pt' --dataset-format 'kaist_coco' --pretrained True --path-name "variance_day_visible_pretrained" --iterations 10
 
 
 ## PAPER SIMPOSIO
