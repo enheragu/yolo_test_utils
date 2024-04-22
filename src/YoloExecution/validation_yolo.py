@@ -34,7 +34,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
                 path_name = path_name_in + "/"  + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
 
             dataset_start_time = datetime.now()
-            log("--------------------------------------------------------------------------")
+            log("-------------------------------------")
             log(f"[{yolo_model}][test {validation_iteration}] - Check {dataset} dataset")
             data = parseYaml(dataset)
             log(f"[{yolo_model}][test {validation_iteration}] - Validation datasets: {data['val']}")      
@@ -58,7 +58,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             args = {} 
             # args['project'] = 'detection'
             args['mode'] = 'val'
-            args['name'] = path_name
+            args['name'] = path_name + "_" + datetime.now().strftime("%Y%m%d")
             args['model'] = yolo_model
             args['data'] = dataset
             # args['imgsz'] = 640
@@ -81,7 +81,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
                 yaml.dump(yaml_data, file)
 
             log(f"[{yolo_model}][test {validation_iteration}] - Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
-            log("-------------------------------------------------")
+            log("-------------------------------------")
            
     clearCFGFIles(dataset_config_list)
     # log()

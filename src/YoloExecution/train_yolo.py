@@ -32,7 +32,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
         for dataset in dataset_config_list:
             train_iteration += 1
 
-            log("--------------------------------------------------------------------------")
+            log("-------------------------------------")
             log(f"[{yolo_model}][test {train_iteration}] - Train based on {dataset} dataset:")
             data = parseYaml(dataset)
             log(f"\t · Train datasets: {data['train']} \n\t · Validation datasets: {data['val']} \n\t · Test datasets: {data['test']}")
@@ -65,7 +65,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             
             args = {}
             args['mode'] = 'train'
-            args['name'] = path_name
+            args['name'] = path_name + "_" + datetime.now().strftime("%Y%m%d")
             args['data'] = dataset
             args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
@@ -102,6 +102,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             
             log(f"Training and validation of model for {dataset} took {datetime.now() - dataset_start_time} (h/min/s)")
             compress_output_labels(trainer.save_dir)
+            log("-------------------------------------")
     
     clearCFGFIles(dataset_config_list)
     log("")

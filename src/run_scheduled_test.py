@@ -34,6 +34,7 @@ if __name__ == '__main__':
             checkKaistDataset(option_list, opts.dformat)
 
             for index in range(opts.iterations):
+                log("--------------------------------------------------------------------------")
                 log(f"Start iteration {index+1}/{opts.iterations}")
                 ret, init_time = isTimetableActive()
                 if not ret:
