@@ -307,7 +307,6 @@ class VarianceComparePlotter(BaseClassPlotter):
             ax.legend()
             self.figure_tab_widget[canvas_key].ax.append(ax)
 
-
             background_img = os.path.join(self.background_img_path, canvas_key.replace(" Curve", "") + '.png')
             if self.plot_background_img and os.path.exists(background_img):
                 ax.set_xlim(ax.get_xlim())
