@@ -4,6 +4,8 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
+import os
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import QHBoxLayout, QWidget, QScrollArea, QSizePolicy, QVBoxLayout
@@ -42,12 +44,19 @@ class BaseClassPlotter(QWidget):
             self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
             self.layout.addWidget(self.figure_tab_widget,3)
         
+        self.plot_background_img = True # Plots image with formula as background of each graph (if any)
+        self.background_img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'media')
+
     def toggle_options(self):
         # Cambiar el estado del check basado en si las opciones están visibles o no
         if self.options_widget.isVisible():
             self.options_widget.hide()
         else:
             self.options_widget.show()
+
+    def toggle_checkbox_img_background(self, checked):
+        # Convert the checkbox state to True or False
+        self.plot_background_img = checked
 
     def update_view_and_menu(self, archive_menu, view_menu, tools_menu):
 
@@ -66,6 +75,13 @@ class BaseClassPlotter(QWidget):
         self.save_output_action.setShortcut(QKeySequence("Ctrl+S"))
         self.save_output_action.triggered.connect(self.save_plot)
         tools_menu.addAction(self.save_output_action)
+
+        self.checkbox_action = QAction('Formula as background', self, checkable=True)
+        self.checkbox_action.setChecked(True)  # Default plot_background_img state
+        self.checkbox_action.triggered.connect(self.toggle_checkbox_img_background)
+
+        # Add the checkbox action to the file menu
+        view_menu.addAction(self.checkbox_action)
         
         self.update_checkbox()
 

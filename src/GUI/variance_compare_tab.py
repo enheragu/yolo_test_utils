@@ -4,12 +4,14 @@
     Defines a Qt tab view with all plot available to compare between different training runs
 """
 
+import os
 import warnings
 
 import itertools
 import numpy as np
 
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import seaborn as sns
 from scipy.stats import norm
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
@@ -97,8 +99,10 @@ class VarianceComparePlotter(BaseClassPlotter):
         # Plotear los datos de los datasets seleccionados
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
+            
+            ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
+                    
             if canvas_key == 'MR Curve' or canvas_key == 'MR':
-                ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
                 ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
                 continue
 
@@ -110,17 +114,21 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # ylabel = "Probability"
                 
                 bin_size = 9
-                ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
                     data_y = np.array([])
+                    bestfit_epoch_vec = []
+                    train_duration_vec = []
                     for key in keys:
                         data = self.dataset_handler[key]
                         if not data:
                             continue
                         try:
                             # Some 'all' cases have mP instead of only P as tag...
-                            data_y = np.append(data_y, data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
+                            new_y = data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key))
+                            data_y = np.append(data_y, new_y)
+                            bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
+                            train_duration_vec.append(data['train_data']['train_duration_h'])
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}; {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
@@ -139,7 +147,9 @@ class VarianceComparePlotter(BaseClassPlotter):
                     next_color = next(color_iterator)
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")    
                     # ax.hist(data_y, bins=bin_size, density=True, alpha=0.5, label=f'{label}; n = {len(data_y)}', color=next_color, edgecolor=next_color)
-                    sns.histplot(data_y, bins=bin_size, stat="density", alpha=0.4, label=f'{label}; n = {len(data_y)}', color=next_color, 
+                    time_epoch_tag = f"{np.mean(np.array(train_duration_vec), axis = 0):.2f} (mean) h)" # | {np.mean(np.array(bestfit_epoch_vec), axis = 0):.2f} (mean) epochs" 
+                    
+                    sns.histplot(data_y, bins=bin_size, stat="density", alpha=0.4, label=f"{label}; n = {len(data_y)}; {time_epoch_tag}", color=next_color, 
                                  edgecolor='none', ax=ax)
                     # ax.set_yscale('log')
                     
@@ -174,9 +184,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 xlabel = plot_data[canvas_key]['xlabel']
                 ylabel = plot_data[canvas_key]['ylabel']
                 # log(f"Plotting {ylabel}-{x, 'mAP50', 'mAP50-95'label} Curve")
-
-                # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
-                ax = self.figure_tab_widget[canvas_key].add_axes([0.08, 0.08, 0.84, 0.86])
+                
                 py_tag = plot_data[canvas_key]['py']
 
                 def getLastEpochData(key_data, raw_data_dict):
@@ -193,6 +201,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # number_std = self.std_plot_widget.value
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
+                    bestfit_epoch_vec = []
+                    train_duration_vec = []
                     py_vec = []
                     for key in keys:
                         data = self.dataset_handler[key]
@@ -217,6 +227,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                                 # FIll from index_max to the end with NAN data
                                 y = y[:index_max] + [np.nan] * (len(y) - index_max)
                                 py_vec.append(y) #[:index_max])
+                                bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
+                                train_duration_vec.append(data['train_data']['train_duration_h'])
 
                         except KeyError as e:
                             log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
@@ -240,12 +252,13 @@ class VarianceComparePlotter(BaseClassPlotter):
                     # conf_interval = std*number_std
                     # conf_interval = 1.96*std/math.sqrt(len(keys))
                     # conf_interval = Z(2 STD) * Error típico (la desviación típica que tendría el estadístico si lo calcularas en infinitas muestras iguales)
+                    time_epoch_tag = f"({np.mean(np.array(train_duration_vec), axis = 0):.2f} (mean) h)" # | {np.mean(np.array(bestfit_epoch_vec), axis = 0):.2f} (mean) epochs)",
                     label = group.replace("train_based_variance_", "").replace(".yaml", "")
                     
                     next_color=next(color_iterator)
                     # ax.plot(px, mean, label=f"{label}; n = {len(py_vec)}", color=next_color)
                     # ax.fill_between(px, min_vals, max_vals, alpha=0.3, facecolor=next_color)
-                    sns.lineplot(x=px, y=mean, label=f"{label}; n = {len(py_vec)}", color=next_color, ax=ax)
+                    sns.lineplot(x=px, y=mean, label=f"{label}; n = {len(py_vec)}; {time_epoch_tag}", color=next_color, ax=ax)
                     ax.fill_between(px, min_vals, max_vals, alpha=0.3, color=next_color)
 
                 ## Plot each training result
@@ -294,7 +307,37 @@ class VarianceComparePlotter(BaseClassPlotter):
             ax.legend()
             self.figure_tab_widget[canvas_key].ax.append(ax)
 
+
+            background_img = os.path.join(self.background_img_path, canvas_key.replace(" Curve", "") + '.png')
+            if self.plot_background_img and os.path.exists(background_img):
+                ax.set_xlim(ax.get_xlim())
+                ax.set_ylim(ax.get_ylim())
+                
+                import cv2 as cv
+                img_cv2 = cv.imread(background_img)
+                img_height, img_width, _ = img_cv2.shape
+
+                plot_width = float(ax.get_xlim()[1] - ax.get_xlim()[0])
+                plot_height = float(ax.get_ylim()[1] - ax.get_ylim()[0])
+
+                img_percent = 0.35     # 0.8 would be 80% of graph width
+                relative_width = plot_width * img_percent
+                relative_height = plot_height * float(img_height) / float(img_width) 
+                
+                x_center = (ax.get_xlim()[0] + ax.get_xlim()[1]) * 0.5
+                y_center = (ax.get_ylim()[0] + ax.get_ylim()[1]) * 0.5
+
+                x1 = x_center - relative_width / 2
+                x2 = x1 + relative_width
+                y1 = y_center - relative_height / 2
+                y2 = y1 + relative_height
+
+                # print(f"[{canvas_key}] {relative_width = }; {relative_height = }")
+                # print(f"[{canvas_key}] {(x1,x2,y1,y2) = }")
+                ax.imshow(img_cv2, extent=[x1,x2,y1,y2], alpha=0.5, zorder=0, aspect="auto")
+            else:
+                print(f"{background_img} not found.")
+
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
-
         # log(f"[{self.__class__.__name__}] Parsing and plot PR-P-R-F1 graphs finished")
