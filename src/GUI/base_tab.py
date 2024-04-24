@@ -45,7 +45,6 @@ class BaseClassPlotter(QWidget):
             self.layout.addWidget(self.figure_tab_widget,3)
         
         self.plot_background_img = True # Plots image with formula as background of each graph (if any)
-        self.background_img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'media')
 
     def toggle_options(self):
         # Cambiar el estado del check basado en si las opciones están visibles o no

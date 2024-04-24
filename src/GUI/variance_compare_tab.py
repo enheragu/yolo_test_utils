@@ -23,6 +23,13 @@ from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
 tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'mAP50', 'mAP50-95', 'P', 'R', 'MR']
+equations = {
+        'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
+        'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
+        'MR': r'M$R(c) = \dfrac{FN(c)}{TP(c) + FN(c)} = 1 - Recall(c)$',
+        'F1': r'F$1(c) = \dfrac{TP(c)}{TP(c) + \dfrac{1}{2}*(FP(c) + FN(c))}$',
+        'PR': r'$P(R)$'
+}
 
 class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
@@ -306,36 +313,17 @@ class VarianceComparePlotter(BaseClassPlotter):
             # Configurar leyenda
             ax.legend()
             self.figure_tab_widget[canvas_key].ax.append(ax)
+           
+            background_eq_tag = canvas_key.replace(" Curve", "")
+            if self.plot_background_img and background_eq_tag in equations:
 
-            background_img = os.path.join(self.background_img_path, canvas_key.replace(" Curve", "") + '.png')
-            if self.plot_background_img and os.path.exists(background_img):
-                ax.set_xlim(ax.get_xlim())
-                ax.set_ylim(ax.get_ylim())
-                
-                import cv2 as cv
-                img_cv2 = cv.imread(background_img)
-                img_height, img_width, _ = img_cv2.shape
-
-                plot_width = float(ax.get_xlim()[1] - ax.get_xlim()[0])
-                plot_height = float(ax.get_ylim()[1] - ax.get_ylim()[0])
-
-                img_percent = 0.35     # 0.8 would be 80% of graph width
-                relative_width = plot_width * img_percent
-                relative_height = plot_height * float(img_height) / float(img_width) 
-                
+                eq = equations[background_eq_tag]
                 x_center = (ax.get_xlim()[0] + ax.get_xlim()[1]) * 0.5
                 y_center = (ax.get_ylim()[0] + ax.get_ylim()[1]) * 0.5
+                ax.text(x_center, y_center, eq, color="Black", alpha=0.5, fontsize=16, ha="center", va="center")
 
-                x1 = x_center - relative_width / 2
-                x2 = x1 + relative_width
-                y1 = y_center - relative_height / 2
-                y2 = y1 + relative_height
-
-                # print(f"[{canvas_key}] {relative_width = }; {relative_height = }")
-                # print(f"[{canvas_key}] {(x1,x2,y1,y2) = }")
-                ax.imshow(img_cv2, extent=[x1,x2,y1,y2], alpha=0.5, zorder=0, aspect="auto")
             else:
-                print(f"{background_img} not found.")
+                print(f"{background_eq_tag} not set.")
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
