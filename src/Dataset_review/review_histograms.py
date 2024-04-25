@@ -132,10 +132,10 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
     # plt.fill_between(np.arange(len(hist)), hist, color=color, alpha=0.3)
     # plt.hist(hist, bins=range(len(hist)), color=color, alpha=0.7)
 
-    plt.plot(hist[1], color = color, label = f"histogram {title} channel")
+    plt.plot(hist[1], color = color, label = f"{title} channel histogram (max)")
     # plt.plot(hist[0], color = color)
-    # plt.fill_between(np.arange(len(hist[0])), hist[1], hist[0], color=color, alpha=0.3) # between min and max
-    plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) # between 0 and max
+    # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min") # between 0 and min
+    plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
     if log_scale: plt.yscale('log')
 
     plt.title(f'{title} channel histogram ({n_images} images)')
@@ -154,24 +154,24 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     plt.subplot(2, 1, 1)
     for index, (hist, title, color) in enumerate(zip([b_hist, g_hist, r_hist], titles, colors)):     
         # plt.hist(channel, bins=range(len(channel)), color=color, alpha=0.7)
-        plt.plot(hist[1], color = color, label = f"{title} channel histogram")
+        plt.plot(hist[1], color = color, label = f"{title} channel histogram (max)")
         # plt.plot(hist[0], color = color)
-        # plt.fill_between(np.arange(len(hist[0])), hist[1], hist[0], color=color, alpha=0.3) # between min and max
-        plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) # between 0 and max
+        # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min histogram") # between 0 and min
+        plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
         if log_scale: plt.yscale('log')
         save_histogram_image(hist, title, os.path.join(store_path, f'histograms_{title.lower()}_n_{n_images}_images{"_log" if log_scale else ""}.pdf'), color=color, n_images=n_images, log_scale=log_scale)
     
     plt.legend()
-    plt.title(f'RGB channel histogram ({n_images} images)')
+    plt.title(f'RGB channel histograms ({n_images} images)')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency')
 
     # Second subplot
     plt.subplot(2, 1, 2)
-    plt.plot(lwir_hist[1], color = colors[-1], label = f"histogram {titles[-1]} channel")
+    plt.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} channel histogram (max)")
     # plt.plot(lwir_hist[0], color = colors[-1])
-    # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], lwir_hist[0], color=colors[-1], alpha=0.3) # between min and max
-    plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) # Minimum in between 0 and max
+    # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[0], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
+    plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max
     if log_scale: plt.yscale('log')
     save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'histograms_{titles[-1].lower()}_n_{n_images}_images{"_log" if log_scale else ""}.pdf'), color=colors[-1], n_images = n_images, log_scale=log_scale)
     plt.legend()
