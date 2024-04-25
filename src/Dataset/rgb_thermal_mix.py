@@ -26,7 +26,7 @@ from .constants import dataset_options, kaist_yolo_dataset_path, images_folder_n
 test = None
 test_plot = False
 
-def process_image(folder, combine_method, option_path, image):
+def process_image(folder, combine_method, option_path, dataset_format, image):
     # log(f"Processing image {image} from {folder} dataset")
 
     thermal_image_path = os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
@@ -35,10 +35,14 @@ def process_image(folder, combine_method, option_path, image):
     rgb_img = cv.imread(rgb_image_path)
     th_img = cv.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
 
-    image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
+    if dataset_format in ['kaist_90_10','kaist_80_20','kaist_70_30']:
+        clahe = cv.createCLAHE(clipLimit=6.0, tileGridSize=(6,6))
+        th_img = clahe.apply(th_img)
+
+    th_img = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
     # return image_combined
 
-def make_dataset(option):
+def make_dataset(option, dataset_format = 'kaist_coco'):
     if option not in dataset_options:
         log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
@@ -71,7 +75,7 @@ def make_dataset(option):
             images_list_create = images_list_create[:test]
             for image in images_list_create[:test]:
                 # Creating visualization windows
-                process_image(folder, dataset_options[option]['merge'], option_path, image)
+                process_image(folder, dataset_options[option]['merge'], option_path, dataset_format, image)
                 if test_plot:
                     fused_image = cv.imread(option_path + image)
                     cv.namedWindow("Image fussion", cv.WINDOW_AUTOSIZE)
@@ -86,7 +90,7 @@ def make_dataset(option):
             # Iterate images multiprocessing
             # with Pool(processes = 5) as pool:
             with Pool() as pool:    
-                func = partial(process_image, folder, dataset_options[option]['merge'], option_path)
+                func = partial(process_image, folder, dataset_options[option]['merge'], option_path, dataset_format)
                 pool.map(func, images_list_create)
         
         # Symlink
