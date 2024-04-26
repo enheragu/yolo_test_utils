@@ -76,8 +76,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             validator = yolo_detc.DetectionValidator(args=args)
             validator(model=args.model)
 
-            with open(Path(validator.save_dir) / f'results.yaml', 'a') as file:
-                dumpYaml(file, yaml_data)
+            dumpYaml(Path(validator.save_dir) / f'results.yaml', yaml_data)
 
             log(f"[{yolo_model}][test {validation_iteration}] - Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
             log("-------------------------------------")

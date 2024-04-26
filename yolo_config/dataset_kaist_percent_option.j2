@@ -10,21 +10,21 @@ test:
   # Test data is optional
 train: 
   {% if condition == "all" -%}
-  - train-day-90_10/{{option}}/
-  - train-night-90_10/{{option}}/
+  - train-day-{{percent}}/{{option}}/
+  - train-night-{{percent}}/{{option}}/
   {% elif condition == "day" -%}
-  - train-day-90_10/{{option}}/
+  - train-day-{{percent}}/{{option}}/
   {% elif condition == "night" -%}
-  - train-night-90_10/{{option}}/
+  - train-night-{{percent}}/{{option}}/
   {% endif %}
 val: 
   {% if condition == "all" -%}
-  - test-day-90_10/{{option}}/
-  - test-night-90_10/{{option}}/
+  - test-day-{{percent}}/{{option}}/
+  - test-night-{{percent}}/{{option}}/
   {% elif condition == "day" -%}
-  - test-day-90_10/{{option}}/
+  - test-day-{{percent}}/{{option}}/
   {% elif condition == "night" -%}
-  - test-night-90_10/{{option}}/
+  - test-night-{{percent}}/{{option}}/
   {% endif %}
 
 

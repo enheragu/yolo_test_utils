@@ -61,7 +61,8 @@ class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # pe
               'kaist_full': default_kaist,
               'kaist_90_10': default_kaist,
               'kaist_80_20': default_kaist,
-              'kaist_70_30': default_kaist
+              'kaist_70_30': default_kaist,
+              'kaist_debug': default_kaist
              }
 
 ## Templates for TMP YOLO dataset configuration
@@ -73,7 +74,8 @@ templates_cfg = {'kaist_coco': {'template': f"{dataset_config_path}/dataset_kais
                  'kaist_full': {'template': f"{dataset_config_path}/dataset_kaist_full_option.j2"},
                  'kaist_90_10': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '90_10'}}, # Extra arguments that can be provided to the template
                  'kaist_80_20': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '80_20'}}, # Extra arguments that can be provided to the template
-                 'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}} # Extra arguments that can be provided to the template
+                 'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}}, # Extra arguments that can be provided to the template
+                 'kaist_debug': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': 'debug'}} # Extra arguments that can be provided to the template. Just for debugging training/val process
                  }
 
 dataset_keys = list(class_data.keys())

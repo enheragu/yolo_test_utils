@@ -91,8 +91,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
                 trainer.train()
-                with open(Path(trainer.save_dir) / f'results.yaml', 'a') as file:
-                    dumpYaml(file, yaml_data)
+                dumpYaml(Path(trainer.save_dir) / f'results.yaml', yaml_data)
 
             except Exception as e:
                 log(f'Exception caught: {e}')
