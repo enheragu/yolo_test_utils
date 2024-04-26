@@ -12,7 +12,7 @@ from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
 
-from utils import parseYaml, log, bcolors, getGPUTestID
+from utils import parseYaml, dumpYaml, log, bcolors, getGPUTestID
 from Dataset import generateCFGFiles, clearCFGFIles, dataset_tags_default
 from argument_parser import handleArguments, yolo_outpu_log_path
 
@@ -77,8 +77,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             validator(model=args.model)
 
             with open(Path(validator.save_dir) / f'results.yaml', 'a') as file:
-                import yaml
-                yaml.dump(yaml_data, file)
+                dumpYaml(file, yaml_data)
 
             log(f"[{yolo_model}][test {validation_iteration}] - Dataset processing took {datetime.now() - dataset_start_time} (h/min/s)")
             log("-------------------------------------")

@@ -153,13 +153,20 @@ function rsync_cache() {
 #######################################
 # CLAHE for LWIR image an better splitting of datasets. Compare against 'all' together
 
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' 'day' 'night' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 
+
+# EXEC # eeha_schedule_new_test -c 'all' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'all' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'all' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'all' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'all' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 
 
 ########################################

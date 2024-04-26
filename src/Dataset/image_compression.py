@@ -20,7 +20,7 @@ from utils import log, bcolors
 
 def combine_hsvt(visible_image, thermal_image, path):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
 
     # Cast to 32S to avoid saturation when both channels are added
     v = v.astype(np.float64)
@@ -40,7 +40,7 @@ def combine_hsvt(visible_image, thermal_image, path):
               
 def combine_rgbt(visible_image, thermal_image, path):
     b,g,r = cv.split(visible_image)
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
     th_channel = th_channel.astype(np.float64)
     
     for ch in (b,g,r):
@@ -56,7 +56,7 @@ def combine_rgbt(visible_image, thermal_image, path):
 
 def combine_4ch(visible_image, thermal_image, path):
     b,g,r = cv.split(visible_image)
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
 
     ch4_image = cv.merge([b,g,r,th_channel])
 
@@ -68,7 +68,7 @@ def combine_4ch(visible_image, thermal_image, path):
 
 def combine_vths(visible_image, thermal_image, path):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
          
     h_shifted = h >> 4
     s_shifted = s >> 4
@@ -83,7 +83,7 @@ def combine_vths(visible_image, thermal_image, path):
 
 def combine_vt(visible_image, thermal_image, path):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
     
     averaged = v.astype(np.float64)
     averaged = (averaged + th_channel.astype(np.float64)) / 2
@@ -96,7 +96,7 @@ def combine_vt(visible_image, thermal_image, path):
 
 
 def combine_lwir_npy(visible_image, thermal_image, path):
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
     th_image = cv.merge([th_channel,th_channel,th_channel]).astype(np.uint8)
     # np.save(path.replace('.png',''), th_channel)
     np.savez_compressed(path.replace('.png',''), image = th_channel)    
@@ -105,7 +105,7 @@ def combine_lwir_npy(visible_image, thermal_image, path):
 
 def combine_vt_2ch(visible_image, thermal_image, path):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = cv.cvtColor(thermal_image, cv.COLOR_BGR2GRAY)
+    th_channel = thermal_image
     vt_image = cv.merge([v,th_channel]).astype(np.uint8)
     # np.save(path.replace('.png',''), vt_image)
     np.savez_compressed(path.replace('.png',''), image = vt_image)

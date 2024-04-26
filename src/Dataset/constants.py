@@ -9,7 +9,7 @@ repo_path = f"{home}/eeha/yolo_test_utils"
 
 # Path setup for dataset parsing and generation
 kaist_path = f"{home}/eeha/kaist-cvpr15"
-kaist_sets_paths = [f"{repo_path}/kaist_imageSets"]#f"{kaist_path}/imageSets", ]
+kaist_sets_paths = [f"{repo_path}/kaist_imageSets", f"{kaist_path}/imageSets"]
 kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
 kaist_images_path = f"{kaist_path}/images"
 kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format

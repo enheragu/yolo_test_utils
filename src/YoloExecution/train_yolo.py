@@ -15,7 +15,7 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
-from utils import parseYaml, log, bcolors, getGPUTestID
+from utils import parseYaml, dumpYaml, log, bcolors, getGPUTestID
 from Dataset import generateCFGFiles, clearCFGFIles, dataset_tags_default, dataset_config_path
 from argument_parser import handleArguments, yolo_outpu_log_path
 
@@ -92,8 +92,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             try:
                 trainer.train()
                 with open(Path(trainer.save_dir) / f'results.yaml', 'a') as file:
-                    import yaml
-                    yaml.dump(yaml_data, file)
+                    dumpYaml(file, yaml_data)
 
             except Exception as e:
                 log(f'Exception caught: {e}')

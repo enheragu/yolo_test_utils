@@ -116,7 +116,7 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels =
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
-    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    th = thermal_image_filtered
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
@@ -135,7 +135,7 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
-    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    th = thermal_image_filtered
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()
@@ -194,7 +194,7 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    th = thermal_image_filtered
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [h,s,v,th]]).transpose()   
@@ -230,7 +230,7 @@ def combine_rgbt_pca_full(visible_image, thermal_image, path):
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
-    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    th = thermal_image_filtered
     img_shape = th.shape
 
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
@@ -249,7 +249,7 @@ def combine_rgbt_fa_full(visible_image, thermal_image, path):
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
-    th = cv.cvtColor(thermal_image_filtered, cv.COLOR_BGR2GRAY)
+    th = cthermal_image_filtered
     img_shape = th.shape
 
     if not fa_eigen_vectors:

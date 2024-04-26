@@ -33,7 +33,7 @@ def process_image(folder, combine_method, option_path, dataset_format, image):
     rgb_image_path = os.path.join(kaist_yolo_dataset_path,folder,visible_folder_name,images_folder_name,image)
 
     rgb_img = cv.imread(rgb_image_path)
-    th_img = cv.imread(thermal_image_path) # It is enconded as BGR so still needs merging to Gray
+    th_img = cv.imread(thermal_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
 
     if dataset_format in ['kaist_90_10','kaist_80_20','kaist_70_30']:
         clahe = cv.createCLAHE(clipLimit=6.0, tileGridSize=(6,6))
