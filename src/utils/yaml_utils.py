@@ -32,9 +32,10 @@ def represent_list(dumper, data):
     else:
         return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=False)
 
-def dumpYaml(file_path, data):
-    with open(file_path, "w+") as file:
+def dumpYaml(file_path, data, mode = "w+"):
+    with open(file_path, mode) as file:
         # Add custom representation functions to the YAML dumper
         yaml.add_representer(list, represent_list)
         yaml.add_representer(dict, represent_dict)
-        yaml.dump(data, file, encoding='utf-8', width=float(2000))
+        yaml.dump(data, file, encoding='utf-8', width=float(3000))
+
