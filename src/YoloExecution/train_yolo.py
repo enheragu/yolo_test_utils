@@ -78,6 +78,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['save_txt'] = True
             args['verbose'] = True
             args['save_conf'] = True
+            args['iou'] = 0.5
             args['patience'] = 10
             args['deterministic'] = deterministic
 

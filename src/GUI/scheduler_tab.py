@@ -58,13 +58,26 @@ def parseTestFile(yaml_path, arg_options = getArgParseOptions()):
     for row, test in enumerate(data):
         if not test:
             log(f"Test seems to be empty in {yaml_path}.", bcolors.WARNING)
-            return None, None
-        for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
+            return None, None   
+        # for i, (command, content) in enumerate(zip(test[::2], test[1::2])):
+        column_index = None
+        for item in test:
+            is_cmd = False
             for column_title, column_info in arg_options.items():
-                if command == column_info['long'] or command == column_info['short']:
+                # If item is command, store it. If not add contents to it
+                if item == column_info['long'] or item == column_info['short']:
                     column_index = list(arg_options.keys()).index(column_title)
-                    rows[row][column_index] = str(content)
-                    nondefault_mask[row][column_index] = 1
+                    is_cmd = True
+            if not is_cmd: 
+                if nondefault_mask[row][column_index] == 1:
+                    # If theres an element already, turn to list
+                    if not isinstance(rows[row][column_index], list):
+                        rows[row][column_index] = [rows[row][column_index]]
+                    rows[row][column_index].append(str(item))
+                else:
+                    # Si es el primer elemento, no lo conviertas en una lista
+                    rows[row][column_index] = str(item)
+                nondefault_mask[row][column_index] = 1
     
     # Fill empty cells with default
     for row_idx, row in enumerate(rows):
