@@ -127,7 +127,7 @@ def process_image(path, image_type):
 
 
 def save_histogram_image(hist, title, filename, color, n_images, log_scale = False):
-    plt.figure()
+    plt.figure(figsize=(4.5, 3))
     # plt.plot(hist, color = color)
     # plt.fill_between(np.arange(len(hist)), hist, color=color, alpha=0.3)
     # plt.hist(hist, bins=range(len(hist)), color=color, alpha=0.7)
@@ -138,9 +138,9 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
     plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
     if log_scale: plt.yscale('log')
 
-    plt.title(f'{title} channel histogram ({n_images} images)')
+    plt.title(f'{title} histogram ({n_images} images)')
     plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency')
+    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
     
     plt.tight_layout()
     plt.savefig(filename)
@@ -148,10 +148,10 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
 
 
 def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms.pdf', n_images = 0, log_scale = False):
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(9, 3))
 
     # First subplot
-    plt.subplot(2, 1, 1)
+    plt.subplot(1, 2, 1)
     for index, (hist, title, color) in enumerate(zip([b_hist, g_hist, r_hist], titles, colors)):     
         # plt.hist(channel, bins=range(len(channel)), color=color, alpha=0.7)
         plt.plot(hist[1], color = color, label = f"{title} channel histogram (max)")
@@ -159,25 +159,25 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
         # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min histogram") # between 0 and min
         plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
         if log_scale: plt.yscale('log')
-        save_histogram_image(hist, title, os.path.join(store_path, f'histograms_{title.lower()}_n_{n_images}_images{"_log" if log_scale else ""}.pdf'), color=color, n_images=n_images, log_scale=log_scale)
+        save_histogram_image(hist, title, os.path.join(store_path, f'histograms_{title.lower().replace(" ", "_")}{"_log" if log_scale else ""}.pdf'), color=color, n_images=n_images, log_scale=log_scale)
     
     plt.legend()
-    plt.title(f'RGB channel histograms ({n_images} images)')
+    plt.title(f'RGB histograms ({n_images} images)')
     plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency')
+    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     # Second subplot
-    plt.subplot(2, 1, 2)
+    plt.subplot(1, 2, 2)
     plt.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} channel histogram (max)")
     # plt.plot(lwir_hist[0], color = colors[-1])
     # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[0], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
     plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max
     if log_scale: plt.yscale('log')
-    save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'histograms_{titles[-1].lower()}_n_{n_images}_images{"_log" if log_scale else ""}.pdf'), color=colors[-1], n_images = n_images, log_scale=log_scale)
+    save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'histograms_{titles[-1].lower().replace(" ", "_")}{"_log" if log_scale else ""}.pdf'), color=colors[-1], n_images = n_images, log_scale=log_scale)
     plt.legend()
-    plt.title(f'LWIR channel histogram ({n_images} images)')
+    plt.title(f'LWIR histogram ({n_images} images)')
     plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency')
+    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     plt.tight_layout()
     plt.savefig(os.path.join(store_path,filename))
@@ -229,31 +229,20 @@ def evaluateInputDataset():
     eq_r_data = (np.min(eq_r_hist, axis=0)[:,0], np.max(eq_r_hist, axis=0)[:,0])
     eq_lwir_data = (np.min(eq_lwir_hist, axis=0)[:,0], np.max(eq_lwir_hist, axis=0)[:,0])
 
-    plot_histograms(b_data, g_data, r_data, lwir_data,
-                    ["b","g","r","lwir"], 
-                    ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'histograms_all_n_{len(b_hist)}_images.pdf',
-                    n_images=len(b_hist), log_scale=False)
+    for log_scale in [True, False]:
+        plot_histograms(b_data, g_data, r_data, lwir_data,
+                        ["B","G","R","LWIR"], 
+                        ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
+                        f'histograms_all{"_log" if log_scale else ""}.pdf',
+                        n_images=len(b_hist), log_scale=log_scale)
     
-    plot_histograms(b_data, g_data, r_data, lwir_data,
-                    ["b","g","r","lwir"], 
-                    ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'histograms_all_n_{len(b_hist)}_images_log.pdf',
-                    n_images=len(b_hist), log_scale=True)
-    
-    ###### Equalized
+        ###### Equalized
+        plot_histograms(eq_b_data, eq_g_data, eq_r_data, eq_lwir_data,
+                        ["CLAHE B","CLAHE G","CLAHE R","CLAHE LWIR"], 
+                        ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
+                        f'histograms_eq_all{"_log" if log_scale else ""}.pdf',
+                        n_images=len(eq_b_hist), log_scale=log_scale)
 
-    plot_histograms(eq_b_data, eq_g_data, eq_r_data, eq_lwir_data,
-                    ["clahe_b","clahe_g","clahe_r","clahe_lwir"], 
-                    ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'histograms_eq_all_n_{len(eq_b_hist)}_images.pdf',
-                    n_images=len(eq_b_hist), log_scale=False)
-
-    plot_histograms(eq_b_data, eq_g_data, eq_r_data, eq_lwir_data,
-                    ["clahe_b","clahe_g","clahe_r","clahe_lwir"], 
-                    ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                    f'histograms_eq_all_n_{len(eq_b_hist)}_images_log.pdf',
-                    n_images=len(eq_b_hist), log_scale=True)
 
 if __name__ == '__main__':
 
@@ -272,6 +261,6 @@ if __name__ == '__main__':
 
     print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
     img = cv.imread(img_path.replace("lwir", "visible"))
-    print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
+    print(f"Image resolution for RGB images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
 
     evaluateInputDataset()
