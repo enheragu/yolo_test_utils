@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollA
 max_rows_checkboxes = 5
 
 # Remove machine tag
-title_filter_global = ["_4090", "_3090"]
+title_filter_global = []
 class DatasetCheckBoxWidget(QScrollArea):
     """
         :param: include  Str pattern of tests that will be included in the checbox widget
@@ -58,7 +58,7 @@ class DatasetCheckBoxWidget(QScrollArea):
                (self.exclude and self.exclude in group_name): 
                 continue
 
-            test_name = dataset_info['name']
+            test_name = dataset_info['title']
             if group_name != last_group:
                 iter = 0
                 last_group = group_name
@@ -73,6 +73,7 @@ class DatasetCheckBoxWidget(QScrollArea):
             for filter in self.title_filter:
                 test_name = test_name.replace(filter, "")
             checkbox = QCheckBox(test_name)
+            checkbox.setToolTip(dataset_info['path'])
             checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
             self.check_box_dict[key] = checkbox
             row = iter % self.max_rows
@@ -160,6 +161,7 @@ class GroupCheckBoxWidget(QScrollArea):
                 for filter in self.title_filter:
                     title = title.replace(filter, "")
                 checkbox = QCheckBox(title)
+                checkbox.setToolTip('/'.join(dataset_info['path'].split('/')[:-2])) # remove /test_name_blabla/results.yaml from path to show group path
                 checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
                 self.check_box_dict[group_name] = checkbox
                 row = iter % self.max_rows

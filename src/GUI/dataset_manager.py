@@ -11,6 +11,7 @@ import sys
 import time
 import shutil
 import inspect
+import re
 
 from datetime import datetime
 
@@ -33,7 +34,7 @@ data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
-test_key_clean = ['_GPU3090', '_GPUA30'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
+test_key_clean = ['_4090', '_3090', '_GPU3090', '_A30', r'_[0-9]{8}'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -143,11 +144,14 @@ def find_results_file(search_path = yolo_output_path, file_name = data_file_name
                 log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
                 continue
             name = abs_path.split("/")[-2]
+            title = abs_path.split("/")[-2]
             model = abs_path.split("/")[-3]
-            for clear_tag in test_key_clean:
-                model = model.replace(clear_tag, "")
+            for clear_pattern in test_key_clean:
+                # model = model.replace(clear_tag, "")
+                model = re.sub(clear_pattern, "", model)
+                title = re.sub(clear_pattern, "", title)
             key = f"{model}/{name}"
-            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key}
+            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
 
     ## Order dataset by name
     myKeys = list(dataset_info.keys())
@@ -170,11 +174,14 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
                 abs_path = os.path.join(root, file)
                 key_name = abs_path.replace(file_name, "")
                 name = key_name.split("/")[-1]
+                title = abs_path.split("/")[-2]
                 model = key_name.split("/")[-2]
-                for clear_tag in test_key_clean:
-                    model = model.replace(clear_tag, "")
+                for clear_pattern in test_key_clean:
+                    # model = model.replace(clear_tag, "")
+                    model = re.sub(clear_pattern, "", model)
+                    title = re.sub(clear_pattern, "", title)
                 key = f"{model}/{name}"
-                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key}
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
 
     myKeys = list(dataset_info.keys())
     myKeys.sort()

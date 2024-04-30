@@ -116,7 +116,7 @@ class TrainCSVDataTable(QWidget):
                     else:
                         condition = "Unknown"
 
-                    row_list.append([model, condition, "_".join(dataset_type[1:]),
+                    row_list.append([model, condition, dataset_type[1],
                                     "{:.4f}".format(data_class.get('P', data_class.get(f"mP"))), 
                                     "{:.4f}".format(data_class.get('R', data_class.get(f"mR"))), 
                                     "{:.4f}".format(data_class['mAP50']), 
@@ -190,7 +190,7 @@ class TrainCSVDataTable(QWidget):
                     condition = 'all'
                 else:
                     condition = "Unknown"
-                row_list_averaged.append([model, condition, "_".join(dataset_type[1:]),
+                row_list_averaged.append([model, condition, dataset_type[1],
                                 f"(mean) {np.mean(p_vec_vec, axis = 0):.4f}", 
                                 f"(mean) {np.mean(r_vec_vec, axis = 0):.4f}", 
                                 f"(mean) {np.mean(mAP50_vec, axis = 0):.4f}", 
@@ -212,7 +212,7 @@ class TrainCSVDataTable(QWidget):
                                 f"{test_title}_mean",
                                 f"{keys[0].split('/')[0]}/mean"])
                 
-                row_list_averaged.append([model, condition, "_".join(dataset_type[1:]),
+                row_list_averaged.append([model, condition, dataset_type[1],
                                 f"(std) {np.std(p_vec_vec, axis = 0):.4f}", 
                                 f"(std) {np.std(r_vec_vec, axis = 0):.4f}", 
                                 f"(std) {np.std(mAP50_vec, axis = 0):.4f}", 
