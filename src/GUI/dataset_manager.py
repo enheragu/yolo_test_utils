@@ -149,7 +149,7 @@ def find_results_file(search_path = yolo_output_path, file_name = data_file_name
             for clear_pattern in test_key_clean:
                 # model = model.replace(clear_tag, "")
                 model = re.sub(clear_pattern, "", model)
-                title = re.sub(clear_pattern, "", title)
+                title = re.sub(clear_pattern, ""quality , title)
             key = f"{model}/{name}"
             dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
 
@@ -174,7 +174,7 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
                 abs_path = os.path.join(root, file)
                 key_name = abs_path.replace(file_name, "")
                 name = key_name.split("/")[-1]
-                title = abs_path.split("/")[-2]
+                title = abs_path.split("/")[-1]
                 model = key_name.split("/")[-2]
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
