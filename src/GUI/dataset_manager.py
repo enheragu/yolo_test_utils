@@ -149,7 +149,7 @@ def find_results_file(search_path = yolo_output_path, file_name = data_file_name
             for clear_pattern in test_key_clean:
                 # model = model.replace(clear_tag, "")
                 model = re.sub(clear_pattern, "", model)
-                title = re.sub(clear_pattern, ""quality , title)
+                title = re.sub(clear_pattern, "", title)
             key = f"{model}/{name}"
             dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
 
