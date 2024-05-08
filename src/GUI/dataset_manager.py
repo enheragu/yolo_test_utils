@@ -174,7 +174,7 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
                 abs_path = os.path.join(root, file)
                 key_name = abs_path.replace(file_name, "")
                 name = key_name.split("/")[-1]
-                title = abs_path.split("/")[-1]
+                title = key_name.split("/")[-1]
                 model = key_name.split("/")[-2]
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
