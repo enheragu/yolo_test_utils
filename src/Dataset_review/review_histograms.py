@@ -55,7 +55,8 @@ def save_images(img1, img2, hist1, hist2, filename, img_path):
                     ha='right', va="center", fontsize=8,
                     color='black', alpha=0.2)
     
-    plt.savefig(os.path.join(store_path,filename))
+    plt.savefig(os.path.join(store_path,'pdf',f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'png',f'{filename}.png'))
 
 def gethistEqCLAHE(img):
     clahe = cv.createCLAHE(clipLimit=6.0, tileGridSize=(6,6))
@@ -70,6 +71,8 @@ def gethistEq(img):
 
     return eq_img, hist
 
+
+def gethistExpLinear(img):
 
 def extract_hist(img_path, plot = False):
     b, g, r, lwir = [], [], [], []
@@ -130,11 +133,12 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
     
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig(os.path.join(store_path,'pdf',f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'png',f'{filename}.png'))
     plt.close()
 
 
-def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms.pdf', n_images = 0, log_scale = False, condition = '-'):
+def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms', n_images = 0, log_scale = False, condition = '-'):
     plt.figure(figsize=(9, 3))
 
     # First subplot
@@ -147,7 +151,7 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
         plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
         if log_scale: plt.yscale('log')
         # Single histogram for each BGR channel
-        # save_histogram_image(hist, title, os.path.join(store_path, f'{title.lower().replace(" ", "_")}_{filename}'), color=color, n_images=n_images, log_scale=log_scale)
+        # save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale)
     
     plt.legend()
     plt.title(f'RGB histograms ({n_images} images) ({condition})')
@@ -161,14 +165,15 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[0], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
     plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max
     if log_scale: plt.yscale('log')
-    save_histogram_image(lwir_hist, titles[-1], os.path.join(store_path, f'{titles[-1].lower().replace(" ", "_")}_{filename}'), color=colors[-1], n_images = n_images, log_scale=log_scale)
+    save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale)
     plt.legend()
     plt.title(f'LWIR histogram ({n_images} images) ({condition})')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     plt.tight_layout()
-    plt.savefig(os.path.join(store_path,filename))
+    plt.savefig(os.path.join(store_path,'pdf',f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'png',f'{filename}.png'))
     # plt.show()
 
 # Store histograms in a list of [b,g,r,lwir] hists for each image
@@ -228,6 +233,7 @@ def evaluateInputDataset():
         
         if isinstance(type, list):
             b_type, g_type, r_type, lwir_type = type
+            type = 'combined'
         else:
             b_type, g_type, r_type, lwir_type = type, type, type, type
 
@@ -236,7 +242,7 @@ def evaluateInputDataset():
             plot_histograms(hist_data[0], hist_data[1], hist_data[2], hist_data[3],
                             [f"B {b_type}",f"G {g_type}",f"R {r_type}",f"LWIR {lwir_type}"], 
                             ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
-                            f'{"log_" if log_scale else ""}{condition}.pdf',
+                            f'{"log_" if log_scale else ""}{condition}_{type}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = condition)
 
              
@@ -260,8 +266,16 @@ def evaluateInputDataset():
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['CLAHE hist'][3]]
         plotAccumulatedHist(condition, data, ['hist', 'hist', 'hist', 'CLAHE hist'])
 
+    for condition in ['day', 'night', 'day+night']:
+        data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['hist'][3]]
+        plotAccumulatedHist(condition, data, 'hist')
 
 if __name__ == '__main__':
+
+    if not os.path.exists(os.path.join(store_path, 'pdf')):
+        os.makedirs(os.path.join(store_path, 'pdf'))
+    if not os.path.exists(os.path.join(store_path, 'png')):
+        os.makedirs(os.path.join(store_path, 'png'))
 
     # Img plot for comparison
     img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
@@ -270,10 +284,10 @@ if __name__ == '__main__':
     lwir = cv.calcHist([img], [0], None, [256], [0, 256])
 
     eq_img, clahe_hist = gethistEqCLAHE(img)
-    save_images(img, eq_img, lwir, clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison.pdf', clean_path)
+    save_images(img, eq_img, lwir, clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison', clean_path)
     
     eq_img, eq_hist = gethistEq(img)
-    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_comparison.pdf', clean_path)
+    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_comparison', clean_path)
 
 
     print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")

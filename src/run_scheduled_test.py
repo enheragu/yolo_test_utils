@@ -31,7 +31,7 @@ if __name__ == '__main__':
         index = 0
         try:    
             condition_list, option_list, model_list, opts = handleArguments(nex_test)
-            checkKaistDataset(option_list, opts.dformat)
+            checkKaistDataset(option_list, opts.dformat, opts.thermal_eq)
 
             for index in range(opts.iterations):
                 log("--------------------------------------------------------------------------")
@@ -48,11 +48,11 @@ if __name__ == '__main__':
                     # code
                     if mode == 'val':
                         from YoloExecution.validation_yolo import TestValidateYolo
-                        TestValidateYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat)
+                        TestValidateYolo(condition_list, option_list, model_list, opts)
                         
                     elif mode == 'train':
                         from YoloExecution.train_yolo import TestTrainYolo
-                        TestTrainYolo(condition_list, option_list, model_list, opts.device, opts.cache, opts.pretrained, opts.path_name, opts.dformat, opts.batch, opts.deterministic)
+                        TestTrainYolo(condition_list, option_list, model_list, opts)
                 
                 # If stop is requested, pending iterations are added to queue, then
                 # queu handler will handle the stop not providing next test in queu e

@@ -22,12 +22,12 @@ from argument_parser import handleArguments, yolo_outpu_log_path
 from compress_label_folder import compress_output_labels
 
 
-def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0], batch = 16, deterministic = True):
+def TestTrainYolo(condition_list, option_list, model_list, opts):
     train_iteration = 0
 
     start_time = datetime.now()
 
-    dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = dataset_tag)
+    dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
     for yolo_model in model_list: 
         for dataset in dataset_config_list:
             train_iteration += 1
@@ -58,10 +58,15 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             
 
             id = getGPUTestID()
-            if path_name_in is None:
-                path_name = f'train_based_{yolo_model}/' + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
+            if opts.test_name is None:
+                test_name = dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:
-                path_name = path_name_in + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
+                test_name = opts.test_name + id
+
+            if opts.path_name is None:
+                path_name = f'train_based_{yolo_model}/{test_name}'
+            else:
+                path_name = opts.path_name + "/" + test_name
             
             args = {}
             args['mode'] = 'train'
@@ -70,7 +75,7 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['model'] = yolo_model if ".yaml" not in yolo_model else f"{dataset_config_path}/{yolo_model}"  # If its a yaml check in configuration path
             # args['imgsz'] = 32
             args['epochs'] = 500
-            args['batch'] = batch
+            args['batch'] = opts.batch
             # args['save'] = False
             # args['save_json'] = True
             # args['save_hybrid'] = True
@@ -80,14 +85,15 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
             args['save_conf'] = True
             args['iou'] = 0.5
             args['patience'] = 10
-            args['deterministic'] = deterministic
+            args['deterministic'] = opts.deterministic
 
-            args['device'] = device
-            args['cache'] = cache
-            args['pretrained'] = pretrained
+            args['device'] = opts.device
+            args['cache'] = opts.cache
+            args['pretrained'] = opts.pretrained
                         
-            yaml_data['pretrained'] = pretrained
-            yaml_data['dataset_tag'] = dataset_tag
+            yaml_data['pretrained'] = opts.pretrained
+            yaml_data['dataset_tag'] = opts.dformat
+            yaml_data['thermal_equalization'] = opts.thermal_eq
             
             trainer = yolo_detc.DetectionTrainer(overrides=args)
             try:
@@ -110,5 +116,6 @@ def TestTrainYolo(condition_list, option_list, model_list, device, cache, pretra
 
 
 if __name__ == '__main__':
-    condition_list, option_list, model_list, device, cache, pretrained, _ = handleArguments()
-    TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)
+    pass
+    # condition_list, option_list, model_list, device, cache, pretrained, _ = handleArguments()
+    # TestTrainYolo(condition_list, option_list, model_list, device, cache, pretrained)

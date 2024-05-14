@@ -52,10 +52,15 @@ def configArgParser():
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
+    parser.add_argument('-test','--test-name', default=None, type=str, 
+                        help="Test name. Implies changes in the path in which it will be stored. Left to 'None' for a default test name.")
     parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[1], choices=dataset_tags_default,
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
+    parser.add_argument('-te', '--th_equalization', dest='thermal_eq',
+                        type=str, default="none", choices=['none','clahe','linear'], # Equalization to thermal image: clahe, linear, no equalization..
+                        help="What type of equalization is applied to the thermal channel.")
     
     def str2bool(v):
         # Método para interpretar cadenas como booleanas

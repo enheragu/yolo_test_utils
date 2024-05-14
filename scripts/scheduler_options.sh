@@ -158,15 +158,24 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 
 
 # EXEC # eeha_schedule_new_test -c 'all' -o 'visible' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'all' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'all' -o 'rgbt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'all' -o 'vt' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
 # EXEC # eeha_schedule_new_test -c 'all' -o 'vths' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+
+
+## Standalone LWIR without equalization
+# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20"
+
+
+## Standalone LWIR with CLAHE equalizatoin
+# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20" --test-name 'all_lwir_clahe' --th_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20" --test-name 'day_lwir_clahe' --th_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3x.yaml' --dataset-format "kaist_80_20" --test-name 'night_lwir_clahe' --th_equalization 'clahe'
 
 
 ########################################
@@ -180,13 +189,10 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
 
-# EXEC # eeha_schedule_new_test -c  -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vt_2ch' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4x.yaml' --dataset-format "kaist_full" --cache "disk"
-
-
-
+ 
 
 
 # DEBUG #eeha_schedule_new_test -c 'day' -o 'hsvt' -m 'yoloCh3x.yaml' --dataset-format "kaist_debug"

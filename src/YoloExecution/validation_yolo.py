@@ -16,22 +16,27 @@ from utils import parseYaml, dumpYaml, log, bcolors, getGPUTestID
 from Dataset import generateCFGFiles, clearCFGFIles, dataset_tags_default
 from argument_parser import handleArguments, yolo_outpu_log_path
 
-def TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained, path_name_in = None, dataset_tag = dataset_tags_default[0]):
+def TestValidateYolo(condition_list, option_list, model_list, opts):
     validation_iteration = 0
     start_time = datetime.now()
 
-    dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = dataset_tag)
+    dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
     for yolo_model in model_list: 
         for dataset in dataset_config_list:
             validation_iteration += 1
             
 
             id = getGPUTestID()
-
-            if path_name_in is None:
-                path_name = "validate_" + yolo_model + "/" + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
+            
+            if opts.test_name is None:
+                test_name = dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
             else:
-                path_name = path_name_in + "/"  + dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
+                test_name = opts.test_name + id
+
+            if opts.path_name is None:
+                path_name = "validate_" + yolo_model + "/" + test_name
+            else:
+                path_name = opts.path_name + "/"  + test_name
 
             dataset_start_time = datetime.now()
             log("-------------------------------------")
@@ -53,7 +58,8 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
                 log(f"[{yolo_model}][test {validation_iteration}] - Validation with {images_npy} npy images")            
 
             yaml_data['n_images']['val'] = images_png + images_npy
-            yaml_data['dataset_tag'] = dataset_tag
+            yaml_data['dataset_tag'] = opts.dformat
+            yaml_data['thermal_equalization'] = opts.thermal_eq
 
             args = {} 
             # args['project'] = 'detection'
@@ -66,7 +72,7 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
             args['verbose'] = True
             args['save_conf'] = True
             args['save_json'] = True
-            args['device'] = device
+            args['device'] = opts.device
             # args['save_hybrid'] = True -> PROBLEMS WITH TENSOR SIZE
 
             args = get_cfg(cfg=DEFAULT_CFG, overrides=args)
@@ -87,5 +93,6 @@ def TestValidateYolo(condition_list, option_list, model_list, device, cache, pre
 
 
 if __name__ == '__main__':
-    condition_list, option_list, model_list, device, cache, pretrained, _ = handleArguments()
-    TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained)
+    pass
+    # condition_list, option_list, model_list, device, cache, pretrained, _ = handleArguments()
+    # TestValidateYolo(condition_list, option_list, model_list, device, cache, pretrained)

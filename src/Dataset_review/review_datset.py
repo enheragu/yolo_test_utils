@@ -2,10 +2,15 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
+"""
+    Script to evaluate dataset image distribution and handle the generation of new
+    set distribution for test/train
+"""
+
 import os  
 from pathlib import Path
 from itertools import zip_longest
-import copy
+from tabulate import tabulate
 
 home = Path.home()
 kaist_dataset_path = f"{home}/eeha/kaist-cvpr15/images"
@@ -13,16 +18,6 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
 labels_folder_name = "labels"
 images_folder_name = "images"
 visible_folder_name = "visible"
-from tabulate import tabulate
-
-"""
-    Script that evaluates how many images there are on each case along with how many
-    instances are labeled
-"""
-
-import os
-
-# Main directory where the directories of interest are located
 
 
  
@@ -194,6 +189,9 @@ def evaluateInputDataset():
     # print(f"Day   90-10 -> {int(set_info['day']['num_img']*0.9)} - {int(set_info['day']['num_img']*0.1)}")
     # print(f"Night 90-10 -> {int(set_info['night']['num_img']*0.9)} - {int(set_info['night']['num_img']*0.1)}")
 
+"""
+    Generates set file with percentajes set
+"""
 def splitDatsets():
     percentajes = [0.7,0.8,0.9]
 
@@ -250,9 +248,9 @@ def splitDatsets():
 
 
 if __name__ == '__main__':
-    evaluateOutputDataset()
-    evaluateInputDataset()
-    splitDatsets()
+    # evaluateOutputDataset()
+    # evaluateInputDataset()
+    # splitDatsets()
 
     print("\nCase 70-30:")
     evaluateOutputDataset(white_list=['test-day-70_30','train-day-70_30','test-night-70_30','train-night-70_30'], print_latex_table=False)

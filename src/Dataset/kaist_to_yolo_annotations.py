@@ -17,6 +17,8 @@ from pathlib import Path
 from multiprocessing.pool import Pool
 from functools import partial
 
+import cv2 as cv
+
 # Small hack so packages can be found
 if __name__ == "__main__":
     import sys
@@ -26,6 +28,7 @@ if __name__ == "__main__":
 from utils import updateSymlink
 from Dataset.constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_paths, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
 from Dataset.constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
+from Dataset.th_equalization import th_equalization
 # from .check_dataset import checkImageLabelPairs
 
 from utils import log, bcolors
@@ -81,32 +84,58 @@ def processXML(xml_path, output_paths, dataset_format):
 
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
-def processLine(new_dataset_label_paths, data_set_name, dataset_format, line):
+def processLineLabels(new_dataset_label_paths, dataset_format, line):
+    path = '_'.join(line.split("/"))
+    
+    root_label_path = os.path.join(kaist_annotation_path,f"{line}.xml")
+    output_paths = [os.path.join(folder,f"{path}.txt") for folder in  new_dataset_label_paths]
+    # log(output_paths)
+    processXML(root_label_path, output_paths, dataset_format)
+
+
+def processLineImages(data_set_name, thermal_eq, line):
+    processed = {lwir_folder_name: {}, visible_folder_name: {}}
+
     for data_type in (lwir_folder_name, visible_folder_name):
-        line = line.replace("\n", "")
         path = line.split("/")
         path = (path[0], path[1], data_type, path[2])
-        # labelling
-
-        root_label_path = os.path.join(kaist_annotation_path,f"{line}.xml")
-        output_paths = [os.path.join(folder,f"{path[0]}_{path[1]}_{path[3]}.txt") for folder in  new_dataset_label_paths]
-        # log(output_paths)
-        processXML(root_label_path, output_paths, dataset_format)
 
         # Create images
         root_image_path = os.path.join(kaist_images_path,"/".join(path) + ".jpg")
         new_image_path = os.path.join(kaist_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{path[0]}_{path[1]}_{path[3]}.png")
-        # log(new_image_path)
-        # Create or update symlink if already exists
-        updateSymlink(root_image_path, new_image_path)
-            
+
+        # Apply clahe equalization to LWIR images if needed, or add symlink instead
+        if 'lwir' in data_type:
+            th_img = cv.imread(root_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
+            th_img = th_equalization(th_img, thermal_eq)
+            cv.imwrite(new_image_path, th_img)
+        else:
+            # log(new_image_path)
+            # Create or update symlink if already exists
+            updateSymlink(root_image_path, new_image_path)
+        
+        processed[data_type][line] = new_image_path
+    
+    return processed
     # log(f"[KaistToYolo::processLine] Process {root_label_path}")
 
-            
-def kaistToYolo(dataset_format = 'kaist_coco'):
+
+def upateProcessedSymlinks(pre_processed, data_set_name, line):
+    for data_type in (lwir_folder_name, visible_folder_name):
+        img_root_path = pre_processed[data_type][line]
+        img_new_path = img_root_path.replace(img_root_path.split("/")[-4], data_set_name)
+        updateSymlink(img_root_path, img_new_path)
+
+        label_root_path = pre_processed[data_type][line].replace(images_folder_name, labels_folder_name).replace('.png', '.txt')
+        label_new_path = label_root_path.replace(label_root_path.split("/")[-4], data_set_name)
+        updateSymlink(label_root_path, label_new_path)
+    
+
+def kaistToYolo(dataset_format = 'kaist_coco', thermal_eq = 'none'):
     global class_data
 
     dataset_processed = 0
+    pre_processed = {lwir_folder_name: {}, visible_folder_name: {}}
     # Goes to imageSets folder an iterate through the images an processes all image sets
     log(f"[KaistToYolo::KaistToYolo] Kaist To Yolo formatting in '{dataset_format}' format:")
     for kaist_sets_path in kaist_sets_paths:
@@ -139,12 +168,29 @@ def kaistToYolo(dataset_format = 'kaist_coco'):
 
                 # Process all lines in imageSet file to create labelling in the new folder structure
                 with open(file_path, 'r') as file:
-                    lines_list = [line.rstrip() for line in file]
-                    with Pool() as pool:
-                        func = partial(processLine, new_dataset_label_paths, data_set_name, dataset_format)
-                        pool.map(func, lines_list)
+                    lines_list = [line.rstrip().replace("\n", "") for line in file]
 
-                    log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) in {data_set_name} dataset")
+                    images_list_create = [image for image in lines_list if image not in pre_processed[visible_folder_name]]
+                    images_list_symlink = [image for image in lines_list if image in pre_processed[visible_folder_name]]
+
+                    with Pool() as pool:
+                        func = partial(processLineImages, data_set_name, thermal_eq)
+                        results = pool.map(func, images_list_create)
+
+                        for result in results:
+                            pre_processed[lwir_folder_name].update(result[lwir_folder_name])
+                            pre_processed[visible_folder_name].update(result[visible_folder_name])
+
+                    with Pool() as pool:
+                        func = partial(processLineLabels, new_dataset_label_paths, dataset_format)
+                        pool.map(func, images_list_create)
+
+                    with Pool() as pool:
+                        func = partial(upateProcessedSymlinks, pre_processed, data_set_name)
+                        pool.map(func, images_list_symlink)
+                        
+
+                    log(f"\t· [{dataset_processed}] Processed {data_set_name} dataset: {len(lines_list)} XML files (and x2 images: visible and lwir) ({len(images_list_symlink)} as symlink).")
                 dataset_processed += 1
                         
     # checkImageLabelPairs(kaist_yolo_dataset_path)

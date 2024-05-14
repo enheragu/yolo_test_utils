@@ -20,13 +20,13 @@ if __name__ == "__main__":
 from utils import log, bcolors, updateSymlink
 # from .check_dataset import checkImageLabelPairs
 from .constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
-
+from .th_equalization import th_equalization
 
 
 test = None
 test_plot = False
 
-def process_image(folder, combine_method, option_path, dataset_format, image):
+def process_image(folder, combine_method, option_path, dataset_format, thermal_eq, image):
     # log(f"Processing image {image} from {folder} dataset")
 
     thermal_image_path = os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
@@ -35,14 +35,12 @@ def process_image(folder, combine_method, option_path, dataset_format, image):
     rgb_img = cv.imread(rgb_image_path)
     th_img = cv.imread(thermal_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
 
-    if dataset_format in ['kaist_90_10','kaist_80_20','kaist_70_30']:
-        clahe = cv.createCLAHE(clipLimit=6.0, tileGridSize=(6,6))
-        th_img = clahe.apply(th_img)
+    th_img = th_equalization(th_img, thermal_eq)
 
     th_img = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
     # return image_combined
 
-def make_dataset(option, dataset_format = 'kaist_coco'):
+def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
     if option not in dataset_options:
         log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
@@ -75,7 +73,7 @@ def make_dataset(option, dataset_format = 'kaist_coco'):
             images_list_create = images_list_create[:test]
             for image in images_list_create[:test]:
                 # Creating visualization windows
-                process_image(folder, dataset_options[option]['merge'], option_path, dataset_format, image)
+                process_image(folder, dataset_options[option]['merge'], option_path, dataset_format, thermal_eq, image)
                 if test_plot:
                     fused_image = cv.imread(option_path + image)
                     cv.namedWindow("Image fussion", cv.WINDOW_AUTOSIZE)
@@ -90,7 +88,7 @@ def make_dataset(option, dataset_format = 'kaist_coco'):
             # Iterate images multiprocessing
             # with Pool(processes = 5) as pool:
             with Pool() as pool:    
-                func = partial(process_image, folder, dataset_options[option]['merge'], option_path, dataset_format)
+                func = partial(process_image, folder, dataset_options[option]['merge'], option_path, dataset_format, thermal_eq)
                 pool.map(func, images_list_create)
         
         # Symlink
