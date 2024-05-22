@@ -73,6 +73,17 @@ def gethistEq(img):
 
 
 def gethistExpLinear(img):
+    hist, bins = np.histogram(img.flatten(), 256, [0,256])
+
+    cdf = hist.cumsum()
+    cdf_normalized = cdf * hist.max() / cdf.max()
+
+    cdf_m = np.ma.masked_equal(cdf_normalized, 0) # Avoid zero division
+    cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
+    cdf = np.ma.filled(cdf_m, 0).astype('uint8')
+
+    expanded_hist = cv.calcHist([cdf[img]], [0], None, [256], [0, 256])
+    return cdf[img], expanded_hist # Apply transformation to original image
 
 def extract_hist(img_path, plot = False):
     b, g, r, lwir = [], [], [], []
@@ -270,13 +281,8 @@ def evaluateInputDataset():
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['hist'][3]]
         plotAccumulatedHist(condition, data, 'hist')
 
-if __name__ == '__main__':
 
-    if not os.path.exists(os.path.join(store_path, 'pdf')):
-        os.makedirs(os.path.join(store_path, 'pdf'))
-    if not os.path.exists(os.path.join(store_path, 'png')):
-        os.makedirs(os.path.join(store_path, 'png'))
-
+def evaluateEqualizationMethods():
     # Img plot for comparison
     img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
     clean_path = img_path.replace(str(home), "").replace("/eeha", "")
@@ -287,11 +293,61 @@ if __name__ == '__main__':
     save_images(img, eq_img, lwir, clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison', clean_path)
     
     eq_img, eq_hist = gethistEq(img)
-    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_comparison', clean_path)
+    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_equalization_comparison', clean_path)
+
+    exp_img, exp_hist = gethistExpLinear(img)
+    save_images(img, exp_img, lwir, exp_hist, 'lwir_histogram_expanded_comparison', clean_path)
 
 
     print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
     img = cv.imread(img_path.replace("lwir", "visible"))
     print(f"Image resolution for RGB images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
 
-    evaluateInputDataset()
+def splitImage():
+    if not os.path.exists(os.path.join(store_path, 'split')):
+        os.makedirs(os.path.join(store_path, 'split'))
+    
+    img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
+
+    img_lwir = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    img_visible = cv.imread(img_path.replace('/lwir/','/visible/'))
+
+
+    b_channel, g_channel, r_channel = cv.split(img_visible)
+    image_hsv = cv.cvtColor(img_visible, cv.COLOR_BGR2HSV)
+    h_channel, s_channel, v_channel = cv.split(image_hsv)
+
+    zeros = np.zeros_like(b_channel)
+
+    cv.imwrite(os.path.join(store_path,'split','B_channel.png'), cv.merge([b_channel, zeros, zeros]))
+    cv.imwrite(os.path.join(store_path,'split','G_channel.png'), cv.merge([zeros, g_channel, zeros]))
+    cv.imwrite(os.path.join(store_path,'split','R_channel.png'), cv.merge([zeros, zeros, r_channel]))
+    cv.imwrite(os.path.join(store_path,'split','H_channel.png'), cv.applyColorMap(h_channel, cv.COLORMAP_HSV))
+    cv.imwrite(os.path.join(store_path,'split','S_channel.png'), s_channel)
+    cv.imwrite(os.path.join(store_path,'split','V_channel.png'), v_channel)
+    cv.imwrite(os.path.join(store_path,'split','LWIR_channel.png'), cv.applyColorMap(img_lwir, cv.COLORMAP_JET))
+
+
+    # Small hack so packages can be found
+    if __name__ == "__main__":
+        import sys
+        sys.path.append('./src')
+        from Dataset.image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
+
+    combine_hsvt(img_visible, img_lwir, os.path.join(store_path,'split','combine_hsvt.png'))
+    combine_rgbt(img_visible, img_lwir, os.path.join(store_path,'split','combine_rgbt.png'))
+    combine_vt(img_visible, img_lwir, os.path.join(store_path,'split','combine_vt.png'))
+    combine_vths(img_visible, img_lwir, os.path.join(store_path,'split','combine_vths.png'))
+
+if __name__ == '__main__':
+
+    if not os.path.exists(os.path.join(store_path, 'pdf')):
+        os.makedirs(os.path.join(store_path, 'pdf'))
+    if not os.path.exists(os.path.join(store_path, 'png')):
+        os.makedirs(os.path.join(store_path, 'png'))
+
+    splitImage()
+    
+    # evaluateEqualizationMethods()
+
+    # evaluateInputDataset()
