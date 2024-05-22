@@ -70,7 +70,6 @@ class PlotTabWidget(QTabWidget):
             tab.setLayout(tab.layout)
             self.addTab(tab, key)
 
-
         # sns.set_palette("colorblind")
         sns.set_palette(sns.color_palette(["#0171ba","#78b01c","#f6ae2d","#f23535","#a66497","#769393","#2a2b2e"]))
 

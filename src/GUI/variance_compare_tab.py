@@ -286,7 +286,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                                 max_r = max(r)
                                 index_max = next((i for i, x in enumerate(px) if x > max_r), None)
                             # ax.plot(px[:index_max], y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator))  # plot(confidence, metric)
-                            sns.lineplot(x=px[:index_max], y=y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator), ax=ax)
+                            sns.lineplot(x=px[:index_max], y=y[:index_max], linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['label']} ({model}) {names[i]} (best epoch: {best_epoch})", color=next(color_iterator), ax=ax)
 
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)

@@ -34,7 +34,7 @@ data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
-test_key_clean = ['_4090', '_3090', '_GPU3090', '_A30', r'_[0-9]{8}'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
+test_key_clean = ['_4090', '_3090', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -151,7 +151,9 @@ def find_results_file(search_path = yolo_output_path, file_name = data_file_name
                 model = re.sub(clear_pattern, "", model)
                 title = re.sub(clear_pattern, "", title)
             key = f"{model}/{name}"
-            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
+            info = title.split('_')
+            ax_label = f"{info[0].title()} {info[1].upper()}{f' {info[2].title()}' if len(info) > 2 else ''}"
+            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
 
     ## Order dataset by name
     myKeys = list(dataset_info.keys())
