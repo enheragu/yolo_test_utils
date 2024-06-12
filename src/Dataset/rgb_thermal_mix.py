@@ -5,6 +5,7 @@
 import os, errno
 from pathlib import Path
 import shutil
+from statistics import mean
 
 from multiprocessing.pool import Pool
 from functools import partial
@@ -37,8 +38,8 @@ def process_image(folder, combine_method, option_path, dataset_format, thermal_e
 
     th_img = th_equalization(th_img, thermal_eq)
 
-    th_img = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
-    # return image_combined
+    image_combined, time_ex = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
+    return image_combined, time_ex
 
 def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
     if option not in dataset_options:
@@ -48,6 +49,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
     symlink_created = 0
     processed_images = {}
     dataset_processed = 0
+    execution_time_all = []
     # Iterate each of the datasets
     log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
     for folder in os.listdir(kaist_yolo_dataset_path):
@@ -89,7 +91,10 @@ def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
             # with Pool(processes = 5) as pool:
             with Pool() as pool:    
                 func = partial(process_image, folder, dataset_options[option]['merge'], option_path, dataset_format, thermal_eq)
-                pool.map(func, images_list_create)
+                results = pool.map(func, images_list_create)
+
+                execution_times = [result[1] for result in results]
+                execution_time_all.extend(execution_times)
         
         # Symlink
         for image in images_list_symlink:
@@ -109,6 +114,8 @@ def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
 
         # checkImageLabelPairs(os.path.join(kaist_yolo_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
+    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s on each image.")
+
 
 if __name__ == '__main__':
     

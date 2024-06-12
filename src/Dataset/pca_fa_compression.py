@@ -10,6 +10,7 @@ import numpy as np
 import cv2 as cv
 
 from utils import log, bcolors
+from Dataset.decorators import time_execution_measure
 
 def draw_text(img, text,
           font=cv.FONT_HERSHEY_PLAIN,
@@ -31,7 +32,7 @@ def draw_text(img, text,
 """
     Common matrix analsisi for PCA and FA for different use cases
 """
-def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True, path = None):
+def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     if standarice:
         data_vector_std = (data_vector - data_vector.mean()) / data_vector.std() # standarize || axis = 0 -> Is it not needed?
     else:
@@ -109,7 +110,8 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True, p
     
     return image
 
-def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels = 3):
+
+def combine_rgbt_pca_toXch(visible_image, thermal_image, output_channels = 3):
 
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
@@ -122,13 +124,13 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, path, output_channels =
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
     cov_mat = np.cov(data_vector, ddof = 1, rowvar = False) 
     
-    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = True, path = path)
+    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = True)
     image = image.astype(np.uint8) # Recast to image format type after all operations
     
     return image
 
 
-def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 3):
+def combine_rgbt_fa_toXch(visible_image, thermal_image, output_channels = 3):
     
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
@@ -144,51 +146,50 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, path, output_channels = 
     import scipy.stats
     cov_mat, p_matrix = scipy.stats.spearmanr(data_vector, axis=0) # -> Spearman. axis whether columns (0) or rows (1) represent the features
 
-    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = False, path = path)
+    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = False)
     image = image.astype(np.uint8) # Recast to image format type after all operations
 
     return image
 
-def combine_rgbt_pca_to3ch(visible_image, thermal_image, path):
-    image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 3)
-    # cv.imwrite(path, image)
-    # np.save(path.replace('.png',''), image)
-    np.savez_compressed(path.replace('.png',''), image = image)
+@time_execution_measure
+@save_npmat_if_path
+def combine_rgbt_pca_to3ch(visible_image, thermal_image):
+    image = combine_rgbt_pca_toXch(visible_image, thermal_image, 3)
     return image
 
-# def combine_rgbt_pca_to2ch(visible_image, thermal_image, path):
-#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 2)
-#     # np.savez_compressed(path.replace('.png',''), image = image)
-#     np.save(path.replace('.png',''), image)
+# @time_execution_measure
+# @save_npmat_if_path
+# def combine_rgbt_pca_to2ch(visible_image, thermal_image):
+#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 2)
 #     return image    
 
-# def combine_rgbt_pca_to1ch(visible_image, thermal_image, path):
-#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, path, 1)
-#     # np.savez_compressed(path.replace('.png',''), image = image)
-#     np.save(path.replace('.png',''), image)
+# @time_execution_measure
+# @save_npmat_if_path
+# def combine_rgbt_pca_to1ch(visible_image, thermal_image):
+#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 1)
 #     return image    
 
-def combine_rgbt_fa_to3ch(visible_image, thermal_image, path):
-    image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 3)
-    # cv.imwrite(path, image)
-    # np.save(path.replace('.png',''), image)
-    np.savez_compressed(path.replace('.png',''), image = image)
+@time_execution_measure
+@save_npmat_if_path
+def combine_rgbt_fa_to3ch(visible_image, thermal_image):
+    image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
     return image    
 
-# def combine_rgbt_fa_to2ch(visible_image, thermal_image, path):
-#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 2)
+# def combine_rgbt_fa_to2ch(visible_image, thermal_image):
+#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 2)
 #     # np.savez_compressed(path.replace('.png',''), image = image)
 #     np.save(path.replace('.png',''), image)
 #     return image    
 
-# def combine_rgbt_fa_to1ch(visible_image, thermal_image, path):
-#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, path, 1)
+# def combine_rgbt_fa_to1ch(visible_image, thermal_image):
+#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 1)
 #     # np.savez_compressed(path.replace('.png',''), image = image)
 #     np.save(path.replace('.png',''), image)
 #     return image    
 
-
-def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
+@time_execution_measure
+@save_npmat_if_path
+def combine_hsvt_pca_to3ch(visible_image, thermal_image):
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
@@ -200,7 +201,7 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image, path):
     data_vector = np.array([f.flatten() for f in [h,s,v,th]]).transpose()   
     cov_mat = np.cov(data_vector, ddof = 1, rowvar = False) 
     
-    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = 3, standarice = True, path = path)
+    image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = 3, standarice = True)
 
     return image
 
@@ -213,18 +214,19 @@ fa_output_path = '~/.cache/eeha_yolo_test/fa_sorted_eigenvectors.npy'
 pca_eigen_vectors = None        # Avoid multiple load of data. Load once and reuse
 fa_eigen_vectors = None
 
-def preprocess_rgbt_pca_full(option, path, dataset_format):
+def preprocess_rgbt_pca_full(option, dataset_format):
     log(f"Compute general PCA eigenvectors and values to later compress images.")
     pass
 
 """
     Gets FA eigenvectors and eigenvalues for given dataset
 """
-def preprocess_rgbt_fa_full(option, path, dataset_format):
+def preprocess_rgbt_fa_full(option, dataset_format):
     log(f"Compute general FA eigenvectors and values to later compress images.")
     pass
 
-def combine_rgbt_pca_full(visible_image, thermal_image, path):
+@time_execution_measure
+def combine_rgbt_pca_full(visible_image, thermal_image):
     global pca_eigen_vectors
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
@@ -243,7 +245,8 @@ def combine_rgbt_pca_full(visible_image, thermal_image, path):
     np.save(path.replace('.png',''), image)
     return image
 
-def combine_rgbt_fa_full(visible_image, thermal_image, path):
+@time_execution_measure
+def combine_rgbt_fa_full(visible_image, thermal_image):
     global fa_eigen_vectors
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
     thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 

@@ -1,6 +1,7 @@
 
 
 from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
+from .image_compression import combine_hsvt_v2, combine_rgbt_v2, combine_vths_v2, combine_vt_v2
 from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full
 from pathlib import Path
 
@@ -34,7 +35,12 @@ dataset_options = {
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
                     'lwir_npy' : {'merge': combine_lwir_npy, 'extension': '.npz' },
-                    'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npz' }
+                    'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npz' },
+
+                    'hsvt*': {'merge': combine_hsvt_v2, 'extension': '.png' },
+                    'rgbt*': {'merge': combine_rgbt_v2, 'extension': '.png' },
+                    'vths*' : {'merge': combine_vths_v2, 'extension': '.png' },
+                    'vt*' : {'merge': combine_vt_v2, 'extension': '.png' }
                   }
 
 fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
