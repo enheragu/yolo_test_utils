@@ -59,7 +59,7 @@ def configArgParser():
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
     parser.add_argument('-te', '--th_equalization', dest='thermal_eq',
-                        type=str, default="none", choices=['none','clahe','linear'], # Equalization to thermal image: clahe, linear, no equalization..
+                        type=str, default="none", choices=['none','clahe','expand'], # Equalization to thermal image: clahe, linear, no equalization..
                         help="What type of equalization is applied to the thermal channel.")
     
     def str2bool(v):
