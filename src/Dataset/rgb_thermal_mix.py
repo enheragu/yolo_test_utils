@@ -20,8 +20,8 @@ if __name__ == "__main__":
 
 from utils import log, bcolors, updateSymlink
 # from .check_dataset import checkImageLabelPairs
-from .constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
-from .th_equalization import th_equalization
+from Dataset.constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
+from Dataset.th_equalization import th_equalization
 
 
 test = None
@@ -119,7 +119,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
 
 if __name__ == '__main__':
     
-    test = 500
+    test = None
     test_plot = False
 
     from argparse import ArgumentParser
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Dataset generation with fussed images between visual and thermal.")
     parser.add_argument('-o', '--option', action='store', dest='olist', metavar='OPTION',
                         type=str, nargs='*', default=option_list_default,
-                        help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
+                        help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -o item1 item2, -o item3")
     
     opts = parser.parse_args()
 

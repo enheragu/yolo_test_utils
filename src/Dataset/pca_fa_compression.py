@@ -10,7 +10,7 @@ import numpy as np
 import cv2 as cv
 
 from utils import log, bcolors
-from Dataset.decorators import time_execution_measure
+from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
 
 def draw_text(img, text,
           font=cv.FONT_HERSHEY_PLAIN,
