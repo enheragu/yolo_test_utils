@@ -5,7 +5,7 @@
 import os, errno
 from pathlib import Path
 import shutil
-from statistics import mean
+from statistics import mean, stdev
 
 from multiprocessing.pool import Pool
 from functools import partial
@@ -114,7 +114,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', thermal_eq = 'none'):
 
         # checkImageLabelPairs(os.path.join(kaist_yolo_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
-    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s on each image.")
+    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {stdev(execution_time_all)}) on each image.")
 
 
 if __name__ == '__main__':
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     
     opts = parser.parse_args()
 
-    dataset_generate = dataset_options.keys() # list(opts.olist)
+    dataset_generate = list(opts.olist)  # dataset_options.keys()
     log(f"Compute datasets for {dataset_generate} conditions.")
     
     if test:
