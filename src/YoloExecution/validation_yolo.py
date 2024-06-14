@@ -58,6 +58,7 @@ def TestValidateYolo(dataset, model_list, opts):
         yaml_data['n_images']['val'] = images_png + images_npy
         yaml_data['dataset_tag'] = opts.dformat
         yaml_data['thermal_equalization'] = opts.thermal_eq
+        yaml_data['rgb_equalization'] = opts.rgb_eq
 
         args = {} 
         # args['project'] = 'detection'

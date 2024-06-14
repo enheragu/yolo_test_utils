@@ -151,25 +151,25 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, output_channels = 3):
 
     return image
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_rgbt_pca_to3ch(visible_image, thermal_image):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 3)
     return image
 
-# @time_execution_measure
+# 
 # @save_npmat_if_path
 # def combine_rgbt_pca_to2ch(visible_image, thermal_image):
 #     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 2)
 #     return image    
 
-# @time_execution_measure
+# 
 # @save_npmat_if_path
 # def combine_rgbt_pca_to1ch(visible_image, thermal_image):
 #     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 1)
 #     return image    
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_rgbt_fa_to3ch(visible_image, thermal_image):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
@@ -187,7 +187,7 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image):
 #     np.save(path.replace('.png',''), image)
 #     return image    
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_hsvt_pca_to3ch(visible_image, thermal_image):
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
@@ -225,7 +225,7 @@ def preprocess_rgbt_fa_full(option, dataset_format):
     log(f"Compute general FA eigenvectors and values to later compress images.")
     pass
 
-@time_execution_measure
+
 def combine_rgbt_pca_full(visible_image, thermal_image):
     global pca_eigen_vectors
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
@@ -245,7 +245,7 @@ def combine_rgbt_pca_full(visible_image, thermal_image):
     np.save(path.replace('.png',''), image)
     return image
 
-@time_execution_measure
+
 def combine_rgbt_fa_full(visible_image, thermal_image):
     global fa_eigen_vectors
     visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 

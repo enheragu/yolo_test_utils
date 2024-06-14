@@ -32,7 +32,7 @@ if __name__ == '__main__':
         index = 0
         try:
             condition_list, option_list, model_list, opts = handleArguments(nex_test)
-            checkKaistDataset(option_list, opts.dformat, opts.thermal_eq)
+            checkKaistDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq)
             
             dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
         except Exception as e:

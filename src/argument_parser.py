@@ -61,6 +61,9 @@ def configArgParser():
     parser.add_argument('-te', '--th_equalization', dest='thermal_eq',
                         type=str, default="none", choices=['none','clahe','expand'], # Equalization to thermal image: clahe, linear, no equalization..
                         help="What type of equalization is applied to the thermal channel.")
+    parser.add_argument('-rgbe', '--rgb_equalization', dest='rgb_eq',
+                        type=str, default="none", choices=['none','clahe','expand'], # Equalization to rgb image: clahe, linear, no equalization..
+                        help="What type of equalization is applied to the rgb image.")
     
     def str2bool(v):
         # Método para interpretar cadenas como booleanas

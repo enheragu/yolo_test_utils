@@ -14,6 +14,7 @@ import requests
 import xtarfile as tarfile
 from tqdm import tqdm
 from clint.textui import progress
+import shutil
 
 from utils import log, bcolors
 from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
@@ -50,7 +51,7 @@ def getKaistData():
             tar.extract(member=member)
 
 
-def checkKaistDataset(options = [], dataset_format = 'kaist_coco', thermal_eq = 'none'):
+def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
     # Ensure input is a list
     if type(options) is not type(list()):
         options = [options]
@@ -63,6 +64,11 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', thermal_eq = 
         log(f"[UpdateDataset::checkKaistDataset] Kaist dataset found in {kaist_path}, no need to re-download.")
     
     # make sure that kaist-yolo path exists
+
+    if os.path.exists(kaist_yolo_dataset_path):
+        log(f'[UpdateDataset::checkKaistDataset] DELETING PREVIOUS KAIST-YOLO GENERATED DATASET', bcolors.WARNING)
+        shutil.rmtree(kaist_yolo_dataset_path)
+
     Path(kaist_yolo_dataset_path).mkdir(parents=True, exist_ok=True)
 
     # Check that YOLO version exists or create it
@@ -74,7 +80,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', thermal_eq = 
 
     if 'lwir' not in options_found and 'visible' not in options_found:
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {kaist_yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
-        kaistToYolo(dataset_format, thermal_eq)
+        kaistToYolo(dataset_format, rgb_eq, thermal_eq)
         # Update with new options
         setfolders = [ f.path for f in os.scandir(kaist_yolo_dataset_path) if f.is_dir() ]
         options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
@@ -91,7 +97,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', thermal_eq = 
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
             if "preprocess" in dataset_options[option]:
                 dataset_options[option]["preprocess"](option, kaist_yolo_dataset_path, dataset_format)
-            make_dataset(option, dataset_format, thermal_eq)
+            make_dataset(option, dataset_format, rgb_eq, thermal_eq)
         else:
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
 

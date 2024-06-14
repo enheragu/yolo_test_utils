@@ -34,7 +34,7 @@ def channelProduct(channel1, channel2):
     channel2 = channel2.astype(np.float64)
     return rescaleChannel(channel=channel1*channel2, max_value=255*255, new_max=255)
 
-@time_execution_measure
+
 @save_image_if_path   
 def combine_hsvt(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
@@ -54,7 +54,7 @@ def combine_hsvt(visible_image, thermal_image):
     
     return hsvt_image
 
-@time_execution_measure
+
 @save_image_if_path   
 def combine_hsvt_v3(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
@@ -67,7 +67,7 @@ def combine_hsvt_v3(visible_image, thermal_image):
     
     return hsvt_image
 
-@time_execution_measure  
+  
 @save_image_if_path           
 def combine_rgbt(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
@@ -83,7 +83,7 @@ def combine_rgbt(visible_image, thermal_image):
     
     return rgbt_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_rgbt_v3(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
@@ -97,7 +97,7 @@ def combine_rgbt_v3(visible_image, thermal_image):
     
     return rgbt_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_vths(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
@@ -111,7 +111,7 @@ def combine_vths(visible_image, thermal_image):
     
     return vths_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_vths_v2(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV_FULL))
@@ -125,7 +125,7 @@ def combine_vths_v2(visible_image, thermal_image):
     
     return vths_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_vths_v3(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV_FULL))
@@ -137,7 +137,7 @@ def combine_vths_v3(visible_image, thermal_image):
     
     return vths_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_vt(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
@@ -151,7 +151,7 @@ def combine_vt(visible_image, thermal_image):
     
     return vt_image
 
-@time_execution_measure
+
 @save_image_if_path
 def combine_vt_v3(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
@@ -162,7 +162,7 @@ def combine_vt_v3(visible_image, thermal_image):
     
     return vt_image
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_4ch(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
@@ -172,14 +172,14 @@ def combine_4ch(visible_image, thermal_image):
 
     return ch4_image
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_lwir_npy(visible_image, thermal_image):
     th_channel = thermal_image
     th_image = cv.merge([th_channel,th_channel,th_channel]).astype(np.uint8)
     return th_channel
 
-@time_execution_measure
+
 @save_npmat_if_path
 def combine_vt_2ch(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))

@@ -93,6 +93,7 @@ def TestTrainYolo(dataset, model_list, opts):
         yaml_data['pretrained'] = opts.pretrained
         yaml_data['dataset_tag'] = opts.dformat
         yaml_data['thermal_equalization'] = opts.thermal_eq
+        yaml_data['rgb_equalization'] = opts.rgb_eq
         
         trainer = yolo_detc.DetectionTrainer(overrides=args)
         try:

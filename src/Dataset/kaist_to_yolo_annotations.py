@@ -93,7 +93,7 @@ def processLineLabels(new_dataset_label_paths, dataset_format, line):
     processXML(root_label_path, output_paths, dataset_format)
 
 
-def processLineImages(data_set_name, thermal_eq, line):
+def processLineImages(data_set_name, rgb_eq, thermal_eq, line):
     processed = {lwir_folder_name: {}, visible_folder_name: {}}
 
     for data_type in (lwir_folder_name, visible_folder_name):
@@ -112,7 +112,10 @@ def processLineImages(data_set_name, thermal_eq, line):
         else:
             # log(new_image_path)
             # Create or update symlink if already exists
-            updateSymlink(root_image_path, new_image_path)
+            # updateSymlink(root_image_path, new_image_path)
+            rgb_img = cv.imread(root_image_path) # It is enconded as BGR so still needs merging to Gray
+            rgb_img = rgb_equalization(rgb_img, rgb_eq)
+            cv.imwrite(new_image_path, rgb_img)
         
         processed[data_type][line] = new_image_path
     
@@ -131,7 +134,7 @@ def upateProcessedSymlinks(pre_processed, data_set_name, line):
         updateSymlink(label_root_path, label_new_path)
     
 
-def kaistToYolo(dataset_format = 'kaist_coco', thermal_eq = 'none'):
+def kaistToYolo(dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
     global class_data
 
     dataset_processed = 0
@@ -174,7 +177,7 @@ def kaistToYolo(dataset_format = 'kaist_coco', thermal_eq = 'none'):
                     images_list_symlink = [image for image in lines_list if image in pre_processed[visible_folder_name]]
 
                     with Pool() as pool:
-                        func = partial(processLineImages, data_set_name, thermal_eq)
+                        func = partial(processLineImages, data_set_name, rgb_eq ,thermal_eq)
                         results = pool.map(func, images_list_create)
 
                         for result in results:

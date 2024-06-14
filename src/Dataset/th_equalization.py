@@ -24,3 +24,14 @@ def th_equalization(th_img, thermal_eq):
         return cdf[th_img] # Apply transformation to original image
         
     return th_img
+
+# equalization is applied to h channel
+def rgb_equalization(rgb_img, rgb_eq):
+    # Apparently YCbCr is the better representer for brightness than the V channel of HSV
+    # https://stackoverflow.com/questions/31998428/opencv-python-equalizehist-colored-image
+
+    ycrcb_img = cv.cvtColor(rgb_img, cv.COLOR_BGR2YCrCb)
+    ycrcb_img[:, :, 0] = th_equalization(ycrcb_img[:, :, 0], rgb_eq)
+    equalized_img = cv.cvtColor(ycrcb_img, cv.COLOR_YCrCb2BGR)
+
+    return equalized_img
