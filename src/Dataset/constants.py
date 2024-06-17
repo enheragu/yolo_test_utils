@@ -1,7 +1,7 @@
 
 
 from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
-from .image_compression import combine_hsvt_v3, combine_rgbt_v3, combine_vths_v3, combine_vt_v3
+from .image_compression import   combine_vths_v2, combine_vths_v3
 from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full
 from pathlib import Path
 
@@ -37,10 +37,8 @@ dataset_options = {
                     'lwir_npy' : {'merge': combine_lwir_npy, 'extension': '.npz' },
                     'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npz' },
 
-                    'hsvt**': {'merge': combine_hsvt_v3, 'extension': '.png' },
-                    'rgbt**': {'merge': combine_rgbt_v3, 'extension': '.png' },
-                    'vths**' : {'merge': combine_vths_v3, 'extension': '.png' },
-                    'vt**' : {'merge': combine_vt_v3, 'extension': '.png' }
+                    'vths_v2' : {'merge': combine_vths_v2, 'extension': '.png' },
+                    'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' }
                   }
 
 fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
@@ -89,5 +87,7 @@ dataset_keys = list(class_data.keys())
 
 condition_list_default = ['day','night','all']
 option_list_default = dataset_options_keys
-model_list_default = ['yoloCh1x.yaml','yoloCh2x.yaml','yoloCh3x.yaml','yoloCh4x.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+model_list_default = ['yoloCh1m.yaml','yoloCh2m.yaml','yoloCh3m.yaml','yoloCh4m.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = dataset_keys   # Just list of availables :)
+
+dataset_generated_cache = f'{kaist_yolo_dataset_path}dataset_options.cache'

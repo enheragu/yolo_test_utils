@@ -44,11 +44,11 @@ def process_image(folder, combine_method, option_path, dataset_format, rgb_eq, t
     th_img = th_equalization(th_img, thermal_eq)
     rgb_img = rgb_equalization(rgb_img, rgb_eq)
 
-    image_combined, time_ex = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
+    image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
 
     end_time = time.perf_counter()
     total_time = end_time - start_time
-    return image_combined, time_ex
+    return image_combined, total_time
 
 def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
     if option not in dataset_options:

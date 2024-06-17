@@ -40,52 +40,18 @@ def combine_hsvt(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th_channel = thermal_image
 
-    # Cast to 32S to avoid saturation when both channels are added
-    v = v.astype(np.float64)
-    th_channel = th_channel.astype(np.float64)
-
-    intensity = v + th_channel
-    _, max_val, _, _ = cv.minMaxLoc(intensity)
-    intensity = 255 * (intensity / max_val)
-    intensity = intensity.astype(np.uint8)
-
-    hsvt_image = cv.merge([h, s, intensity])
-    hsvt_image = cv.cvtColor(hsvt_image, cv.COLOR_HSV2BGR)
-    
-    return hsvt_image
-
-
-@save_image_if_path   
-def combine_hsvt_v3(visible_image, thermal_image):
-    h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = thermal_image
-
     intensity = channelAverage(v, th_channel)
 
     hsvt_image = cv.merge([h, s, intensity])
     hsvt_image = cv.cvtColor(hsvt_image, cv.COLOR_HSV2BGR)
     
     return hsvt_image
-
-  
-@save_image_if_path           
-def combine_rgbt(visible_image, thermal_image):
-    b,g,r = cv.split(visible_image)
-    th_channel = thermal_image
-    th_channel = th_channel.astype(np.float64)
     
-    for ch in (b,g,r):
-        ch = ch.astype(np.float64)
-        ch = (ch + th_channel) / 2
-        ch = ch.astype(np.uint8)
-
-    rgbt_image = cv.merge([b,g,r])
-    
-    return rgbt_image
+    return hsvt_image
 
 
 @save_image_if_path
-def combine_rgbt_v3(visible_image, thermal_image):
+def combine_rgbt(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
     th_channel = thermal_image
     th_channel = th_channel.astype(np.float64)
@@ -140,20 +106,6 @@ def combine_vths_v3(visible_image, thermal_image):
 
 @save_image_if_path
 def combine_vt(visible_image, thermal_image):
-    h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
-    th_channel = thermal_image
-    
-    averaged = v.astype(np.float64)
-    averaged = (averaged + th_channel.astype(np.float64)) / 2
-    averaged = averaged.astype(np.uint8)
-
-    vt_image = cv.merge([v,th_channel,averaged])
-    
-    return vt_image
-
-
-@save_image_if_path
-def combine_vt_v3(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th_channel = thermal_image
     

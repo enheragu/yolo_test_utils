@@ -114,9 +114,11 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+def getTimetagNow():
+    return datetime.utcnow().strftime('%F %T.%f')[:-3]
 
 def log(msg = "", color = bcolors.OKCYAN):
-    timetag = datetime.utcnow().strftime('%F %T.%f')[:-3]
+    timetag = getTimetagNow()
     print(f"{color}[{timetag}] {msg}{bcolors.ENDC}")
 
     

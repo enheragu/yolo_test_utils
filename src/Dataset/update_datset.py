@@ -16,9 +16,9 @@ from tqdm import tqdm
 from clint.textui import progress
 import shutil
 
-from utils import log, bcolors
+from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow
 from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
-from .constants import dataset_options
+from .constants import dataset_options, dataset_generated_cache
 from .kaist_to_yolo_annotations import kaistToYolo
 from .rgb_thermal_mix import make_dataset
 
@@ -50,6 +50,37 @@ def getKaistData():
             # Extract member
             tar.extract(member=member)
 
+"""
+    Returns true if generated dataset does not match the expected options
+"""
+def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
+    global dataset_generated_cache
+
+    if os.path.exists(dataset_generated_cache):
+        data = parseYaml(dataset_generated_cache)
+
+        if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
+            'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
+            'thermal_eq' in data and data['thermal_eq'] == thermal_eq:
+            return False
+    
+    return True
+    
+def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
+    global dataset_generated_cache
+
+    if os.path.exists(dataset_generated_cache):
+        data = parseYaml(dataset_generated_cache)
+    else:
+        data = {'options': [], 'dataset_format': '-', 'rgb_eq': '-', 'thermal_eq': '-'}
+
+    data['options'].append(option)
+    data['dataset_format'] = dataset_format
+    data['rgb_eq'] = rgb_eq
+    data['thermal_eq'] = thermal_eq
+    data['last_update'] = getTimetagNow()
+
+    dumpYaml(dataset_generated_cache, data, mode = "w+")
 
 def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
     # Ensure input is a list
@@ -65,8 +96,8 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
     
     # make sure that kaist-yolo path exists
 
-    if os.path.exists(kaist_yolo_dataset_path):
-        log(f'[UpdateDataset::checkKaistDataset] DELETING PREVIOUS KAIST-YOLO GENERATED DATASET', bcolors.WARNING)
+    if os.path.exists(kaist_yolo_dataset_path) and resetDatset(options, dataset_format, rgb_eq, thermal_eq):
+        log(f'[UpdateDataset::checkKaistDataset] Deleting previous dataset generated as options does not match current request.', bcolors.WARNING)
         shutil.rmtree(kaist_yolo_dataset_path)
 
     Path(kaist_yolo_dataset_path).mkdir(parents=True, exist_ok=True)
@@ -98,6 +129,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
             if "preprocess" in dataset_options[option]:
                 dataset_options[option]["preprocess"](option, kaist_yolo_dataset_path, dataset_format)
             make_dataset(option, dataset_format, rgb_eq, thermal_eq)
+            dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq)
         else:
             log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
 
