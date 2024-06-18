@@ -63,7 +63,10 @@ def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
             'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
             'thermal_eq' in data and data['thermal_eq'] == thermal_eq:
             return False
-    
+        # Just for logging
+        elif 'dataset_format' in data and 'rgb_eq' in data and 'thermal_eq' in data:
+            print(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}")
+
     return True
     
 def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
@@ -113,6 +116,8 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
         log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {kaist_yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
         kaistToYolo(dataset_format, rgb_eq, thermal_eq)
         # Update with new options
+        dumpCacheFile('lwir', dataset_format, rgb_eq, thermal_eq)
+        dumpCacheFile('visible', dataset_format, rgb_eq, thermal_eq)
         setfolders = [ f.path for f in os.scandir(kaist_yolo_dataset_path) if f.is_dir() ]
         options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
     else:
