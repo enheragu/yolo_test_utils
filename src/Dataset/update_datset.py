@@ -59,8 +59,9 @@ def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
     if os.path.exists(dataset_generated_cache):
         data = parseYaml(dataset_generated_cache)
 
-        if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
-            'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
+        # Dataset format does not affect -> all formats are generated
+        #if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
+        if  'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
             'thermal_eq' in data and data['thermal_eq'] == thermal_eq:
             return False
         # Just for logging
