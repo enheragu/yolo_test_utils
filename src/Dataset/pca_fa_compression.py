@@ -157,35 +157,14 @@ def combine_rgbt_pca_to3ch(visible_image, thermal_image):
     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 3)
     return image
 
-# 
-# @save_npmat_if_path
-# def combine_rgbt_pca_to2ch(visible_image, thermal_image):
-#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 2)
-#     return image    
-
-# 
-# @save_npmat_if_path
-# def combine_rgbt_pca_to1ch(visible_image, thermal_image):
-#     image = combine_rgbt_pca_toXch(visible_image, thermal_image, 1)
-#     return image    
-
 
 @save_npmat_if_path
 def combine_rgbt_fa_to3ch(visible_image, thermal_image):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
     return image    
+ 
 
-# def combine_rgbt_fa_to2ch(visible_image, thermal_image):
-#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 2)
-#     # np.savez_compressed(path.replace('.png',''), image = image)
-#     np.save(path.replace('.png',''), image)
-#     return image    
 
-# def combine_rgbt_fa_to1ch(visible_image, thermal_image):
-#     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 1)
-#     # np.savez_compressed(path.replace('.png',''), image = image)
-#     np.save(path.replace('.png',''), image)
-#     return image    
 
 
 @save_npmat_if_path

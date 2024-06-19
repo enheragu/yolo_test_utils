@@ -17,6 +17,7 @@ import sys
 import fcntl
 import yaml
 import shutil
+from itertools import product
 
 import time
 from datetime import datetime, timedelta
@@ -193,7 +194,28 @@ class TestQueue:
         Interface method to add new tests to queue
     """
     def add_new_test(self, new_test):
-        self._updateFile(self.pending_file, new_test)
+        cmd = {}
+        last_item = ''
+        for item in new_test:
+            if str(item).startswith('-'):
+                cmd[item] = []
+                last_item = item
+            else:
+                cmd[last_item].append(item)
+        keys, values = zip(*cmd.items())
+        combinations = [dict(zip(keys, combo)) for combo in product(*values)]
+
+        combo_lists = []
+        for combo in combinations:
+            combo_list = []
+            for key, value in combo.items():
+                combo_list.extend([key, value])  # value es una lista, así que toma el primer elemento
+            combo_lists.append(combo_list)
+
+        # Imprimir las combinaciones resultantes
+        for combo in combo_lists:
+            print(combo)
+            self._updateFile(self.pending_file, combo)
 
 ## TEST MODULE
 def test():
@@ -228,7 +250,7 @@ if __name__ == '__main__':
     test_queue = TestQueue()
 
     if len(sys.argv) > 1:
-        log(f"Add new test to queue: {sys.argv[1:]}")
+        log(f"Add new test to queue (decaupled): {sys.argv[1:]}")
         test_queue.add_new_test(sys.argv[1:]) 
     else:
         log(f"Not enough arguments provided to add new test", bcolors.ERROR)

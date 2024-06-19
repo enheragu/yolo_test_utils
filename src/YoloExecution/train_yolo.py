@@ -89,6 +89,8 @@ def TestTrainYolo(dataset, model_list, opts):
         args['device'] = opts.device
         args['cache'] = opts.cache
         args['pretrained'] = opts.pretrained
+        args['seed'] = 1
+        yaml_data['seed'] = 1
                     
         yaml_data['pretrained'] = opts.pretrained
         yaml_data['dataset_tag'] = opts.dformat
