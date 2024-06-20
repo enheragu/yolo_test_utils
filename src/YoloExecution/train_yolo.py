@@ -56,7 +56,8 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     # args['imgsz'] = 32
     args['epochs'] = 500
     args['batch'] = opts.batch
-    # args['save'] = False
+    args['save'] = True
+    args['save_period'] = 2
     # args['save_json'] = True
     # args['save_hybrid'] = True
 

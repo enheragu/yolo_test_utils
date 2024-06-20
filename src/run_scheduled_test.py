@@ -19,6 +19,16 @@ from argument_parser import handleArguments, yolo_outpu_log_path
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
 
+def ask_yes_no(question):
+    while True:
+        response = input(f"{question} (y/n): ").strip().lower()
+        if response in ['y', 'yes']:
+            return True
+        elif response in ['n', 'no']:
+            return False
+        else:
+            print("Answer with 'y' or 'n'.")
+
 if __name__ == '__main__':
     logger = Logger(yolo_outpu_log_path)
     test_queue = TestQueue()
@@ -28,6 +38,9 @@ if __name__ == '__main__':
         next_test = sys.argv[1:]
     else:
         next_test, resume_path = test_queue.check_resume_test()
+        if next_test and not ask_yes_no('Do you want te resume test (y) or cancel and get next pending test (n)?'):
+            next_test = None
+            resume_path = None
         if next_test is None:
             next_test = test_queue.get_next_test()
     while next_test:
@@ -86,9 +99,11 @@ if __name__ == '__main__':
                                 path_name = opts.path_name + "/" + test_name
                             path_name + "_" + datetime.now().strftime("%Y%m%d")
                         else:
-                            log(f"Load previously executing test to continue")
-                            opts.resume = True
+                            opts.resume = False
                             path_name = resume_path 
+                            resume_path = None # Reset :)
+                            yolo_model = f'{yolo_outpu_log_path}/{path_name}/weights/last.pt'
+                            log(f"Load previously executing test to continue in {path_name}")
 
                         test_queue.updateCurrentExecutingPath(path_name)
                         for mode in opts.run_mode:
