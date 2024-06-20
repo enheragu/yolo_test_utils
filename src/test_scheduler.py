@@ -14,7 +14,6 @@
 
 import os
 import sys
-import fcntl
 import yaml
 import shutil
 from itertools import product
@@ -22,7 +21,7 @@ from itertools import product
 import time
 from datetime import datetime, timedelta
 
-from utils import log, bcolors, getGPUTestID
+from utils import log, bcolors, getGPUTestID, FileLock
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -81,22 +80,6 @@ def sleep_until(target_time):
 def stop_test():
     with open(stop_env_var, 'w'):
         pass 
-
-"""
-    Class that handles safe lock/unlock mechanism for files. It is set
-    so that it locks when created and unlocks when the environment is
-    left and the variable is destroyed
-"""
-
-class FileLock:
-    def __init__(self, file):
-        self.file = file
-
-    def __enter__(self):
-        fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)
 
 
 class TestQueue:

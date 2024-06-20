@@ -16,7 +16,7 @@ from tqdm import tqdm
 from clint.textui import progress
 import shutil
 
-from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow
+from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow, FileLock
 from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path
 from .constants import dataset_options, dataset_generated_cache
 from .kaist_to_yolo_annotations import kaistToYolo
@@ -87,6 +87,10 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
     dumpYaml(dataset_generated_cache, data, mode = "w+")
 
 def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
+
+    # Locks to avoid re-generation of dataset while other scheduler is generating it
+    FileLock('.lock_dataset_generation')
+
     # Ensure input is a list
     if type(options) is not type(list()):
         options = [options]
