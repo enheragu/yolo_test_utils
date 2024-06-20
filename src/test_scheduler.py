@@ -160,6 +160,18 @@ class TestQueue:
         return next_test
 
     """
+        Interface method to check whether theres a training
+        test to resume.
+    """
+    def check_resume_test(self):
+        FileLock(self.executing_file)
+        data = self._read_file(self.executing_file)
+        if isinstance(data, dict):
+            return data['test'], data['path']
+        else:
+            return None, None
+
+    """
         Interface method to get next test to execute
     """
     def get_next_test(self):
@@ -171,7 +183,7 @@ class TestQueue:
         next_test = self._popFirst(self.pending_file)
 
         FileLock(self.executing_file)
-        self._save_file(self.executing_file, [next_test])
+        self._save_file(self.executing_file, {'test': next_test, 'path': ''})
         self.executing_test = next_test
 
         return next_test
@@ -188,7 +200,13 @@ class TestQueue:
                 self._updateFile(self.finished_file_failed, self.executing_test)
         
         FileLock(self.executing_file)
-        self._save_file(self.executing_file, [])
+        self._save_file(self.executing_file, {})
+
+    def updateCurrentExecutingPath(self, path):
+        FileLock(self.executing_file)
+        data = self._read_file(self.executing_file)
+        data['path'] = path
+        self._save_file(self.executing_file, data)
 
     """
         Interface method to add new tests to queue
