@@ -12,7 +12,7 @@ class FileLock:
     def __init__(self, file):
         self.file = file
         if not os.path.exists(self.file): # Create file and lock
-            with open(self.filename, 'w+'):
+            with open(self.file, 'w+'):
                 pass
 
     def __enter__(self):
