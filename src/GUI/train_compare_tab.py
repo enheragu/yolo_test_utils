@@ -17,6 +17,7 @@ import numpy as np
 from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 from utils import parseYaml
@@ -24,7 +25,7 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'mAP50', 'mAP50-95']
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -129,7 +130,9 @@ class TrainComparePlotter(BaseClassPlotter):
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
-                     'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'}}
+                     'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'},
+                     'mAP50-95': {'py': 'mAP', 'xlabel': "Test", "ylabel": 'mAP50-95'},
+                     'mAP50': {'py': 'mAP', 'xlabel': "Test", "ylabel": 'mAP50'}}
         
         # Borrar gráficos previos
         self.figure_tab_widget.clear()
@@ -137,12 +140,7 @@ class TrainComparePlotter(BaseClassPlotter):
         # Plotear los datos de los datasets seleccionados
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
-
-            if canvas_key == 'MR curve':
-                ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
-                ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
-                continue
-
+            
             # Limpiar el gráfico anterior
             xlabel = plot_data[canvas_key]['xlabel']
             ylabel = plot_data[canvas_key]['ylabel']
@@ -150,49 +148,88 @@ class TrainComparePlotter(BaseClassPlotter):
 
             # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
-            for key in checked_list:
-                data = self.dataset_handler[key]
-                if not data:
-                    continue
-                py_tag = plot_data[canvas_key]['py']
 
-                try:
-                    best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
-                    px = data['pr_data_best'].get('px_plot', data['pr_data_best'].get('px'))
-                    py = data['pr_data_best'].get(f'{py_tag}_plot', data['pr_data_best'].get(py_tag))
-                        
-                    names = data['pr_data_best']['names']
-                    model = data['validation_best']['model'].split("/")[-1]
-                    for i, y in enumerate(py):
-                        # Filter by max recall values so to not have interpolated diagram
-                        if canvas_key == 'PR Curve':
-                            r_list = data['pr_data_best'].get('r_plot', data['pr_data_best'].get('r'))
-                            r = r_list[i]
-                            max_r = max(r)
-                            index_max = next((i for i, x in enumerate(px) if x > max_r), None)
-                            y = y[:index_max] + [np.nan] * (len(y) - index_max)
-                        
-                        # ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
-                        ax_label = self.dataset_handler.getInfo()[key]['label']
-                        sns.lineplot(x=px, y=y, linewidth=2, label=ax_label, ax = ax)
+            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95':
+                labels = []
+                values = []
+                for key in checked_list:
+                    data = self.dataset_handler[key]
+                    if not data:
+                        continue
+                    values.append(data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
+                    labels.append(self.dataset_handler.getInfo()[key]['label'])
+                
+                sorted_pairs = sorted(zip(values, labels))
+                sorted_values, sorted_labels = zip(*sorted_pairs)
 
-                        
+                ax.grid(True, linestyle='--', linewidth=0.5)
+                sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{canvas_key}(test)')
+                
+                # for i, y in enumerate(sorted_values):
+                #     ax.axhline(y=y, color='gray', linestyle='--', linewidth=0.5)
+                #     ax.axvline(x=i, color='gray', linestyle='--', linewidth=0.5)
+                ax.set_title(f'{ylabel} comparison')
 
-                except KeyError as e:
-                    log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
-                    self.dataset_handler.markAsIncomplete(key)
-                except TypeError as e:
-                    log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+            elif canvas_key == 'MR curve':
+                ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
+
+            else:
+                for key in checked_list:
+                    data = self.dataset_handler[key]
+                    if not data:
+                        continue
+                    
+                    py_tag = plot_data[canvas_key]['py']
+
+                    try:
+                        best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+                        px = data['pr_data_best'].get('px_plot', data['pr_data_best'].get('px'))
+                        py = data['pr_data_best'].get(f'{py_tag}_plot', data['pr_data_best'].get(py_tag))
                             
+                        names = data['pr_data_best']['names']
+                        model = data['validation_best']['model'].split("/")[-1]
+                        for i, y in enumerate(py):
+                            # Filter by max recall values so to not have interpolated diagram
+                            if canvas_key == 'PR Curve':
+                                r_list = data['pr_data_best'].get('r_plot', data['pr_data_best'].get('r'))
+                                r = r_list[i]
+                                max_r = max(r)
+                                index_max = next((i for i, x in enumerate(px) if x > max_r), None)
+                                y = y[:index_max] + [np.nan] * (len(y) - index_max)
+                            
+                            # ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
+                            ax_label = self.dataset_handler.getInfo()[key]['label']
+                            sns.lineplot(x=px, y=y, linewidth=2, label=ax_label, ax = ax)
+
+                            
+
+                    except KeyError as e:
+                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        self.dataset_handler.markAsIncomplete(key)
+                    except TypeError as e:
+                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                     
+                ax.set_xlim(0, 1)
+                ax.set_ylim(0, 1)
+                # Configurar leyenda
+                # self.ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
+                ax.legend()
+                ax.set_title(f'{ylabel}-{xlabel} Curve')
+
+                background_eq_tag = canvas_key.replace(" Curve", "")
+                if self.plot_background_img and background_eq_tag in equations:
+
+                    eq = equations[background_eq_tag]
+                    x_center = (ax.get_xlim()[0] + ax.get_xlim()[1]) * 0.5
+                    y_center = (ax.get_ylim()[0] + ax.get_ylim()[1]) * 0.5
+                    ax.text(x_center, y_center, eq, color="Black", alpha=0.5, fontsize=16, ha="center", va="center")
+
+                else:
+                    print(f"{background_eq_tag} not set.")
+
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            # self.ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
-            ax.set_title(f'{ylabel}-{xlabel} Curve')
             
-            # Configurar leyenda
-            ax.legend()
             self.figure_tab_widget[canvas_key].ax.append(ax)
 
             # Use a Cursor to interactively display the label for a selected line.
@@ -202,16 +239,6 @@ class TrainComparePlotter(BaseClassPlotter):
                 bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
             ))
 
-            background_eq_tag = canvas_key.replace(" Curve", "")
-            if self.plot_background_img and background_eq_tag in equations:
-
-                eq = equations[background_eq_tag]
-                x_center = (ax.get_xlim()[0] + ax.get_xlim()[1]) * 0.5
-                y_center = (ax.get_ylim()[0] + ax.get_ylim()[1]) * 0.5
-                ax.text(x_center, y_center, eq, color="Black", alpha=0.5, fontsize=16, ha="center", va="center")
-
-            else:
-                print(f"{background_eq_tag} not set.")
                 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
