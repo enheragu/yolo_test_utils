@@ -105,17 +105,20 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, line):
         new_image_path = os.path.join(kaist_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{path[0]}_{path[1]}_{path[3]}.png")
 
         # Apply clahe equalization to LWIR images if needed, or add symlink instead
-        if 'lwir' in data_type:
+        if 'lwir' in data_type and str(thermal_eq).lower() != 'none':
             th_img = cv.imread(root_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
             th_img = th_equalization(th_img, thermal_eq)
             cv.imwrite(new_image_path, th_img)
-        else:
+        elif str(rgb_eq).lower() != 'none':
             # log(new_image_path)
             # Create or update symlink if already exists
             # updateSymlink(root_image_path, new_image_path)
             rgb_img = cv.imread(root_image_path) # It is enconded as BGR so still needs merging to Gray
             rgb_img = rgb_equalization(rgb_img, rgb_eq)
             cv.imwrite(new_image_path, rgb_img)
+        else:
+            # Create or update symlink if already exists
+            updateSymlink(root_image_path, new_image_path)
         
         processed[data_type][line] = new_image_path
     
