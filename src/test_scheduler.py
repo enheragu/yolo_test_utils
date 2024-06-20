@@ -3,7 +3,7 @@
 
 """
     This file defines a class to handle scheduling different test options to be later executed.
-    Makes use of different set of files to store these tests and of a FileLock class to handle 
+    Makes use of different set of files to store these tests and of a lock = FileLock class to handle 
     safe access to them.
 
     Each test stored is composed by a list of options that will be later retrieved and executed.
@@ -18,10 +18,12 @@ import yaml
 import shutil
 from itertools import product
 
+from utils import FileLock
+
 import time
 from datetime import datetime, timedelta
 
-from utils import log, bcolors, getGPUTestID, FileLock
+from utils import log, bcolors, getGPUTestID
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -96,6 +98,14 @@ class TestQueue:
         self.finished_file_ok = finished_file_ok
         self.finished_file_failed = finished_file_failed
 
+        # Remove previous lock files
+        for prev_lock_file in [f'{self.pending_file}.lock',
+                     f'{self.pending_stopped_file}.lock',
+                     f'{self.executing_file}.lock'
+                    ]:
+            if os.path.exists(prev_lock_file):
+                os.remove(prev_lock_file)
+                
         ## Reset previous stop request if any
         if os.path.exists(stop_env_var):
             os.remove(stop_env_var)
@@ -121,25 +131,26 @@ class TestQueue:
             yaml.safe_dump(data, file)
 
     def _updateFile(self, file_name, new_data):
-        FileLock(file_name)
-        data = self._read_file(file_name)
-        data.append(new_data)
-        self._save_file(file_name, data)
+        with FileLock(f'{file_name}.lock') as lock1:
+            data = self._read_file(file_name)
+            data.append(new_data)
+            self._save_file(file_name, data)
 
     def _handleStoppedTests(self):
-        FileLock(self.pending_file)
-        FileLock(self.pending_stopped_file)
-        pending = self._read_file(self.pending_file)
-        self._save_file(self.pending_file, [])
-        self._save_file(self.pending_stopped_file, pending)
+        
+        with FileLock(f'{self.pending_file}.lock') as lock1, \
+            FileLock(f'{self.pending_stopped_file}.lock') as lock2:
+            pending = self._read_file(self.pending_file)
+            self._save_file(self.pending_file, [])
+            self._save_file(self.pending_stopped_file, pending)
 
     def _popFirst(self, file_name):
-        FileLock(file_name)
-        items = self._read_file(file_name)
         next_test = None
-        if items:
-            next_test = items.pop(0)
-            self._save_file(file_name, items)
+        with FileLock(f'{file_name}.lock') as lock1:
+            items = self._read_file(file_name)
+            if items:
+                next_test = items.pop(0)
+                self._save_file(file_name, items)
         return next_test
 
     """
@@ -147,8 +158,9 @@ class TestQueue:
         test to resume.
     """
     def check_resume_test(self):
-        FileLock(self.executing_file)
-        data = self._read_file(self.executing_file)
+        data = None
+        with FileLock(f'{self.executing_file}.lock') as lock1:
+            data = self._read_file(self.executing_file)
         if isinstance(data, dict):
             return data['test'], data['path']
         else:
@@ -165,9 +177,9 @@ class TestQueue:
         
         next_test = self._popFirst(self.pending_file)
 
-        FileLock(self.executing_file)
-        self._save_file(self.executing_file, {'test': next_test, 'path': ''})
-        self.executing_test = next_test
+        with FileLock(f'{self.executing_file}.lock'):
+            self._save_file(self.executing_file, {'test': next_test, 'path': ''})
+            self.executing_test = next_test
 
         return next_test
 
@@ -182,14 +194,14 @@ class TestQueue:
             else:
                 self._updateFile(self.finished_file_failed, self.executing_test)
         
-        FileLock(self.executing_file)
-        self._save_file(self.executing_file, {})
+        with FileLock(f'{self.executing_file}.lock') as lock1:
+            self._save_file(self.executing_file, {})
 
     def updateCurrentExecutingPath(self, path):
-        FileLock(self.executing_file)
-        data = self._read_file(self.executing_file)
-        data['path'] = path
-        self._save_file(self.executing_file, data)
+        with FileLock(f'{self.executing_file}.lock') as lock1:
+            data = self._read_file(self.executing_file)
+            data['path'] = path
+            self._save_file(self.executing_file, data)
 
     """
         Interface method to add new tests to queue
