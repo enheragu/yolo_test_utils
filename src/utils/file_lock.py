@@ -14,8 +14,8 @@ class FileLock:
         self.file = file
         self.blocking = blocking
         if not os.path.exists(self.file): # Create file and lock
-            with open(self.file, 'w+'):
-                pass
+            with open(self.file, 'w+') as file:
+                file.write(':)')
 
     def __enter__(self):
         fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
