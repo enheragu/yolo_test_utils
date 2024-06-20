@@ -13,19 +13,22 @@ class FileLock:
     def __init__(self, file, blocking = False):
         self.file = file
         self.blocking = blocking
+
+    def __enter__(self):
+
         if not os.path.exists(self.file): # Create file and lock
             with open(self.file, 'w+') as file:
                 file.write(':)')
 
-    def __enter__(self):
         fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
 
-        while self.blocking:
+        while True:
             try:
-                fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | (0 if self.blocking else fcntl.LOCK_NB))
                 break  # Si se obtiene el bloqueo, salir del bucle
             except BlockingIOError:
-                # Si el bloqueo está en uso, esperar y volver a intentarlo
+                if not self.blocking:
+                    return
                 time.sleep(0.1)
 
     def __exit__(self, exc_type, exc_value, traceback):

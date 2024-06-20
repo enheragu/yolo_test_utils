@@ -89,7 +89,7 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
 def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
 
     # Locks to avoid re-generation of dataset while other scheduler is generating it
-    FileLock('.lock_dataset_generation', blocking=True)
+    FileLock(f'{kaist_yolo_dataset_path}/.lock_dataset_generation', blocking=True)
 
     # Ensure input is a list
     if type(options) is not type(list()):
