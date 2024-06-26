@@ -65,10 +65,11 @@ def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
         #if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
         if  'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
             'thermal_eq' in data and data['thermal_eq'] == thermal_eq:
+            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}. No reset needed.")
             return False
         # Just for logging
         elif 'dataset_format' in data and 'rgb_eq' in data and 'thermal_eq' in data:
-            print(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}")
+            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}")
 
     return True
     

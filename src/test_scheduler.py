@@ -162,9 +162,10 @@ class TestQueue:
         with FileLock(f'{self.executing_file}.lock') as lock1:
             data = self._read_file(self.executing_file)
         if isinstance(data, dict):
-            return data['test'], data['path']
-        else:
-            return None, None
+            if data['test'] is not None and data['path'] != '':
+                return data['test'], data['path']
+        
+        return None, None
 
     """
         Interface method to get next test to execute

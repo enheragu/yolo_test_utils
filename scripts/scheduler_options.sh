@@ -164,20 +164,28 @@ function rsync_cache() {
 # vt       ->  average
 
 # Check two best (split in two to save space) 
-# 4090 # eeha_schedule_new_test -c 'day' 'night' -o 'vths' 'vt' 'rgbt' 'hsvt' 'vths_v2' 'vths_v3' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
+# 4090 # eeha_schedule_new_test -c 'day' 'night' -o 'vths' 'vt' 'rgbt' 'hsvt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
 # 3090 # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
 
-# Effects of equalization on original images
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalizatoion_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# Effects of equalization on original images 
+# (both eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
+
+# (rgb_eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
+
+# (th_eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
+
 
 # Effects of dataset distribution on original images
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_70_30"  --path-name "kaist_70_30"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_90_10" --path-name "kaist_90_10"
 
 # With two best make ablation test eq
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalizatoion_sameseed" --rgb_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalizatoion_sameseed" --th_equalization 'clahe'
-
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
 
 
 

@@ -1,7 +1,7 @@
 
 
 from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
-from .image_compression import   combine_vths_v2, combine_vths_v3
+from .image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
 from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full
 from pathlib import Path
 
@@ -37,6 +37,7 @@ dataset_options = {
                     'lwir_npy' : {'merge': combine_lwir_npy, 'extension': '.npz' },
                     'vt_2ch' : {'merge': combine_vt_2ch, 'extension': '.npz' },
 
+                    'rgbt_v2' : {'merge': combine_rgbt_v2, 'extension': '.png' },
                     'vths_v2' : {'merge': combine_vths_v2, 'extension': '.png' },
                     'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' }
                   }

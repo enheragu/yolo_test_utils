@@ -63,6 +63,18 @@ def combine_rgbt(visible_image, thermal_image):
     
     return rgbt_image
 
+@save_image_if_path
+def combine_rgbt_v2(visible_image, thermal_image):
+    b,g,r = cv.split(visible_image)
+    th_channel = thermal_image
+    th_channel = th_channel.astype(np.float64)
+    
+    for ch in (b,g,r):
+        ch = channelProduct(ch, th_channel)
+
+    rgbt_image = cv.merge([b,g,r])
+    
+    return rgbt_image
 
 @save_image_if_path
 def combine_vths(visible_image, thermal_image):
