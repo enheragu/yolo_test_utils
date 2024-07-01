@@ -107,7 +107,8 @@ class VarianceComparePlotter(BaseClassPlotter):
         # log(f"Parse YAML of selected datasets to plot, note that it can take some time:")
         for canvas_key in self.tab_keys:
             
-            ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
+            ax = self.figure_tab_widget[canvas_key].add_subplot(111)
+            # ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
                     
             if canvas_key == 'MR Curve' or canvas_key == 'MR':
                 ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')

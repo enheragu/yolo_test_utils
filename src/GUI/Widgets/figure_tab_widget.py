@@ -11,6 +11,8 @@ import seaborn as sns
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QDialog, QLineEdit, QPushButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
 
 """
     Dialog  helper to edit labels of a given plot set
@@ -47,6 +49,7 @@ class PlotTabWidget(QTabWidget):
     def __init__(self, tab_keys):
         super().__init__()
 
+
         self.tab_canvas = {}
         self.figure = {}
         self.cursor = {}
@@ -63,9 +66,12 @@ class PlotTabWidget(QTabWidget):
             ax.text(0.5,0.5, 'Select datasets to plot', ha='center', va='center', fontsize=28, color='gray')
             self.tab_canvas[key] = FigureCanvas(self.figure[key])
             
+            toolbar = NavigationToolbar(self.tab_canvas[key])
+            
             # Agregar el lienzo a la pestaña
             tab = QWidget()
             tab.layout = QVBoxLayout()
+            tab.layout.addWidget(toolbar)
             tab.layout.addWidget(self.tab_canvas[key] )
             tab.setLayout(tab.layout)
             self.addTab(tab, key)
@@ -85,8 +91,11 @@ class PlotTabWidget(QTabWidget):
             canvas.draw()
 
     def draw(self):
-        # for figure in self.figure.values():
-            # figure.tight_layout()
+        for figure in self.figure.values():
+            figure.tight_layout() #(pad = 0.1)
+            # figure.subplots_adjust(bottom=0.5, top=0.9)  # Ajusta los márgenes según sea necesario
+        
+        # plt.tight_layout(pad = 0.1)
         for canvas in self.tab_canvas.values():
             canvas.draw()
 

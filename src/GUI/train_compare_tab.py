@@ -146,29 +146,50 @@ class TrainComparePlotter(BaseClassPlotter):
             ylabel = plot_data[canvas_key]['ylabel']
             # log(f"Plotting {ylabel}-{xlabel} Curve")
 
-            # ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
-            ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
+            ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
+            # ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
 
             if canvas_key == 'mAP50' or canvas_key == 'mAP50-95':
-                labels = []
-                values = []
+                labels = {}
+                values = {}
                 for key in checked_list:
                     data = self.dataset_handler[key]
                     if not data:
                         continue
-                    values.append(data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
-                    labels.append(self.dataset_handler.getInfo()[key]['label'])
-                
-                sorted_pairs = sorted(zip(values, labels))
-                sorted_values, sorted_labels = zip(*sorted_pairs)
+                    
+                    gropu_name = data['validation_best']['name'].split('/')[0]
+                    if not gropu_name in labels:
+                        labels[gropu_name] = []
+                        values[gropu_name] = []
 
-                ax.grid(True, linestyle='--', linewidth=0.5)
-                sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{canvas_key}(test)')
+                    values[gropu_name].append(data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
+                    labels[gropu_name].append(self.dataset_handler.getInfo()[key]['label'])
+                
+                for (group, values), labels in zip(values.items(), labels.values()):
+                    # sorted_pairs = sorted(zip(values, labels))
+                    # sorted_values, sorted_labels = zip(*sorted_pairs)
+                    # sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{group}')
+                    sns.scatterplot(x=labels, y=values, ax = ax, label=f'{group}')
+                    # ax.set_xticks(np.arange(len(labels)))
+                    # ax.set_xticklabels(labels, rotation=45, ha='right')
                 
                 # for i, y in enumerate(sorted_values):
                 #     ax.axhline(y=y, color='gray', linestyle='--', linewidth=0.5)
                 #     ax.axvline(x=i, color='gray', linestyle='--', linewidth=0.5)
+                
+                labels = ax.get_xticklabels()
+                ax.set_xticks(np.arange(len(labels)))
+                ax.set_xticklabels(labels, rotation=20, ha='right')
+
+                ax.grid(True, linestyle='--', linewidth=0.5)
                 ax.set_title(f'{ylabel} comparison')
+
+                # Use a Cursor to interactively display the label for a selected line.
+                self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)
+                self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
+                    text=f"{sel.artist.get_label().split(' ')[0:2]}\n{xlabel}: {ax.get_xticklabels()[int(sel.index)].get_text()}, {ylabel}: {sel.target[1]:.2f}",
+                    bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
+                ))
 
             elif canvas_key == 'MR curve':
                 ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
@@ -227,18 +248,17 @@ class TrainComparePlotter(BaseClassPlotter):
                 else:
                     print(f"{background_eq_tag} not set.")
 
+                # Use a Cursor to interactively display the label for a selected line.
+                self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)
+                self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
+                    text=f"{' '.join(sel.artist.get_label().split(' ')[0:2])}\n{xlabel}: {sel.target[0]:.2f}, {ylabel}: {sel.target[1]:.2f}",
+                    bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
+                ))
+
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             
             self.figure_tab_widget[canvas_key].ax.append(ax)
-
-            # Use a Cursor to interactively display the label for a selected line.
-            self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)
-            self.cursor[canvas_key].connect("add", lambda sel, xlabel=xlabel, ylabel=ylabel: sel.annotation.set(
-                text=f"{' '.join(sel.artist.get_label().split(' ')[0:2])}\n{xlabel}: {sel.target[0]:.2f}, {ylabel}: {sel.target[1]:.2f}",
-                bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
-            ))
-
                 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
