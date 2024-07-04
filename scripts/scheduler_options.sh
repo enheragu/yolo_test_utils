@@ -65,14 +65,19 @@ function eeha_stop_scheduler() {
     # Remove file :) -> rm $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
 }
 
+function eeha_kill_scheduler() {
+    kill $(ps -aux | grep "run_scheduled_test.py" | awk '{print $2}')
+}
+
 function eeha_run_gui() {
     source $EEHA_SCHEDULER_SCRIPT_PATH/../../venv/bin/activate
     (cd $EEHA_SCHEDULER_SCRIPT_PATH/.. && ./src/gui_plot_results.py $@ &)
 }
 
-function eeha_stop_gui() {
+function eeha_kill_gui() {
     kill $(ps -aux | grep "gui_plot_results" | awk '{print $2}')
 }
+
 
 function eeha_check_process() {
     tag=""
