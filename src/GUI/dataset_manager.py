@@ -34,7 +34,7 @@ data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
-test_key_clean = ['_4090', '_3090', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
+test_key_clean = [r'_4090[0-9]{0,2}', r'_3090[0-9]{0,2}', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -48,6 +48,7 @@ def parseCSV(file_path):
 
         return data_by_columns
     
+
 # Gets filtered data from YAML file
 def getResultsYamlData(dataset):
     data = parseYaml(dataset['path'])
@@ -64,6 +65,13 @@ def getResultsYamlData(dataset):
         if last_val_tag not in data or last_fit_tag not in data:
             last_fit_tag = 'pr_data_' + str(data['train_data']['epoch_best_fit_index'])
             last_val_tag = 'validation_' + str(data['train_data']['epoch_best_fit_index'])
+
+        ## TBD data will be updated in the metrics function
+        if not 'ffpi' in data[last_fit_tag]:
+            max_f1_index = data[last_fit_tag]['max_f1_index']
+            ffpi_data = data[last_fit_tag]['ffpi_plot'][0]
+            ffpi_f1max = ffpi_data[max_f1_index]
+            data[last_fit_tag]['ffpi'] = [ffpi_f1max]
 
         data_filtered = {'validation_best': data[last_val_tag], 'pr_data_best': data[last_fit_tag],
                         'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],

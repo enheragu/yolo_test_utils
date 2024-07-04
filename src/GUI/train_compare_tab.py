@@ -25,7 +25,8 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'mAP50', 'mAP50-95']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve',
+             'mAP50', 'mAP50-95', 'recall', 'F1', 'MissRate', 'FFPI']
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -131,8 +132,12 @@ class TrainComparePlotter(BaseClassPlotter):
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
                      'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'},
-                     'mAP50-95': {'py': 'mAP', 'xlabel': "Test", "ylabel": 'mAP50-95'},
-                     'mAP50': {'py': 'mAP', 'xlabel': "Test", "ylabel": 'mAP50'}}
+                     'mAP50-95': {'py': 'mAP50-95', 'xlabel': "Test", "ylabel": 'mAP50-95'},
+                     'mAP50': {'py': 'mAP50', 'xlabel': "Test", "ylabel": 'mAP50'},
+                     'recall': {'py': 'R', 'xlabel': "Test", "ylabel": 'Recall'},
+                     'F1': {'py': 'f1', 'xlabel': "Test", "ylabel": 'F1'},
+                     'MissRate': {'py': 'mr', 'xlabel': "Test", "ylabel": 'MissRate'},
+                     'FFPI': {'py': 'ffpi', 'xlabel': "Test", "ylabel": 'FFPI'}}
         
         # Borrar gráficos previos
         self.figure_tab_widget.clear()
@@ -149,7 +154,8 @@ class TrainComparePlotter(BaseClassPlotter):
             ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             # ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
 
-            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95':
+            if canvas_key in ['mAP50', 'mAP50-95', 'recall'] \
+             or canvas_key in ['F1','MissRate', 'FFPI']:
                 labels = {}
                 values = {}
                 for key in checked_list:
@@ -157,14 +163,30 @@ class TrainComparePlotter(BaseClassPlotter):
                     if not data:
                         continue
                     
-                    gropu_name = data['validation_best']['name'].split('/')[0]
-                    if not gropu_name in labels:
-                        labels[gropu_name] = []
-                        values[gropu_name] = []
+                    try:
+                        group_name = data['validation_best']['name'].split('/')[0]
+                        if not group_name in labels:
+                            labels[group_name] = []
+                            values[group_name] = []
 
-                    values[gropu_name].append(data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key)))
-                    labels[gropu_name].append(self.dataset_handler.getInfo()[key]['label'])
-                
+                        if canvas_key in ['F1', 'MissRate', 'FFPI']:
+                            data_tag = plot_data[canvas_key]['py']
+                            y_data = data['pr_data_best'].get(f"m{data_tag}", data['pr_data_best'].get(data_tag))
+                            if y_data is None:
+                                print(f'{y_data = }; {canvas_key = }')
+                            values[group_name].append(y_data[0])
+                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
+                        else:
+                            data_tag = plot_data[canvas_key]['py']
+                            values[group_name].append(data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag)))
+                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
+                    
+                    except KeyError as e:
+                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        self.dataset_handler.markAsIncomplete(key)
+                    except TypeError as e:
+                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                    
                 for (group, values), labels in zip(values.items(), labels.values()):
                     # sorted_pairs = sorted(zip(values, labels))
                     # sorted_values, sorted_labels = zip(*sorted_pairs)

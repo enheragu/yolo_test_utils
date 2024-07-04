@@ -101,10 +101,12 @@ class PlotTabWidget(QTabWidget):
 
     def saveFigures(self, path):
         for key in self.figure.keys():
-            self.figure[key].set_size_inches(7.2, 8)  # Width x Height in inches
+            self.figure[key].set_size_inches(15, 8)  # Width x Height in inches
+            self.figure[key].tight_layout() #(pad = 0.1)
+            # self.figure[key].set_size_inches(7.2, 8)  # Width x Height in inches
                         
-            plot_name = f"{path}_{key.replace(' ', '_')}.pdf"
-            self.figure[key].savefig(plot_name, format='pdf')
+            plot_name = f"{path}_{key.replace(' ', '_')}.png"
+            self.figure[key].savefig(plot_name, format='png')
             print(f"Plot saved to {plot_name}")
 
 
