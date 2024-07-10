@@ -10,8 +10,14 @@ from yaml.loader import SafeLoader
 ################################
 
 def parseYaml(file_path):
-    with open(file_path) as file:
-        return yaml.load(file, Loader=SafeLoader)
+
+    try:
+        with open(file_path) as file:
+            return yaml.load(file, Loader=SafeLoader)
+    except yaml.YAMLError as exc:
+        print(f"Error in YAML file: {exc}")
+        
+    return {}
 
 # Check if all values in the dictionary/list are of basic types
 def is_basic_types(values):
