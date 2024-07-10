@@ -169,8 +169,8 @@ function rsync_cache() {
 # vt       ->  average
 
 # Check two best (split in two to save space) 
-# 4090 # eeha_schedule_new_test -c 'day' 'night' -o 'vths' 'vt' 'rgbt' 'hsvt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
-# 3090 # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vths' 'vt' 'rgbt' 'hsvt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
 
 # Effects of equalization on original images 
 # (both eq)
@@ -191,25 +191,6 @@ function rsync_cache() {
 # With two best make ablation test eq
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
-
-
-
-
-## All condition
-# EXEC # eeha_schedule_new_test -c 'all' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' -o 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' -o 'rgbt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'all' -o 'vths' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-
-
-## Standalone LWIR without equalization
-# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20"
-
-## Standalone LWIR with CLAHE equalizatoin
-# EXEC # eeha_schedule_new_test -c 'all' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --test-name 'all_lwir_clahe' --th_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --test-name 'day_lwir_clahe' --th_equalization 'clahe'
 
 
 ########################################
