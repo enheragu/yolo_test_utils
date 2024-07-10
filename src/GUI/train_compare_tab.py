@@ -25,8 +25,8 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve',
-             'mAP50', 'mAP50-95', 'recall', 'F1', 'MissRate', 'FFPI']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'MRFFPI Curve',
+             'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', 'MissRate', 'FPPI', 'LAMR']
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -127,17 +127,20 @@ class TrainComparePlotter(BaseClassPlotter):
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self, checked_list):
         # PY is an interpolated versino to plot it with a consistent px value<
-        plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
+        plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision at mAP@0.5'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
                      'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'},
+                     'MRFPPI Curve': {'py': 'mrfppi_plot', 'xlabel': "FPPI", "ylabel": 'Miss Rate'},
                      'mAP50-95': {'py': 'mAP50-95', 'xlabel': "Test", "ylabel": 'mAP50-95'},
                      'mAP50': {'py': 'mAP50', 'xlabel': "Test", "ylabel": 'mAP50'},
-                     'recall': {'py': 'R', 'xlabel': "Test", "ylabel": 'Recall'},
+                     'precision': {'py': 'p', 'xlabel': "Test", "ylabel": 'Recall'},
+                     'recall': {'py': 'r', 'xlabel': "Test", "ylabel": 'Recall'},
                      'F1': {'py': 'f1', 'xlabel': "Test", "ylabel": 'F1'},
-                     'MissRate': {'py': 'mr', 'xlabel': "Test", "ylabel": 'MissRate'},
-                     'FFPI': {'py': 'ffpi', 'xlabel': "Test", "ylabel": 'FFPI'}}
+                     'MissRate': {'py': 'mr', 'xlabel': "Test", "ylabel": 'MissRate', 'invert': True},
+                     'FPPI': {'py': 'fppi', 'xlabel': "Test", "ylabel": 'FPPI', 'invert': True},
+                     'LAMR': {'py': 'lamr', 'xlabel': "Test", "ylabel": 'LAMR', 'invert': True}}
         
         # Borrar gráficos previos
         self.figure_tab_widget.clear()
@@ -155,7 +158,7 @@ class TrainComparePlotter(BaseClassPlotter):
             # ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
 
             if canvas_key in ['mAP50', 'mAP50-95', 'recall'] \
-             or canvas_key in ['F1','MissRate', 'FFPI']:
+             or canvas_key in ['F1','MissRate', 'FPPI', 'LAMR']:
                 labels = {}
                 values = {}
                 for key in checked_list:
@@ -169,29 +172,55 @@ class TrainComparePlotter(BaseClassPlotter):
                             labels[group_name] = []
                             values[group_name] = []
 
-                        if canvas_key in ['F1', 'MissRate', 'FFPI']:
-                            data_tag = plot_data[canvas_key]['py']
-                            y_data = data['pr_data_best'].get(f"m{data_tag}", data['pr_data_best'].get(data_tag))
-                            if y_data is None:
-                                print(f'{y_data = }; {canvas_key = }')
-                            values[group_name].append(y_data[0])
-                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
-                        else:
+                        if canvas_key in ['mAP50-95', 'mAP50']:
                             data_tag = plot_data[canvas_key]['py']
                             values[group_name].append(data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag)))
                             labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
-                    
+                        else:
+                            data_tag = plot_data[canvas_key]['py']
+                            y_data = data['pr_data_best'].get(f"m{data_tag}", data['pr_data_best'].get(data_tag))
+                            if y_data is None:
+                                print(f'{y_data = }; {canvas_key = } for {key}, tagged as {data_tag}')
+                            values[group_name].append(y_data[0])
+                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
+                        
                     except KeyError as e:
-                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        log(f"[{self.__class__.__name__}] KeyError problem generating curve for {key} for {data_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                         self.dataset_handler.markAsIncomplete(key)
                     except TypeError as e:
-                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
-                    
-                for (group, values), labels in zip(values.items(), labels.values()):
+                        log(f"[{self.__class__.__name__}] TypeError problem generating curve for {key} for {data_tag} plot. It wont be generated. {e}", bcolors.ERROR)
+                
+
+                ## Sort lower to upper
+                max_values = {} # max value for each label
+                for group, vals in values.items():
+                    for label, val in zip(labels[group], vals):
+                        if val is None or (isinstance(val, float) and math.isnan(val)):
+                            continue
+                        if label not in max_values:
+                            max_values[label] = val
+                        else:
+                            max_values[label] = max(max_values[label], val)
+
+                reverse = False
+                if 'invert' in plot_data[canvas_key] and plot_data[canvas_key]['invert']:
+                    reverse = True
+
+                sorted_labels = sorted(max_values, key=max_values.get, reverse=reverse)
+                sorted_values = {group: [] for group in values}
+                for label in sorted_labels:
+                    for group, vals in values.items():
+                        if label in labels[group]:
+                            index = labels[group].index(label)
+                            sorted_values[group].append(vals[index])
+                        else:
+                            sorted_values[group].append(np.nan)
+
+                for (group, value), label in zip(sorted_values.items(), sorted_labels):
                     # sorted_pairs = sorted(zip(values, labels))
                     # sorted_values, sorted_labels = zip(*sorted_pairs)
                     # sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{group}')
-                    sns.scatterplot(x=labels, y=values, ax = ax, label=f'{group}')
+                    sns.scatterplot(x=sorted_labels, y=value, ax = ax, label=f'{group}')
                     # ax.set_xticks(np.arange(len(labels)))
                     # ax.set_xticklabels(labels, rotation=45, ha='right')
                 
