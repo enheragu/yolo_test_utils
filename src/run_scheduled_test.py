@@ -36,6 +36,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         log(f"Add new test to queue: {sys.argv[1:]}")
         next_test = sys.argv[1:]
+        resume_path = None
     else:
         next_test, resume_path = test_queue.check_resume_test()
         if next_test and not ask_yes_no('Do you want te resume test (y) or cancel and get next pending test (n)?'):

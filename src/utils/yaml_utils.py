@@ -43,5 +43,5 @@ def dumpYaml(file_path, data, mode = "w+"):
         # Add custom representation functions to the YAML dumper
         yaml.add_representer(list, represent_list)
         yaml.add_representer(dict, represent_dict)
-        yaml.dump(data, file, encoding='utf-8', width=float(3000))
+        yaml.dump(data, file, encoding='utf-8', width=float(5000))
 
