@@ -25,8 +25,8 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'MRFFPI Curve',
-             'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', 'MissRate', 'FPPI', 'LAMR']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'MRFPPI Curve',
+            'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', 'MissRate', 'FPPI', 'LAMR']
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -190,6 +190,14 @@ class TrainComparePlotter(BaseClassPlotter):
                     except TypeError as e:
                         log(f"[{self.__class__.__name__}] TypeError problem generating curve for {key} for {data_tag} plot. It wont be generated. {e}", bcolors.ERROR)
                 
+                # Default sort lower to upper
+                reverse = False
+                order_function = max
+                if 'invert' in plot_data[canvas_key] and plot_data[canvas_key]['invert']:
+                    # sort upper to lower :)
+                    reverse = True
+                    order_function = min
+                    
 
                 ## Sort lower to upper
                 max_values = {} # max value for each label
@@ -200,11 +208,8 @@ class TrainComparePlotter(BaseClassPlotter):
                         if label not in max_values:
                             max_values[label] = val
                         else:
-                            max_values[label] = max(max_values[label], val)
+                            max_values[label] = order_function(max_values[label], val)
 
-                reverse = False
-                if 'invert' in plot_data[canvas_key] and plot_data[canvas_key]['invert']:
-                    reverse = True
 
                 sorted_labels = sorted(max_values, key=max_values.get, reverse=reverse)
                 sorted_values = {group: [] for group in values}
