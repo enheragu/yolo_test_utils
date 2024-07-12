@@ -157,7 +157,7 @@ class TrainComparePlotter(BaseClassPlotter):
             ax = self.figure_tab_widget[canvas_key].add_subplot(111) #add_axes([0.08, 0.08, 0.84, 0.86])
             # ax = self.figure_tab_widget[canvas_key].add_axes([0.1, 0.08, 0.84, 0.86])
 
-            if canvas_key in ['mAP50', 'mAP50-95', 'recall'] \
+            if canvas_key in ['mAP50', 'mAP50-95', 'recall', 'precision'] \
              or canvas_key in ['F1','MissRate', 'FPPI', 'LAMR']:
                 labels = {}
                 values = {}
@@ -178,7 +178,7 @@ class TrainComparePlotter(BaseClassPlotter):
                             labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
                         else:
                             data_tag = plot_data[canvas_key]['py']
-                            y_data = data['pr_data_best'].get(f"m{data_tag}", data['pr_data_best'].get(data_tag))
+                            y_data = data['pr_data_best'].get(data_tag)
                             if y_data is None:
                                 print(f'{y_data = }; {canvas_key = } for {key}, tagged as {data_tag}')
                             values[group_name].append(y_data[0])
@@ -260,7 +260,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
                     try:
                         best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
-                        px = data['pr_data_best'].get('px_plot', data['pr_data_best'].get('px'))
+                        px = np.linspace(0, 1, 1000).tolist()
                         py = data['pr_data_best'].get(f'{py_tag}_plot', data['pr_data_best'].get(py_tag))
                             
                         names = data['pr_data_best']['names']

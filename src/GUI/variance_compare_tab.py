@@ -196,7 +196,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 py_tag = plot_data[canvas_key]['py']
 
                 def getLastEpochData(key_data, raw_data_dict):
-                    px = raw_data_dict['pr_data_best'].get('px_plot', raw_data_dict['pr_data_best'].get('px'))
+                    px = np.linspace(0, 1, 1000).tolist()
                     py = raw_data_dict['pr_data_best'].get(f'{key_data}_plot', raw_data_dict['pr_data_best'].get(key_data))
                     names = raw_data_dict['pr_data_best']['names']
                     model = raw_data_dict['validation_best']['model'].split("/")[-1]

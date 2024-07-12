@@ -70,19 +70,37 @@ def compute_lamr(miss_rate, fppi, num_of_samples=9):
 
     return lamr
 
+
+def getBestTag(data):
+    ## FILTER UNUSED DATA TO AVOID MEMORY CONSUMPTION
+    last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
+    last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
+
+    if last_val_tag not in data or last_fit_tag not in data:
+        last_fit_tag = 'pr_data_' + str(data['train_data']['epoch_best_fit_index'])
+        last_val_tag = 'validation_' + str(data['train_data']['epoch_best_fit_index'])
+
+    return last_fit_tag, last_val_tag
+
+
+"""
+    Old data format, is kept for retrocompatibility and will be called if no new data is found on
+    YAML dict
+"""
 def compute_plot_data(data, dataset):
     data_filtered = {}
     try:
-        ## FILTER UNUSED DATA TO AVOID MEMORY CONSUMPTION
-        last_fit_tag = 'pr_data_' + str(data['pr_epoch'] - 1)
-        last_val_tag = 'validation_' + str(data['val_epoch'] - 1)
-
-        if last_val_tag not in data or last_fit_tag not in data:
-            last_fit_tag = 'pr_data_' + str(data['train_data']['epoch_best_fit_index'])
-            last_val_tag = 'validation_' + str(data['train_data']['epoch_best_fit_index'])
+        last_fit_tag, last_val_tag = getBestTag(data)
         
-        data[last_fit_tag]['mr_plot'] = (1-np.array(data[last_fit_tag]['r_plot'])).tolist()
-        data[last_fit_tag]['mr'] = (1-np.array(data[last_fit_tag]['r'])).tolist()
+        mr_plot = []
+        for r_plot in data[last_fit_tag]['r_plot']:
+            mr_plot.append((1-np.array(r_plot)).tolist())
+        data[last_fit_tag]['mr_plot'] = mr_plot
+
+        # print(f"[{dataset['key']}] recall: {data[last_fit_tag]['r']}")
+        # print(f"[{dataset['key']}] Previous mr: {data[last_fit_tag]['mr']}")
+        data[last_fit_tag]['mr'] = [(1-data[last_fit_tag]['r'][0])]
+        # print(f"[{dataset['key']}] Computed new mr: {data[last_fit_tag]['mr']}")
 
         ## TBD data will be updated in the metrics function
         if not 'fppi' in data[last_fit_tag]:
@@ -91,10 +109,11 @@ def compute_plot_data(data, dataset):
             fppi_f1max = fppi_data[max_f1_index]
             data[last_fit_tag]['fppi'] = [fppi_f1max]
 
-        if not 'lamr' in data[last_fit_tag] \
-            or isinstance(data[last_fit_tag]['lamr'], float)  \
-            or math.isnan(data[last_fit_tag]['lamr']) \
-            or data[last_fit_tag]['lamr'] < 0.001:
+        if True: # Recompute LAMR for all cases
+        # if not 'lamr' in data[last_fit_tag] \
+        #     or isinstance(data[last_fit_tag]['lamr'], float) and math.isnan(data[last_fit_tag]['lamr']) \
+        #     or isinstance(data[last_fit_tag]['lamr'], float) and data[last_fit_tag]['lamr'] < 0.001 \
+        #     or isinstance(data[last_fit_tag]['lamr'], list) and data[last_fit_tag]['lamr'][0] < 0.001:
             lamr = compute_lamr(np.array(data[last_fit_tag]['mr_plot']).flatten(),
                                 np.array(data[last_fit_tag]['fppi_plot']).flatten())
             lamr = lamr.tolist()
