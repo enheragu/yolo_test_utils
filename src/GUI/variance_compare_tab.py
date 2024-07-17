@@ -22,7 +22,8 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'mAP50', 'mAP50-95', 'P', 'R', 'MR']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 
+            'mAP50', 'mAP50-95', 'P', 'R', 'MR','FPPI','LAMR']
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -114,7 +115,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 ax.text(0.5,0.5, 'Disabled for now', ha='center', va='center', fontsize=28, color='gray')
                 continue
 
-            if canvas_key == 'mAP50' or canvas_key == 'mAP50-95' or canvas_key == 'P' or canvas_key == 'R' or canvas_key == 'MR':
+            if canvas_key in ['mAP50','mAP50-95','P','R','MR','FPPI','LAMR']:
                 colors_list = sns.color_palette()
                 color_iterator = itertools.cycle(colors_list)
                 # Limpiar el gráfico anterior
@@ -131,10 +132,24 @@ class VarianceComparePlotter(BaseClassPlotter):
                         data = self.dataset_handler[key]
                         if not data:
                             continue
+                        
                         try:
+                            if canvas_key in ['mAP50-95', 'mAP50']:
+                                data_tag = canvas_key
+                                new_y = data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag))
+                                if new_y is None:
+                                    print(f'{new_y = }; {canvas_key = } for {key}, tagged as {data_tag}')
+                                data_y = np.append(data_y, new_y)
+                            else:
+                                data_tag = canvas_key.lower()
+                                new_y = data['pr_data_best'].get(data_tag)
+                                if new_y is None:
+                                    print(f'{new_y = }; {canvas_key = } for {key}, tagged as {data_tag}')
+                                data_y = np.append(data_y, new_y)
+                        
                             # Some 'all' cases have mP instead of only P as tag...
-                            new_y = data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key))
-                            data_y = np.append(data_y, new_y)
+                            # new_y = data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key))
+                            # data_y = np.append(data_y, new_y)
                             bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
                             train_duration_vec.append(data['train_data']['train_duration_h'])
                         except KeyError as e:

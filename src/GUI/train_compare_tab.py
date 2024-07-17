@@ -135,7 +135,7 @@ class TrainComparePlotter(BaseClassPlotter):
                      'MRFPPI Curve': {'py': 'mrfppi_plot', 'xlabel': "FPPI", "ylabel": 'Miss Rate'},
                      'mAP50-95': {'py': 'mAP50-95', 'xlabel': "Test", "ylabel": 'mAP50-95'},
                      'mAP50': {'py': 'mAP50', 'xlabel': "Test", "ylabel": 'mAP50'},
-                     'precision': {'py': 'p', 'xlabel': "Test", "ylabel": 'Recall'},
+                     'precision': {'py': 'p', 'xlabel': "Test", "ylabel": 'Precision'},
                      'recall': {'py': 'r', 'xlabel': "Test", "ylabel": 'Recall'},
                      'F1': {'py': 'f1', 'xlabel': "Test", "ylabel": 'F1'},
                      'MissRate': {'py': 'mr', 'xlabel': "Test", "ylabel": 'MissRate', 'invert': True},
