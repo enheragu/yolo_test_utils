@@ -13,7 +13,23 @@ from tqdm import tqdm
 
 import numpy as np
 import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
+from matplotlib.colors import LogNorm 
+from matplotlib.ticker import LogLocator
+
+import pickle
+
 import cv2 as cv
+
+
+
+
+# Small hack so packages can be found
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+    from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
+    from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
 
 save_lock = threading.Lock()
 
@@ -26,7 +42,6 @@ visible_folder_name = "visible"
 lwir_folder_name = "lwir"
 
 store_path = f"{home}/eeha/dataset_analysis/"
-
 
 def save_images(img1, img2, hist1, hist2, filename, img_path):
     plt.figure()
@@ -96,10 +111,18 @@ def extract_hist(img_path, plot = False):
     g = cv.calcHist([img], [1], None, [256], [0, 256])
     r = cv.calcHist([img], [2], None, [256], [0, 256])
     
-    b_ch,g_ch,r_ch = cv.split(img)
-    eq_b = gethistEqCLAHE(b_ch)[1]
-    eq_g = gethistEqCLAHE(g_ch)[1]
-    eq_r = gethistEqCLAHE(r_ch)[1]
+    ycrcb_img = cv.cvtColor(img, cv.COLOR_BGR2YCrCb)
+    ycrcb_img[:, :, 0], _ = gethistEqCLAHE(ycrcb_img[:, :, 0]) 
+    equalized_img = cv.cvtColor(ycrcb_img, cv.COLOR_YCrCb2BGR)
+
+    eq_b = cv.calcHist([equalized_img], [0], None, [256], [0, 256])
+    eq_g = cv.calcHist([equalized_img], [1], None, [256], [0, 256])
+    eq_r = cv.calcHist([equalized_img], [2], None, [256], [0, 256])
+
+    # b_ch,g_ch,r_ch = cv.split(img)
+    # eq_b = gethistEqCLAHE(b_ch)[1]
+    # eq_g = gethistEqCLAHE(g_ch)[1]
+    # eq_r = gethistEqCLAHE(r_ch)[1]
 
     # Process LWIR correspondant image
     img_path = img_path.replace(visible_folder_name, lwir_folder_name)
@@ -126,17 +149,66 @@ def process_image(path):
     return hist, eq_hist, path
 
 
+def plotHistogramHeatmap(data, ax, y_bin_num = 30):
+
+    density_matrix = (np.array(data).T)[0]
+    num_bins, num_images = density_matrix.shape
+    
+    cmap = 'RdYlGn_r'
+    # cmap = 'inferno'
+    # cmap = plt.get_cmap('Spectral', y_bin_num)
+    vmin=1
+    max_frequency = 0
+    for idx in range(num_bins):
+        column = density_matrix[idx,:]
+        hist_values, hist_edges = np.histogram(column, bins=np.geomspace(1, np.max(column), y_bin_num)) # np.arange(y_bin_num))
+        binned_col = hist_values.reshape(-1, 1)
+        max_frequency = max(max_frequency, np.max(binned_col))
+    
+    vmax = max_frequency
+    
+    for idx in range(num_bins):
+        column = density_matrix[idx,:]
+        bin_height = int(np.ceil(np.max(column)))
+        bin_floor = int(np.floor(np.min(column)))
+        
+        # bins=np.geomspace(1, np.max(column), y_bin_num)  # -> Creates bin in log spaced scale :)
+        # bins=np.arange(y_bin_num) # -> Just N bins equally spaced
+        hist_values, hist_edges = np.histogram(column, bins=np.geomspace(1, np.max(column), y_bin_num)) # np.arange(y_bin_num))
+        binned_col = hist_values.reshape(-1, 1)
+        
+        # Generate heatmap to this bin
+        ax.imshow(binned_col, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=vmax), # vmin=vmin, vmax=vmax,
+                  extent=[idx, idx+1, bin_floor, bin_height],
+                  origin='lower', aspect='auto')
+        
+        # Adds border to each heatmap
+        # ax.add_patch(mpatches.Rectangle((idx, 0), 1, bin_height, fc='none', ec='k', lw=1))
+    
+    ax.autoscale()
+
+    cb = plt.colorbar(ax.images[0], ax=ax, label='Density')
+    tick_locator = LogLocator(numticks=y_bin_num)
+    cb.locator = tick_locator
+    cb.update_ticks()
+    
+    
 
 def save_histogram_image(hist, title, filename, color, n_images, log_scale = False, condition = '-'):
-    plt.figure(figsize=(4.5, 3))
-    # plt.plot(hist, color = color)
-    # plt.fill_between(np.arange(len(hist)), hist, color=color, alpha=0.3)
-    # plt.hist(hist, bins=range(len(hist)), color=color, alpha=0.7)
+    # plt.figure(figsize=(4.5, 3))
+    fig, ax = plt.subplots(figsize=(9, 6))
 
-    plt.plot(hist[1], color = color, label = f"{title} (max)")
-    # plt.plot(hist[0], color = color)
+    # ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms    
     # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min") # between 0 and min
-    plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+
+    if True: #not log_scale:
+        # ax.plot(hist[0], color = color)                         # Plots min of histograms
+        plotHistogramHeatmap(data = hist[2], ax = ax)
+        # ax.invert_yaxis()
+    else:
+        ax.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+
+
     if log_scale: plt.yscale('log')
 
     plt.title(f'{title} histogram ({n_images} images) ({condition} condition)')
@@ -153,16 +225,21 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     plt.figure(figsize=(9, 3))
 
     # First subplot
-    plt.subplot(1, 2, 1)
+    ax = plt.subplot(1, 2, 1)
     for hist, title, color in zip([b_hist, g_hist, r_hist], titles, colors):
-        # plt.hist(channel, bins=range(len(channel)), color=color, alpha=0.7)
-        plt.plot(hist[1], color = color, label = f"{title} (max)")
-        # plt.plot(hist[0], color = color)
+        # ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms
         # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min histogram") # between 0 and min
-        plt.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+
+        if True: #not log_scale:
+            # ax.plot(hist[0], color = color)                         # Plots min of histograms
+            plotHistogramHeatmap(data = hist[2], ax = ax)
+            # ax.invert_yaxis()
+        else:
+            ax.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+
         if log_scale: plt.yscale('log')
         # Single histogram for each BGR channel
-        # save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale)
+        save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale)
     
     plt.legend()
     plt.title(f'RGB histograms ({n_images} images) ({condition})')
@@ -170,11 +247,17 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     # Second subplot
-    plt.subplot(1, 2, 2)
-    plt.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} (max)")
-    # plt.plot(lwir_hist[0], color = colors[-1])
+    ax = plt.subplot(1, 2, 2)
+    # ax.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} (max)")
     # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[0], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
-    plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max
+
+    if True: #not log_scale:
+        # ax.plot(lwir_hist[0], color = colors[-1])                         # Plots min of histograms
+        plotHistogramHeatmap(data = lwir_hist[2], ax = ax)
+        # ax.invert_yaxis()
+    else:
+        ax.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
+
     if log_scale: plt.yscale('log')
     save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale)
     plt.legend()
@@ -212,35 +295,54 @@ def shape(lista):
 
     
 def evaluateInputDataset():
+    global set_info
 
-    with ThreadPoolExecutor() as executor:
-        futures = []
-        for folder_set in os.listdir(kaist_dataset_path):
-            for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
-                path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
-                if os.path.isdir(path_set):
-                    visible_folder = os.path.join(path_set, visible_folder_name)
-                    if os.path.exists(visible_folder):
-                        futures.append(executor.submit(process_image, visible_folder))
+    cache_file_path = os.path.join(store_path, 'set_info.pkl')
+    if not os.path.exists(cache_file_path):
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for folder_set in os.listdir(kaist_dataset_path):
+                for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
+                    path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
+                    if os.path.isdir(path_set):
+                        visible_folder = os.path.join(path_set, visible_folder_name)
+                        if os.path.exists(visible_folder):
+                            futures.append(executor.submit(process_image, visible_folder))
+                #     break
                 # break
-            # break
 
-        for future in tqdm(as_completed(futures), total=len(futures), desc='Processing imageSet folders'):
-            hist, eq_hist, path = future.result()
-            for condition in ['day', 'night']:
-                if isPathCondition(condition, path):
-                    set_info[condition]['hist'].extend(hist)
-                    set_info[condition]['CLAHE hist'].extend(eq_hist)
-                    break
-    
+            for future in tqdm(as_completed(futures), total=len(futures), desc='Processing imageSet folders'):
+                hist, eq_hist, path = future.result()
+                for condition in ['day', 'night']:
+                    if isPathCondition(condition, path):
+                        set_info[condition]['hist'].extend(hist)
+                        set_info[condition]['CLAHE hist'].extend(eq_hist)
+                        break
+                
+        for condition in ['day', 'night']:
+            for type in ['hist', 'CLAHE hist']:
+                set_info['day+night'][type].extend(set_info[condition][type])
+                # Theres n_images array of 4 elements, we want 4 arrays of hists. Need to transpose :)
+                set_info[condition][type] = [[channel[i] for channel in set_info[condition][type]] for i in range(4)]
+                # print(f"{condition} {type} shape(data)={shape(set_info[condition][type])}")
+                # plotAccumulatedHist(condition, set_info[condition][type], type)
+        
+        
+        with open(cache_file_path, 'wb') as f:
+            pickle.dump(set_info, f)
 
-    
+    else:    
+        print(f'Reload previous hist data stored')
+        with open(cache_file_path, 'rb') as f:
+            set_info = pickle.load(f)
+
+        
     def plotAccumulatedHist(condition, data, type):
         hist_data = []
         for ch in range(4):
             min_vals = np.min(data[ch], axis=0)[:,0]
             max_vals = np.max(data[ch], axis=0)[:,0]
-            hist_data.append([min_vals, max_vals])
+            hist_data.append([min_vals, max_vals, data[ch]])
         
         if isinstance(type, list):
             b_type, g_type, r_type, lwir_type = type
@@ -255,29 +357,21 @@ def evaluateInputDataset():
                             ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
                             f'{"log_" if log_scale else ""}{condition}_{type}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = condition)
-
-             
-    for condition in ['day', 'night']:
-        for type in ['hist', 'CLAHE hist']:
-            set_info['day+night'][type].extend(set_info[condition][type])
-            # Theres n_images array of 4 elements, we want 4 arrays of hists. Need to transpose :)
-            set_info[condition][type] = [[channel[i] for channel in set_info[condition][type]] for i in range(4)]
-            # print(f"{condition} {type} shape(data)={shape(set_info[condition][type])}")
-            # plotAccumulatedHist(condition, set_info[condition][type], type)
-    
+                
     condition = 'day+night'
     for type in ['hist', 'CLAHE hist']:
         set_info[condition][type] = [[channel[i] for channel in set_info[condition][type]] for i in range(4)]
         # print(f"{condition} {type} shape(data)={shape(set_info[condition][type])}")
         # plotAccumulatedHist(condition, set_info[condition][type], type)
 
+    
 
     # PLOT BRG hist and LWIR CLAHE
-    for condition in ['day', 'night', 'day+night']:
+    for condition in ['day', 'night']: #, 'day+night']:
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['CLAHE hist'][3]]
         plotAccumulatedHist(condition, data, ['hist', 'hist', 'hist', 'CLAHE hist'])
 
-    for condition in ['day', 'night', 'day+night']:
+    for condition in ['day', 'night']: #, 'day+night']:
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['hist'][3]]
         plotAccumulatedHist(condition, data, 'hist')
 
@@ -328,16 +422,19 @@ def splitImage():
     cv.imwrite(os.path.join(store_path,'split','LWIR_channel.png'), cv.applyColorMap(img_lwir, cv.COLORMAP_JET))
 
 
-    # Small hack so packages can be found
-    if __name__ == "__main__":
-        import sys
-        sys.path.append('./src')
-        from Dataset.image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
+    combine_hsvt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_hsvt.png'))
+    combine_rgbt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_rgbt.png'))
+    combine_vt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_vt.png'))
+    combine_vths(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_vths.png'))
 
-    combine_hsvt(img_visible, img_lwir, os.path.join(store_path,'split','combine_hsvt.png'))
-    combine_rgbt(img_visible, img_lwir, os.path.join(store_path,'split','combine_rgbt.png'))
-    combine_vt(img_visible, img_lwir, os.path.join(store_path,'split','combine_vt.png'))
-    combine_vths(img_visible, img_lwir, os.path.join(store_path,'split','combine_vths.png'))
+    # Manually store in PNG format for better visualization
+    path = os.path.join(store_path,'split','combine_fa.png')
+    image = combine_rgbt_fa_to3ch(img_visible, img_lwir)
+    cv.imwrite(path, image)
+
+    path = os.path.join(store_path,'split','combine_pca.png')
+    image = combine_rgbt_pca_to3ch(img_visible, img_lwir)
+    cv.imwrite(path, image)
 
 if __name__ == '__main__':
 
@@ -348,6 +445,6 @@ if __name__ == '__main__':
 
     splitImage()
     
-    # evaluateEqualizationMethods()
+    evaluateEqualizationMethods()
 
-    # evaluateInputDataset()
+    evaluateInputDataset()
