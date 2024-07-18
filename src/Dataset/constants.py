@@ -1,8 +1,9 @@
 
 
-from .image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
-from .image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
+from .static_image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
+from .static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
 from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full
+from .wavelet_compression import combine_wavelet
 from pathlib import Path
 
 home = Path.home()
@@ -44,8 +45,12 @@ dataset_options = {
 
 fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
                   'fa_rgbt_npy' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
+                  # Full takes decomposition of all images and then applies transform to each image
                   'pca_full_npy' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
                   'fa_full_npy' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
+                  }
+
+wavelets_options = {'wavelet_npy' : {'merge': combine_wavelet, 'extension': '.npz' }
                   }
          # Modified YOLO dataloader so it only loads needed stuff
          #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
@@ -57,6 +62,7 @@ fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension'
 
 
 dataset_options.update(fa_pca_options)
+dataset_options.update(wavelets_options)
 dataset_options_keys = ['visible', 'lwir'] + list(dataset_options.keys())
 
 # Dataset class to take into account when generating YOLO style dataset

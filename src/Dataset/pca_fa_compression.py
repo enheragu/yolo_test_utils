@@ -114,8 +114,8 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
 def combine_rgbt_pca_toXch(visible_image, thermal_image, output_channels = 3):
 
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
     th = thermal_image_filtered
@@ -133,8 +133,8 @@ def combine_rgbt_pca_toXch(visible_image, thermal_image, output_channels = 3):
 def combine_rgbt_fa_toXch(visible_image, thermal_image, output_channels = 3):
     
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
     th = thermal_image_filtered
@@ -170,8 +170,8 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image):
 @save_npmat_if_path
 def combine_hsvt_pca_to3ch(visible_image, thermal_image):
     # NOISE FILTERING WITH BETTER EDGE PRESERVATION
-    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th = thermal_image_filtered
@@ -207,8 +207,8 @@ def preprocess_rgbt_fa_full(option, dataset_format):
 
 def combine_rgbt_pca_full(visible_image, thermal_image):
     global pca_eigen_vectors
-    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
     th = thermal_image_filtered
@@ -227,8 +227,8 @@ def combine_rgbt_pca_full(visible_image, thermal_image):
 
 def combine_rgbt_fa_full(visible_image, thermal_image):
     global fa_eigen_vectors
-    visible_imgage_filered = cv.bilateralFilter(visible_image, 9, 50, 50) 
-    thermal_image_filtered = cv.bilateralFilter(thermal_image, 9, 50, 50) 
+    visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
+    thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
     th = cthermal_image_filtered
