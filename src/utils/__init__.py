@@ -5,3 +5,5 @@ from .yaml_utils import parseYaml, dumpYaml
 from .id_tag import getGPUTestID, getGPUTestIDTag
 from .symlink_utils import updateSymlink
 from .file_lock import FileLock
+
+from .color_constants import color_palette_list

@@ -9,6 +9,8 @@ xtarfile
 clint
 requests
 scipy
+scikit-learn
 mplcursors
 tabulate
+p-tqdm
 PyWavelets
