@@ -2,13 +2,16 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
+"""
+    Script to evaluate image historgams and the effects of the equalization on them
+    on single images and in all dataset
+"""
+
 import os  
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from pathlib import Path
-from itertools import zip_longest
 import copy
-from tabulate import tabulate
 from tqdm import tqdm
 
 import numpy as np
@@ -16,12 +19,10 @@ import matplotlib.pyplot as plt
 # import matplotlib.patches as mpatches
 from matplotlib.colors import LogNorm 
 from matplotlib.ticker import LogLocator
+from matplotlib.colors import LinearSegmentedColormap
 
 import pickle
-
 import cv2 as cv
-
-
 
 
 # Small hack so packages can be found
@@ -30,46 +31,48 @@ if __name__ == "__main__":
     sys.path.append('./src')
     from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
     from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
+    from utils import color_palette_list
+    from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
+    from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
 
-save_lock = threading.Lock()
-
-home = Path.home()
-kaist_dataset_path = f"{home}/eeha/kaist-cvpr15/images"
-kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
-labels_folder_name = "labels"
-images_folder_name = "images"
-visible_folder_name = "visible"
-lwir_folder_name = "lwir"
-
-store_path = f"{home}/eeha/dataset_analysis/"
-
-def save_images(img1, img2, hist1, hist2, filename, img_path):
-    plt.figure()
-    plt.subplot(2, 2, 1)
-    plt.imshow(img1)
-    plt.title('Original Image')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 2)
-    plt.imshow(img2)
-    plt.title('Eq-Histogram Image')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 3)
-    plt.plot(hist1, color = '#F6AE2D')
-    plt.title('Original histogram')
-
-    plt.subplot(2, 2, 4)
-    plt.plot(hist2, color = '#F6AE2D')
-    plt.title('Eq Histogram')
+def readImage(path, flag = None):
+    if flag is not None:
+        imagen = cv.imread(path, flag)
+    else:
+        imagen = cv.imread(path)
+    img_heigth, img_width = imagen.shape[:2]
+    aspect_ratio = img_width / img_heigth
+    cut_pixels_width = 2
+    cut_pixels_height = int(cut_pixels_width/aspect_ratio)
+    imagen_recortada = imagen[cut_pixels_height:img_heigth-cut_pixels_height, cut_pixels_width:img_width-cut_pixels_width]
+    imagen_final = cv.resize(imagen_recortada, (img_width, img_heigth))
     
-    plt.tight_layout()
+    return imagen_final
 
+def save_images(img_hist_list, filename, img_path):
+    rows = 2
+    cols = len(img_hist_list)
+
+    item = 1
+    plt.figure(figsize=[cols*6.4, rows*5.12])
+    for row_daat in img_hist_list:
+        plt.subplot(rows, cols, item)
+        plt.imshow(row_daat['img'])
+        plt.title(row_daat['img_title'])
+        plt.axis('off')
+
+        plt.subplot(rows, cols, item+cols)
+        plt.plot(row_daat['hist'], color = '#F6AE2D')
+        plt.title(row_daat['hist_title'])
+        # plt.axis('off')
+        item+=1   
+    
     plt.annotate(f'Img: {img_path}',
                     xy = (1.0, -0.17), xycoords='axes fraction',
-                    ha='right', va="center", fontsize=8,
+                    ha='right', va="center", fontsize=12,
                     color='black', alpha=0.2)
     
+    plt.tight_layout()
     plt.savefig(os.path.join(store_path,'pdf',f'{filename}.pdf'))
     plt.savefig(os.path.join(store_path,'png',f'{filename}.png'))
 
@@ -105,7 +108,7 @@ def extract_hist(img_path, plot = False):
     eq_b, eq_g, eq_r, eq_lwir = [], [], [], []
 
     # Process visible image
-    img = cv.imread(img_path)
+    img = readImage(img_path)
     assert img is not None, "file could not be read, check with os.path.exists()"
     b = cv.calcHist([img], [0], None, [256], [0, 256])
     g = cv.calcHist([img], [1], None, [256], [0, 256])
@@ -126,7 +129,7 @@ def extract_hist(img_path, plot = False):
 
     # Process LWIR correspondant image
     img_path = img_path.replace(visible_folder_name, lwir_folder_name)
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    img = readImage(img_path, cv.IMREAD_GRAYSCALE)
     assert img is not None, "file could not be read, check with os.path.exists()"
     
     lwir = cv.calcHist([img], [0], None, [256], [0, 256])
@@ -154,43 +157,59 @@ def plotHistogramHeatmap(data, ax, y_bin_num = 30):
     density_matrix = (np.array(data).T)[0]
     num_bins, num_images = density_matrix.shape
     
-    cmap = 'RdYlGn_r'
+    # ,c_grey
+    color_palette = [c_purple,c_blue,c_green,c_yellow,c_red,c_darkgrey]
+    cmap = LinearSegmentedColormap.from_list('custom_cmap', color_palette, N=y_bin_num)
+    # cmap = 'RdYlGn_r'
     # cmap = 'inferno'
     # cmap = plt.get_cmap('Spectral', y_bin_num)
     vmin=1
     max_frequency = 0
-    for idx in range(num_bins):
-        column = density_matrix[idx,:]
-        hist_values, hist_edges = np.histogram(column, bins=np.geomspace(1, np.max(column), y_bin_num)) # np.arange(y_bin_num))
-        binned_col = hist_values.reshape(-1, 1)
-        max_frequency = max(max_frequency, np.max(binned_col))
-    
-    vmax = max_frequency
-    
-    for idx in range(num_bins):
-        column = density_matrix[idx,:]
-        bin_height = int(np.ceil(np.max(column)))
-        bin_floor = int(np.floor(np.min(column)))
-        
-        # bins=np.geomspace(1, np.max(column), y_bin_num)  # -> Creates bin in log spaced scale :)
-        # bins=np.arange(y_bin_num) # -> Just N bins equally spaced
-        hist_values, hist_edges = np.histogram(column, bins=np.geomspace(1, np.max(column), y_bin_num)) # np.arange(y_bin_num))
-        binned_col = hist_values.reshape(-1, 1)
-        
-        # Generate heatmap to this bin
-        ax.imshow(binned_col, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=vmax), # vmin=vmin, vmax=vmax,
-                  extent=[idx, idx+1, bin_floor, bin_height],
-                  origin='lower', aspect='auto')
-        
-        # Adds border to each heatmap
-        # ax.add_patch(mpatches.Rectangle((idx, 0), 1, bin_height, fc='none', ec='k', lw=1))
-    
-    ax.autoscale()
 
-    cb = plt.colorbar(ax.images[0], ax=ax, label='Density')
-    tick_locator = LogLocator(numticks=y_bin_num)
-    cb.locator = tick_locator
-    cb.update_ticks()
+    def compute_hist_log_space(column):
+        non_zero_column = column[column > 0]  # Exclude zeros from the column for geomspace
+        if len(non_zero_column) == 0:
+            return None
+
+        hist_values, hist_edges = np.histogram(non_zero_column, bins=np.geomspace(1, np.max(non_zero_column), y_bin_num)) # np.arange(y_bin_num))
+        binned_col = hist_values.reshape(-1, 1)
+        return binned_col
+    
+    try:
+        for idx in range(num_bins):
+            binned_col = compute_hist_log_space(density_matrix[idx,:])
+            if binned_col is None:
+                continue
+            max_frequency = max(max_frequency, np.max(binned_col))
+        
+        vmax = max_frequency
+        
+        for idx in range(num_bins):
+            column = density_matrix[idx,:]
+            bin_height = int(np.ceil(np.max(column)))
+            bin_floor = int(np.floor(np.min(column)))
+                        
+            binned_col = compute_hist_log_space(density_matrix[idx,:])
+            if binned_col is None:
+                continue
+            
+            # Generate heatmap to this bin
+            ax.imshow(binned_col, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=vmax), # vmin=vmin, vmax=vmax,
+                    extent=[idx, idx+1, bin_floor, bin_height],
+                    origin='lower', aspect='auto')
+            
+            # Adds border to each heatmap
+            # ax.add_patch(mpatches.Rectangle((idx, 0), 1, bin_height, fc='none', ec='k', lw=1))
+        
+        ax.autoscale()
+
+        cb = plt.colorbar(ax.images[0], ax=ax, label='Num Images')
+        tick_locator = LogLocator(numticks=y_bin_num)
+        cb.locator = tick_locator
+        cb.update_ticks()
+    
+    except Exception as e:
+        print(f'Catched expection: {e}')
     
     
 
@@ -227,15 +246,9 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     # First subplot
     ax = plt.subplot(1, 2, 1)
     for hist, title, color in zip([b_hist, g_hist, r_hist], titles, colors):
-        # ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms
+        ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms
         # plt.fill_between(np.arange(len(hist[0])), hist[0], color=color, alpha=0.8, label = "min histogram") # between 0 and min
-
-        if True: #not log_scale:
-            # ax.plot(hist[0], color = color)                         # Plots min of histograms
-            plotHistogramHeatmap(data = hist[2], ax = ax)
-            # ax.invert_yaxis()
-        else:
-            ax.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+        # ax.fill_between(np.arange(len(hist[0])), hist[1], color=color, alpha=0.3) #, label = "variance") # between 0 and max
 
         if log_scale: plt.yscale('log')
         # Single histogram for each BGR channel
@@ -248,15 +261,10 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
 
     # Second subplot
     ax = plt.subplot(1, 2, 2)
-    # ax.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} (max)")
+    ax.plot(lwir_hist[1], color = colors[-1], label = f"{titles[-1]} (max)")
     # plt.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[0], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
-
-    if True: #not log_scale:
-        # ax.plot(lwir_hist[0], color = colors[-1])                         # Plots min of histograms
-        plotHistogramHeatmap(data = lwir_hist[2], ax = ax)
-        # ax.invert_yaxis()
-    else:
-        ax.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
+    # ax.fill_between(np.arange(len(lwir_hist[0])), lwir_hist[1], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
+      
 
     if log_scale: plt.yscale('log')
     save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale)
@@ -354,7 +362,7 @@ def evaluateInputDataset():
         for log_scale in [True, False]:
             plot_histograms(hist_data[0], hist_data[1], hist_data[2], hist_data[3],
                             [f"B {b_type}",f"G {g_type}",f"R {r_type}",f"LWIR {lwir_type}"], 
-                            ['#0171BA', '#78B01C', '#F23535', '#F6AE2D'],
+                            [c_blue, c_green, c_red, c_yellow],
                             f'{"log_" if log_scale else ""}{condition}_{type}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = condition)
                 
@@ -364,12 +372,10 @@ def evaluateInputDataset():
         # print(f"{condition} {type} shape(data)={shape(set_info[condition][type])}")
         # plotAccumulatedHist(condition, set_info[condition][type], type)
 
-    
-
     # PLOT BRG hist and LWIR CLAHE
     for condition in ['day', 'night']: #, 'day+night']:
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['CLAHE hist'][3]]
-        plotAccumulatedHist(condition, data, ['hist', 'hist', 'hist', 'CLAHE hist'])
+        plotAccumulatedHist(condition, data, 'CLAHE hist') #['hist', 'hist', 'hist', 'CLAHE hist'])
 
     for condition in ['day', 'night']: #, 'day+night']:
         data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['hist'][3]]
@@ -380,61 +386,48 @@ def evaluateEqualizationMethods():
     # Img plot for comparison
     img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
     clean_path = img_path.replace(str(home), "").replace("/eeha", "")
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    img = readImage(img_path, cv.IMREAD_GRAYSCALE)
     lwir = cv.calcHist([img], [0], None, [256], [0, 256])
 
+    org_img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    org_lwir = cv.calcHist([img], [0], None, [256], [0, 256])
+
+    plot = [{'img':img,'img_title': 'Cut Image','hist':lwir,'hist_title': 'Cut Image Hist'},
+            {'img':org_img,'img_title': 'Original Histogram Image','hist':org_lwir,'hist_title': 'Original Image Hist'}]
+    save_images(plot,'lwir_histogram_cut_comparison', clean_path)
+
+
     eq_img, clahe_hist = gethistEqCLAHE(img)
-    save_images(img, eq_img, lwir, clahe_hist, 'lwir_histogram_clahe_6_6_6_comparison', clean_path)
+    plot = [{'img':org_img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Hist'},
+            {'img':eq_img,'img_title': 'CLAHE-Histogram Image','hist':clahe_hist,'hist_title': 'CLAHE Histogram'}]
+    save_images(plot,'lwir_histogram_clahe_6_6_6_comparison', clean_path)
+
+
     
     eq_img, eq_hist = gethistEq(img)
-    save_images(img, eq_img, lwir, eq_hist, 'lwir_histogram_equalization_comparison', clean_path)
+    plot = [{'img':img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Hist'},
+            {'img':eq_img,'img_title': 'Eq-Histogram Image','hist':eq_hist,'hist_title': 'Eq Histogram'}]
+    save_images(plot,'lwir_histogram_equalization_comparison', clean_path)
 
     exp_img, exp_hist = gethistExpLinear(img)
-    save_images(img, exp_img, lwir, exp_hist, 'lwir_histogram_expanded_comparison', clean_path)
+    plot = [{'img':img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Hist'},
+            {'img':exp_img,'img_title': 'Eq-Histogram Image','hist':exp_hist,'hist_title': 'Eq Histogram'}]
+    save_images(plot,'lwir_histogram_expanded_comparison', clean_path)
+
+
+
+    
+    plot = [{'img':img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Hist'},
+            {'img':eq_img,'img_title': 'Eq-Histogram Image','hist':eq_hist,'hist_title': 'Eq Histogram'},
+            {'img':eq_img,'img_title': 'CLAHE-Histogram Image','hist':clahe_hist,'hist_title': 'CLAHE Histogram'}]
+    save_images(plot,'lwir_histogram_all_comparison', clean_path)
 
 
     print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
-    img = cv.imread(img_path.replace("lwir", "visible"))
+    img = readImage(img_path.replace("lwir", "visible"))
     print(f"Image resolution for RGB images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
 
-def splitImage():
-    if not os.path.exists(os.path.join(store_path, 'split')):
-        os.makedirs(os.path.join(store_path, 'split'))
-    
-    img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
 
-    img_lwir = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-    img_visible = cv.imread(img_path.replace('/lwir/','/visible/'))
-
-
-    b_channel, g_channel, r_channel = cv.split(img_visible)
-    image_hsv = cv.cvtColor(img_visible, cv.COLOR_BGR2HSV)
-    h_channel, s_channel, v_channel = cv.split(image_hsv)
-
-    zeros = np.zeros_like(b_channel)
-
-    cv.imwrite(os.path.join(store_path,'split','B_channel.png'), cv.merge([b_channel, zeros, zeros]))
-    cv.imwrite(os.path.join(store_path,'split','G_channel.png'), cv.merge([zeros, g_channel, zeros]))
-    cv.imwrite(os.path.join(store_path,'split','R_channel.png'), cv.merge([zeros, zeros, r_channel]))
-    cv.imwrite(os.path.join(store_path,'split','H_channel.png'), cv.applyColorMap(h_channel, cv.COLORMAP_HSV))
-    cv.imwrite(os.path.join(store_path,'split','S_channel.png'), s_channel)
-    cv.imwrite(os.path.join(store_path,'split','V_channel.png'), v_channel)
-    cv.imwrite(os.path.join(store_path,'split','LWIR_channel.png'), cv.applyColorMap(img_lwir, cv.COLORMAP_JET))
-
-
-    combine_hsvt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_hsvt.png'))
-    combine_rgbt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_rgbt.png'))
-    combine_vt(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_vt.png'))
-    combine_vths(img_visible, img_lwir, path = os.path.join(store_path,'split','combine_vths.png'))
-
-    # Manually store in PNG format for better visualization
-    path = os.path.join(store_path,'split','combine_fa.png')
-    image = combine_rgbt_fa_to3ch(img_visible, img_lwir)
-    cv.imwrite(path, image)
-
-    path = os.path.join(store_path,'split','combine_pca.png')
-    image = combine_rgbt_pca_to3ch(img_visible, img_lwir)
-    cv.imwrite(path, image)
 
 if __name__ == '__main__':
 
@@ -442,8 +435,6 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(store_path, 'pdf'))
     if not os.path.exists(os.path.join(store_path, 'png')):
         os.makedirs(os.path.join(store_path, 'png'))
-
-    splitImage()
     
     evaluateEqualizationMethods()
 

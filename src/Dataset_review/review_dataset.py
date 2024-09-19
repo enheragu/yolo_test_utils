@@ -18,8 +18,9 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/"
 labels_folder_name = "labels"
 images_folder_name = "images"
 visible_folder_name = "visible"
+lwir_folder_name = "lwir"
 
-
+store_path = f"{home}/eeha/dataset_analysis/"
  
 # Output dataset whitelist (default is original Kaist sets)
 white_list = ['test-all-01','test-day-20','train-all-01','train-all-20','train-day-20','train-night-20',
@@ -43,8 +44,10 @@ def count_lines(path):
     for root, dirs, files in os.walk(path):
         for file in files:
             if file.endswith(".txt"):
-                with open(os.path.join(root, file), "r") as f:
-                    total += sum(1 for _ in f)
+                labels_path = os.path.join(root, file)
+                if os.path.exists(labels_path):
+                    with open(labels_path, "r") as f:
+                        total += sum(1 for _ in f)
     return total
 
 def count_backgrounds(path):
@@ -59,7 +62,7 @@ def count_backgrounds(path):
     return backgrounds
 
 
-def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
+def evaluateOutputDataset(white_list = white_list, print_latex_table = True, title = "dataset_info.txt"):
     
     # Dictionary to store the count of images and lines of output dataset
     count = {"all": {"test": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
@@ -72,8 +75,12 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
 
     evaluated_dirs = []
     # Iterate over the directories and count images and lines
-    for root, dirs, files in os.walk(kaist_yolo_dataset_path):
-        for directory in dirs:
+    # for root, dirs, files in os.walk(kaist_yolo_dataset_path):
+    #     for directory in dirs:
+    root = kaist_yolo_dataset_path
+    for directory in os.listdir(kaist_yolo_dataset_path):
+        directory_path = os.path.join(root, directory)
+        if os.path.isdir(directory_path):
             if directory.startswith(("test", "train")):
                 if white_list == [] or directory in white_list:
                     evaluated_dirs.append(directory)
@@ -92,10 +99,10 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
 
 
     # Print results
+    latex_table = str()
     print(f"Evaluated dirs: {evaluated_dirs}")
-    if print_latex_table:
-        print("\t\t& Images & Backgrounds & Instances & Unique Images \\\\")
-        print("\t\t\\hline")
+    latex_table += "\t\t& Images & Backgrounds & Instances\\\\" + "\n" # & Unique Images \\\\"+"\n" 
+    latex_table += "\t\t\\midrule"+"\n" 
 
     log_str = ""
     for condition in ["all", "day", "night"]:
@@ -111,14 +118,16 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
             total_len += len(count[condition][type]['unique_images'])
             count[condition][type]["unique_images"] = len(set_unique)/total_len if total_len != 0 else total_len
 
-            if print_latex_table:
-                print(f"\t\t{type.title()} {condition} & {count[condition][type]['images']} & {count[condition][type]['backgrounds']} & {count[condition][type]['instances']} & {count[condition][type]['unique_images']} \\\\")
-                print("\t\t\\hline")
+            latex_table += f"\t\t{type.title()} {condition} & {count[condition][type]['images']} & {count[condition][type]['backgrounds']} & {count[condition][type]['instances']} \\\\" + "\n" #& {count[condition][type]['unique_images']} \\\\" + "\n"
+
+        latex_table += "\t\t\\midrule" + "\n"  
+    latex_table += "\t\t\\bottomrule" + "\n"  
             
             # log_str+=f"{type.title()} {condition}: images: {count[condition][type]['images']}; backgrounds: {count[condition][type]['backgrounds']}; labels: {count[condition][type]['instances']}; unique: {len(count[condition][type]['unique_images'])}\n"
         # log_str+=f"{condition}: Unique images between both train/test: {len(set_unique)}/{total_len}\n"
         
-
+    if print_latex_table:
+        print(latex_table)
     # print(f"\n\n{log_str}")
     # for traintest, data in count.items():
     #     for condition, values in data.items():
@@ -136,6 +145,18 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True):
 
     # Imprimir la tabla utilizando tabulate
     print(tabulate(table_data, headers=headers, tablefmt="pretty"))
+
+    file_log_path = os.path.join(store_path, 'dataset_info')
+    if not os.path.exists(file_log_path):
+        os.makedirs(file_log_path)
+
+    file_log = os.path.join(file_log_path, title)
+    with open(file_log, 'w') as file:
+        file.write(tabulate(table_data, headers=headers, tablefmt="pretty")+'\n')
+
+    file_log = os.path.join(file_log_path, title.replace('txt','tex'))
+    with open(file_log, 'w') as file:
+        file.write(latex_table+"\n")
 
     return count
 
@@ -161,8 +182,9 @@ set_info = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08
             'night': {'sets': ['set03', 'set04', 'set05', 'set06', 'set10', 'set11'], 'num_img': 0, 'test': [], 'train': []}}
 
 
-def evaluateInputDataset():
+def evaluateInputDataset(title = 'input_dataset.txt'):
     print()
+    log_table = str()
     for folder_set in os.listdir(kaist_dataset_path):
         set_nun_img = 0
         for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
@@ -177,9 +199,19 @@ def evaluateInputDataset():
         for condition in set_info.values():
             if folder_set in condition['sets']:
                 condition['num_img'] += set_nun_img
+        log_table += f"Set: {folder_set} - Num Imags: {set_nun_img}\n"
         print(f"Set: {folder_set} - Num Imags: {set_nun_img}")
 
+    log_table += f"\nTotal day: {set_info['day']['num_img']}\nTotal night: {set_info['night']['num_img']}\n"
     print(f"\nTotal day: {set_info['day']['num_img']}\nTotal night: {set_info['night']['num_img']}\n")
+
+    file_log_path = os.path.join(store_path, 'dataset_info')
+    if not os.path.exists(file_log_path):
+        os.makedirs(file_log_path)
+
+    file_log = os.path.join(file_log_path, title)
+    with open(file_log, 'w') as file:
+        file.write(log_table)
 
     # print(f"Split img   -> (train - test)")
     # print(f"Day   70-30 -> {int(set_info['day']['num_img']*0.7)} - {int(set_info['day']['num_img']*0.3)}")
@@ -248,13 +280,19 @@ def splitDatsets():
 
 
 if __name__ == '__main__':
+
+    if not os.path.exists(store_path):
+        os.makedirs(store_path)
+
     # evaluateOutputDataset()
-    # evaluateInputDataset()
+    evaluateInputDataset()
     # splitDatsets()
 
+    
+    evaluateOutputDataset(white_list=['test-all-01','train-all-01','test-day-01','train-day-02','test-night-01','train-night-02'], print_latex_table=True, title="dataset_kaist.txt")
     print("\nCase 70-30:")
-    evaluateOutputDataset(white_list=['test-day-70_30','train-day-70_30','test-night-70_30','train-night-70_30'], print_latex_table=False)
+    evaluateOutputDataset(white_list=['test-day-70_30','train-day-70_30','test-night-70_30','train-night-70_30'], print_latex_table=True, title="dataset_70-30.txt")
     print("\nCase 80-20:")
-    evaluateOutputDataset(white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20'], print_latex_table=False)
+    evaluateOutputDataset(white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20'], print_latex_table=True, title="dataset_80-20.txt")
     print("\nCase 90-10:")
-    evaluateOutputDataset(white_list=['test-day-90_10','train-day-90_10','test-night-90_10','train-night-90_10'], print_latex_table=False)
+    evaluateOutputDataset(white_list=['test-day-90_10','train-day-90_10','test-night-90_10','train-night-90_10'], print_latex_table=True, title="dataset_90-10.txt")
