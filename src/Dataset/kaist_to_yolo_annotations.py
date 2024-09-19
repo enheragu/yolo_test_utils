@@ -134,7 +134,9 @@ def upateProcessedSymlinks(pre_processed, data_set_name, line):
 
         label_root_path = pre_processed[data_type][line].replace(images_folder_name, labels_folder_name).replace('.png', '.txt')
         label_new_path = label_root_path.replace(label_root_path.split("/")[-4], data_set_name)
-        updateSymlink(label_root_path, label_new_path)
+        # Check if there is labels root path or is just a background image
+        if os.path.exists(label_root_path):
+            updateSymlink(label_root_path, label_new_path)
     
 
 def kaistToYolo(dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):

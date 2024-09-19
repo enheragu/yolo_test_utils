@@ -6,11 +6,17 @@
     FA -> Factorial analysis (based on correlation between channels)
 """
 
+import os
 import numpy as np
 import cv2 as cv
 
+import scipy.stats
+import pickle
+from sklearn.decomposition import PCA
+
 from utils import log, bcolors
 from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
+
 
 def draw_text(img, text,
           font=cv.FONT_HERSHEY_PLAIN,
@@ -34,9 +40,12 @@ def draw_text(img, text,
 """
 def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     if standarice:
-        data_vector_std = (data_vector - data_vector.mean()) / data_vector.std() # standarize || axis = 0 -> Is it not needed?
+        mean = np.mean(data_vector, axis=0)
+        std = np.std(data_vector, axis=0)
+        data_vector_std = (data_vector - mean) / std
     else:
         data_vector_std = data_vector
+
     mat = np.cov(data_vector_std, ddof = 1, rowvar = False)
     # eigenvalues, eigenvectors = np.linalg.eig(mat)
     eigenvalues, eigenvectors = np.linalg.eigh(mat) # -> faster but only can be used for symmetric matrix
@@ -46,20 +55,22 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     # Multiply matriz with them to make all first component positive
     eigenvectors = eigenvectors * signs
 
-    # order_of_importance = np.argsort(eigenvalues)[::-1] # Order eigenvalues high to low
-    # sorted_eigenvalues = eigenvalues[order_of_importance]
-    # sorted_eigenvectors = eigenvectors[:,order_of_importance]
-    sorted_eigenvalues = np.flip(eigenvalues)
-    sorted_eigenvectors = np.flip(eigenvectors, axis = 1) # eigenvectors are in columns of the matrix, flip in that axis
+    sorted_indices = np.argsort(eigenvalues)[::-1]
+    sorted_eigenvalues = eigenvalues[sorted_indices]
+    sorted_eigenvectors = eigenvectors[:, sorted_indices]
 
+    # Transformar los datos originales a los nuevos componentes
+    k = components # select the number of principal components
+    
     # use sorted_eigenvalues to ensure the explained variances correspond to the eigenvectors
     explained_variance = sorted_eigenvalues / np.sum(sorted_eigenvalues)
-    k = components # select the number of principal components
-    image = np.matmul(data_vector_std, sorted_eigenvectors[:,:k]) # transform the original data
+    principal_components = sorted_eigenvectors[:, :k]
+
+    transformed_data = np.dot(data_vector_std, principal_components)
     
     # Re-escale intensity
     if standarice:
-        image = image * data_vector.std() + data_vector.mean() # axis = 0 -> is it not needed?
+        transformed_data = transformed_data * std[:k] + mean[:k]
     
 
     ## Store eigenvalue and vectors to file to later study
@@ -67,7 +78,7 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     # autov_path = "/".join(autov_path) + "/00_eigenvalue_vector.yaml"
 
     # import yaml
-    # from yaml.loader import SafeLoader
+    # from yaml.loader im   port SafeLoader
     # import os
 
     # data = {}
@@ -84,10 +95,8 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     # log(f"[RGBThermalMix::combine_pca] Explained variance for {path} with {k} principal components is: {total_explained_variance}")
     # print(f"{sorted_eigenvectors[:,:k] = }")
 
-    image_vector = []
-    for i in range(components):
-        image_vector.append(image.transpose()[i].reshape(img_shape))
-        
+
+    image_vector = [transformed_data[:, i].reshape(img_shape) for i in range(components)]
     image = cv.merge(image_vector)
     
     # # if test:
@@ -143,7 +152,6 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, output_channels = 3):
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()
 
     # cov_mat = np.corrcoef(data_vector_std) # -> Pearson correlation. Careful!!
-    import scipy.stats
     cov_mat, p_matrix = scipy.stats.spearmanr(data_vector, axis=0) # -> Spearman. axis whether columns (0) or rows (1) represent the features
 
     image = MatrixAnalisis(data_vector, cov_mat, img_shape, components = output_channels, standarice = False)
@@ -161,6 +169,20 @@ def combine_rgbt_pca_to3ch(visible_image, thermal_image):
 @save_npmat_if_path
 def combine_rgbt_fa_to3ch(visible_image, thermal_image):
     image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
+    return image   
+
+
+@save_npmat_if_path
+def combine_rgbt_pca_to1ch(visible_image, thermal_image):
+    image = combine_rgbt_pca_toXch(visible_image, thermal_image, 1)
+    image = cv.merge([image,image,image])
+    return image
+
+
+@save_npmat_if_path
+def combine_rgbt_fa_to1ch(visible_image, thermal_image):
+    image = combine_rgbt_fa_toXch(visible_image, thermal_image, 1)
+    image = cv.merge([image,image,image])
     return image    
  
 
@@ -188,25 +210,87 @@ def combine_hsvt_pca_to3ch(visible_image, thermal_image):
 """
     Gets PCA eigenvectors and eigenvalues for given dataset
 """
-pca_output_path = '~/.cache/eeha_yolo_test/pca_sorted_eigenvectors.npy'
-fa_output_path = '~/.cache/eeha_yolo_test/fa_sorted_eigenvectors.npy'
-pca_eigen_vectors = None        # Avoid multiple load of data. Load once and reuse
+pca = None                  # Avoid multiple load of data. Load once and reuse
 fa_eigen_vectors = None
 
-def preprocess_rgbt_pca_full(option, dataset_format):
+def preprocess_datset_matrix():
+    from Dataset.constants import kaist_yolo_dataset_path
+    from Dataset.constants import images_folder_name, lwir_folder_name, visible_folder_name
+    flattened_dataset_output_path = f'{kaist_yolo_dataset_path}/.flattened_dataset_cache.npz'
+
+    if os.path.exists(flattened_dataset_output_path):
+        return np.load(flattened_dataset_output_path)['data_matrix']
+
+    image_dict = {} # Store image and paths without repeating
+
+    # Get all unique LWIR and RGB image pairs
+    # Iterate each set in dataset path, get LWIR and RGB image from /images/...
+    for folder in os.listdir(kaist_yolo_dataset_path):
+        if not os.path.isdir(os.path.join(kaist_yolo_dataset_path,folder)):
+            continue
+        rgb_image_path = os.path.join(kaist_yolo_dataset_path,folder,visible_folder_name,images_folder_name)
+        lwir_image_path = os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name)
+
+        for image in os.listdir(rgb_image_path):
+            if not image.endswith('.png'):
+                continue
+            
+            image_dict[image] = [rgb_image_path,lwir_image_path]
+
+    # Accumulate matrix and flatten to compute PCA
+
+    image_data = []
+    for img, (rgb_path, lwir_path) in image_dict.items():
+        visible_image = cv.imread(os.path.join(rgb_path,img), cv.IMREAD_COLOR)
+        thermal_image = cv.imread(os.path.join(lwir_path,img), cv.IMREAD_GRAYSCALE)
+        
+        b, g, r = cv.split(visible_image)
+        th = thermal_image
+        
+        # Aplanar las imágenes
+        data_vector = np.array([f.flatten() for f in [b, g, r, th]]).transpose()
+        image_data.append(data_vector)
+        
+    data_matrix = np.vstack(image_data)
+    
+    np.savez_compressed(flattened_dataset_output_path, data_matrix = data_matrix)    
+    return data_matrix
+
+"""
+    Gets PCA eigenvectors and eigenvalues for given dataset
+"""
+def preprocess_rgbt_pca_full(n_components = 3):
+    from Dataset.constants import kaist_yolo_dataset_path
+    pca_output_path = f'{kaist_yolo_dataset_path}/.pca_cache.pkl'
+
     log(f"Compute general PCA eigenvectors and values to later compress images.")
-    pass
+    data_matrix = preprocess_datset_matrix()
+
+    data_matrix_std = (data_matrix - data_matrix.mean(axis=0)) / data_matrix.std(axis=0)
+    pca = PCA(n_components=n_components)
+    pca.fit_transform(data_matrix)
+
+    with open(pca_output_path, 'wb') as file:
+        pickle.dump({'pca':pca}, file)
 
 """
     Gets FA eigenvectors and eigenvalues for given dataset
 """
-def preprocess_rgbt_fa_full(option, dataset_format):
+def preprocess_rgbt_fa_full():
+    from Dataset.constants import kaist_yolo_dataset_path
+    fa_output_path = f'{kaist_yolo_dataset_path}/.fa_cache.pkl'
+
     log(f"Compute general FA eigenvectors and values to later compress images.")
+    data_matrix = preprocess_datset_matrix()
     pass
 
 
-def combine_rgbt_pca_full(visible_image, thermal_image):
-    global pca_eigen_vectors
+@save_npmat_if_path
+def combine_rgbt_pca_full(visible_image, thermal_image, n_components = 3):
+    if pca is None:
+        with open(pca_output_path, 'rb') as file:
+            pca = pickle.load(file)['pca']
+
     visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
     thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
@@ -217,21 +301,24 @@ def combine_rgbt_pca_full(visible_image, thermal_image):
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
     data_vector_std = (data_vector - data_vector.mean()) / data_vector.std() # standarize 
     
-    if not pca_eigen_vectors:
-        pca_eigen_vectors = np.load(pca_output_path)
-    image = np.matmul(data_vector_std, pca_eigen_vectors[:,:4])
+    transformed_image = pca.transform(data_vector_std)
+    reconstructed_image_std = pca.inverse_transform(transformed_image)
+    reconstructed_image = reconstructed_image_std.reshape(visible_image.shape[0], visible_image.shape[1], 4)
+    
+    image_vector = [reconstructed_image[:, i].reshape(img_shape) for i in range(n_components)]
+    image = cv.merge(image_vector)
 
-    np.save(path.replace('.png',''), image)
     return image
 
 
+@save_npmat_if_path
 def combine_rgbt_fa_full(visible_image, thermal_image):
     global fa_eigen_vectors
     visible_imgage_filered = visible_image #cv.bilateralFilter(visible_image, 9, 50, 50) 
     thermal_image_filtered = thermal_image #cv.bilateralFilter(thermal_image, 9, 50, 50) 
 
     b,g,r = cv.split(visible_imgage_filered)
-    th = cthermal_image_filtered
+    th = thermal_image_filtered
     img_shape = th.shape
 
     if not fa_eigen_vectors:
@@ -239,5 +326,4 @@ def combine_rgbt_fa_full(visible_image, thermal_image):
     data_vector = np.array([f.flatten() for f in [b,g,r,th]]).transpose()   
     image = np.matmul(data_vector, fa_eigen_vectors[:,:4])
 
-    np.save(path.replace('.png',''), image)
     return image

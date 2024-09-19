@@ -142,7 +142,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
             if option not in options_found:
                 log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
                 if "preprocess" in dataset_options[option]:
-                    dataset_options[option]["preprocess"](option, kaist_yolo_dataset_path, dataset_format)
+                    dataset_options[option]["preprocess"](dataset_format)
                 make_dataset(option, dataset_format, rgb_eq, thermal_eq)
                 dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq)
             else:
