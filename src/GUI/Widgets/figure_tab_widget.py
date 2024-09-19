@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QDialog, QLineEdit
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
+from utils import color_palette_list
 
 """
     Dialog  helper to edit labels of a given plot set
@@ -77,7 +78,7 @@ class PlotTabWidget(QTabWidget):
             self.addTab(tab, key)
 
         # sns.set_palette("colorblind")
-        sns.set_palette(sns.color_palette(["#0171ba","#78b01c","#f6ae2d","#f23535","#a66497","#769393","#2a2b2e"]))
+        sns.set_palette(sns.color_palette(color_palette_list))
 
     def __getitem__(self, key):
         return self.figure[key]

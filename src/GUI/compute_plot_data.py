@@ -85,7 +85,7 @@ def getBestTag(data):
 
 """
     Old data format, is kept for retrocompatibility and will be called if no new data is found on
-    YAML dict
+    YAML dict. Is to be deprecated but I want compatibility with previous test  executed.
 """
 def compute_plot_data(data, dataset):
     data_filtered = {}
@@ -129,3 +129,4 @@ def compute_plot_data(data, dataset):
         log(f"[{inspect.currentframe().f_code.co_name}] Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
         
     return data_filtered
+

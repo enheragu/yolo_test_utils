@@ -48,14 +48,14 @@ class GUIPlotter(QMainWindow):
         train_eval_tab = VarianceComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_eval_tab, f"Variance comparison")
 
-        train_eval_tab = TrainEvalPlotter(self.dataset_handler)
-        self.tab_widget.addTab(train_eval_tab, f"Review training process")
+        # train_eval_tab = TrainEvalPlotter(self.dataset_handler)
+        # self.tab_widget.addTab(train_eval_tab, f"Review training process")
         
-        train_eval_tab = CSVTablePlotter(self.dataset_handler)
-        self.tab_widget.addTab(train_eval_tab, f"Table")
+        # train_eval_tab = CSVTablePlotter(self.dataset_handler)
+        # self.tab_widget.addTab(train_eval_tab, f"Table")
 
-        train_eval_tab = SchedulerHandlerPlotter()
-        self.tab_widget.addTab(train_eval_tab, f"Scheduled tests")
+        # train_eval_tab = SchedulerHandlerPlotter()
+        # self.tab_widget.addTab(train_eval_tab, f"Scheduled tests")
                 
         self.tab_widget.currentChanged.connect(self.update_view_and_menu)
         self.update_view_and_menu()  # Actualizar el menú "View" cuando se abre la ventana
