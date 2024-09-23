@@ -177,7 +177,7 @@ def process_images(args):
     return hist, eq_hist, path, histogram_channel_config
 
 
-def plotHistogramHeatmap(data, ax, y_bin_num = 30):
+def plotHistogramHeatmap(data, ax, y_bin_num = 30, log_scale = False):
     # List of histograms
     histogram_array = np.squeeze(np.array(data))
     num_images, grey_scale = histogram_array.shape
@@ -190,29 +190,29 @@ def plotHistogramHeatmap(data, ax, y_bin_num = 30):
     # cmap = plt.get_cmap('Spectral', y_bin_num)
     vmin=1
     vmax = np.max(histogram_array) + 1e-10
+    min_freq = 0
     
     try:
-        max_density = 0
+        max_density = vmin
         for idx in range(grey_scale):
             density_array, _ = np.histogram(histogram_array[:,idx], bins=y_bin_num)
             max_density = max(np.max(density_array), max_density)
-        
+
         for idx in range(grey_scale):
             max_freq = np.max(histogram_array[:,idx])
-            # print(f"{max_freq = }")
             density_array, _ = np.histogram(histogram_array[:,idx], bins=y_bin_num)
             if np.any(density_array == 0): # If all zero -> Zero to small amount :)
                 density_array[density_array == 0] = 1e-10
-    
-
             # Generate heatmap to this bin
             density_array_vertical = density_array.reshape(-1, 1)
             # density_array_vertical[density_array_vertical<max_density*0.002] = 0
+
+            extra_x = 0 if not log_scale else 0.2
             if max_freq > 0:
                 ax.imshow(density_array_vertical, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=max_density),
-                        extent=[idx, idx+1, 0, max_freq],
+                        extent=[idx, idx+1+extra_x, min_freq, max_freq],
                         origin='lower', aspect='auto')
-        
+            
         ax.autoscale()
 
         cb = plt.colorbar(ax.images[0], ax=ax, label='Num Images')
@@ -232,17 +232,13 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
     # ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms    
     # plt.fill_between(np.arange(len(hist['min'])), hist['min'], color=color, alpha=0.8, label = "min") # between 0 and min
 
-    if True: #not log_scale:
-        # ax.plot(hist[0], color = color)                         # Plots min of histograms
-        plotHistogramHeatmap(data = hist['data'], ax = ax)
-        # ax.invert_yaxis()
-    else:
-        ax.fill_between(np.arange(len(hist['min'])), hist['max'], color=color, alpha=0.3) #, label = "variance") # between 0 and max
+    plotHistogramHeatmap(data = hist['data'], ax = ax, log_scale=log_scale)
 
+    if log_scale: 
+        plt.yscale('log') # y log scale is handled when generating  imshow for a better colorbar fitting
+        plt.minorticks_on()
 
-    if log_scale: plt.yscale('log')
-
-    plt.title(f'{title} histogram ({n_images} images) ({condition} condition)')
+    plt.title(f'{title} histogram ({n_images} images) {condition}')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
     
@@ -256,38 +252,49 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
     plt.figure(figsize=(9, 3))
 
     # First subplot
-    ax = plt.subplot(1, 2, 1)
+    if lwir_hist is not None:
+        ax = plt.subplot(1, 2, 1)
+    else:
+        ax = plt.subplot(1,1,1)
+
     for hist, title, color in zip([b_hist, g_hist, r_hist], titles, colors):
+        if hist is None: 
+            continue
         ax.plot(hist['average'], color = color, label = f"{title}") # Plots max of histograms
         ax.plot(hist['max'], color = color, linestyle='dashed', linewidth=0.5)
         ax.plot(hist['min'], color = color, linestyle='dashed', linewidth=0.5)
         # plt.fill_between(np.arange(len(hist['min'])), hist['min'], color=color, alpha=0.8, label = "min histogram") # between 0 and min
         # ax.fill_between(np.arange(len(hist['min'])), hist['max'], color=color, alpha=0.3) #, label = "variance") # between 0 and max
 
-        if log_scale: plt.yscale('log')
+        if log_scale: 
+            plt.yscale('log')
+            plt.minorticks_on()
         # Single histogram for each BGR channel
         save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
     
     plt.legend()
-    plt.title(f'RGB histograms ({n_images} images) ({condition})')
+    plt.title(f'RGB histograms ({n_images} images) {condition}')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
-    # Second subplot
-    ax = plt.subplot(1, 2, 2)
-    ax.plot(lwir_hist['average'], color = colors[-1], label = f"{titles[-1]}")
-    ax.plot(lwir_hist['max'], color = colors[-1], linestyle='dashed', linewidth=0.5)
-    ax.plot(lwir_hist['min'], color = colors[-1], linestyle='dashed', linewidth=0.5)
-    # plt.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['min'], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
-    # ax.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['max'], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
-      
+    if lwir_hist is not None:
+        # Second subplot
+        ax = plt.subplot(1, 2, 2)
+        ax.plot(lwir_hist['average'], color = colors[-1], label = f"{titles[-1]}")
+        ax.plot(lwir_hist['max'], color = colors[-1], linestyle='dashed', linewidth=0.5)
+        ax.plot(lwir_hist['min'], color = colors[-1], linestyle='dashed', linewidth=0.5)
+        # plt.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['min'], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
+        # ax.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['max'], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
+        
 
-    if log_scale: plt.yscale('log')
-    save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
-    plt.legend()
-    plt.title(f'LWIR histogram ({n_images} images) ({condition})')
-    plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
+        if log_scale: 
+            plt.yscale('log')
+            plt.minorticks_on()
+        save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
+        plt.legend()
+        plt.title(f'LWIR histogram ({n_images} images) {condition}')
+        plt.xlabel('Pixel Value')
+        plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     plt.tight_layout()
     plt.savefig(os.path.join(store_path,'histogram_pdf',histogram_channel_cfg['tag'],f'{filename}.pdf'))
@@ -421,7 +428,7 @@ def evaluateInputDataset():
                             [f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",f"LWIR {lwich2_type}"], 
                             [c_blue, c_green, c_red, c_yellow],
                             f'{"log_" if log_scale else ""}{condition}_{hist_type}',
-                            n_images=len(data[ch]), log_scale=log_scale, condition = condition, histogram_channel_cfg=histogram_channel_cfg,
+                            n_images=len(data[ch]), log_scale=log_scale, condition = f"({condition} condition)", histogram_channel_cfg=histogram_channel_cfg,
                             store_path=store_path)
 
             
