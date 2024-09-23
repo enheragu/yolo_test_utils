@@ -23,18 +23,29 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy import stats
 
 import pickle
-import cv2 as cv
-
+import cv2 as cv      
 
 # Small hack so packages can be found
-if __name__ == "__main__":
-    import sys
-    sys.path.append('./src')
-    from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
-    from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
-    from utils import color_palette_list
-    from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
-    from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
+# if __name__ == "__main__":
+import sys
+sys.path.append('./src')
+from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
+from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
+from utils import color_palette_list
+from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
+from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
+
+
+histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 'channel_names': ['B', 'G', 'R']},
+                              {'tag': 'HSV', 'conversion': cv.COLOR_BGR2HSV_FULL, 'channel_names': ['H', 'S', 'V']}]
+
+# Store histograms in a list of [b,g,r,lwir] hists for each image
+set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'hist': [], 'CLAHE hist': []},
+            'night': {'sets': ['set03', 'set04', 'set05', 'set09', 'set10', 'set11'], 'hist': [], 'CLAHE hist': []},
+            'day+night': {'hist': [], 'CLAHE hist': []}}
+            
+set_info =  {'BGR': copy.deepcopy(set_info_), 'HSV': copy.deepcopy(set_info_)}    
+
 
 def readImage(path, flag = None):
     if flag is not None:
@@ -43,7 +54,7 @@ def readImage(path, flag = None):
         imagen = cv.imread(path)
     img_heigth, img_width = imagen.shape[:2]
     aspect_ratio = img_width / img_heigth
-    cut_pixels_width = 2
+    cut_pixels_width = 0
     cut_pixels_height = int(cut_pixels_width/aspect_ratio)
     imagen_recortada = imagen[cut_pixels_height:img_heigth-cut_pixels_height, cut_pixels_width:img_width-cut_pixels_width]
     imagen_final = cv.resize(imagen_recortada, (img_width, img_heigth))
@@ -105,24 +116,35 @@ def gethistExpLinear(img):
     expanded_hist = cv.calcHist([cdf[img]], [0], None, [256], [0, 256])
     return cdf[img], expanded_hist # Apply transformation to original image
 
-def extract_hist(img_path, plot = False):
-    b, g, r, lwir = [], [], [], []
-    eq_b, eq_g, eq_r, eq_lwir = [], [], [], []
+def extract_hist(img_path, histogram_channel_config, plot = False):
+    ch0, ch1, ch2, lwir = [], [], [], []
+    eq_ch0, eq_ch1, eq_ch2, eq_lwir = [], [], [], []
 
     # Process visible image
     img = readImage(img_path)
     assert img is not None, "file could not be read, check with os.path.exists()"
-    b = cv.calcHist([img], [0], None, [256], [0, 256])
-    g = cv.calcHist([img], [1], None, [256], [0, 256])
-    r = cv.calcHist([img], [2], None, [256], [0, 256])
+
+    if histogram_channel_config['conversion'] is not None:
+        image = cv.cvtColor(img, histogram_channel_config['conversion'])
+    else:
+        image = img
+        
+    ch0 = cv.calcHist([image], [0], None, [256], [0, 256])
+    ch1 = cv.calcHist([image], [1], None, [256], [0, 256])
+    ch2 = cv.calcHist([image], [2], None, [256], [0, 256])
     
     ycrcb_img = cv.cvtColor(img, cv.COLOR_BGR2YCrCb)
     ycrcb_img[:, :, 0], _ = gethistEqCLAHE(ycrcb_img[:, :, 0]) 
     equalized_img = cv.cvtColor(ycrcb_img, cv.COLOR_YCrCb2BGR)
 
-    eq_b = cv.calcHist([equalized_img], [0], None, [256], [0, 256])
-    eq_g = cv.calcHist([equalized_img], [1], None, [256], [0, 256])
-    eq_r = cv.calcHist([equalized_img], [2], None, [256], [0, 256])
+    if histogram_channel_config['conversion'] is not None:
+        equalized_image = cv.cvtColor(equalized_img, histogram_channel_config['conversion'])
+    else:
+        equalized_image = equalized_img
+        
+    eq_ch0 = cv.calcHist([equalized_image], [0], None, [256], [0, 256])
+    eq_ch1 = cv.calcHist([equalized_image], [1], None, [256], [0, 256])
+    eq_ch2 = cv.calcHist([equalized_image], [2], None, [256], [0, 256])
 
     # b_ch,g_ch,r_ch = cv.split(img)
     # eq_b = gethistEqCLAHE(b_ch)[1]
@@ -137,29 +159,30 @@ def extract_hist(img_path, plot = False):
     lwir = cv.calcHist([img], [0], None, [256], [0, 256])
     eq_lwir = gethistEqCLAHE(img)[1]
         
-    return [b, g, r, lwir], [eq_b, eq_g, eq_r, eq_lwir]
+    return [ch0, ch1, ch2, lwir], [eq_ch0, eq_ch1, eq_ch2, eq_lwir]
 
 
-def process_image(path):
+def process_images(args):
+    path, histogram_channel_config = args
     hist = []
     eq_hist = []
     for file in os.listdir(path):
         if file.endswith((".jpg", ".jpeg", ".pdf", ".npy", ".npz")):
             img_path = os.path.join(path, file)
-            ret_hist, ret_eq_hist = extract_hist(img_path)
+            ret_hist, ret_eq_hist = extract_hist(img_path, histogram_channel_config)
 
             hist.append(ret_hist)
             eq_hist.append(ret_eq_hist)
 
-    return hist, eq_hist, path
+    return hist, eq_hist, path, histogram_channel_config
 
 
-def plotHistogramHeatmap(data, ax, y_bin_num = 50):
+def plotHistogramHeatmap(data, ax, y_bin_num = 30):
     # List of histograms
     histogram_array = np.squeeze(np.array(data))
     num_images, grey_scale = histogram_array.shape
     
-    # ,c_grey
+    # "#ffffff", ... ,c_grey
     color_palette = [c_purple,c_blue,c_green,c_yellow,c_red,c_darkgrey]
     cmap = LinearSegmentedColormap.from_list('custom_cmap', color_palette, N=y_bin_num)
     # cmap = 'RdYlGn_r'
@@ -184,9 +207,11 @@ def plotHistogramHeatmap(data, ax, y_bin_num = 50):
 
             # Generate heatmap to this bin
             density_array_vertical = density_array.reshape(-1, 1)
-            ax.imshow(density_array_vertical, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=max_density),
-                    extent=[idx, idx+1, 0, max_freq],
-                    origin='lower', aspect='auto')
+            # density_array_vertical[density_array_vertical<max_density*0.002] = 0
+            if max_freq > 0:
+                ax.imshow(density_array_vertical, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=max_density),
+                        extent=[idx, idx+1, 0, max_freq],
+                        origin='lower', aspect='auto')
         
         ax.autoscale()
 
@@ -200,8 +225,7 @@ def plotHistogramHeatmap(data, ax, y_bin_num = 50):
         raise e
     
     
-
-def save_histogram_image(hist, title, filename, color, n_images, log_scale = False, condition = '-'):
+def save_histogram_image(hist, title, filename, color, n_images, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path = store_path):
     # plt.figure(figsize=(4.5, 3))
     fig, ax = plt.subplots(figsize=(9, 6))
 
@@ -223,12 +247,12 @@ def save_histogram_image(hist, title, filename, color, n_images, log_scale = Fal
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
     
     plt.tight_layout()
-    plt.savefig(os.path.join(store_path,'histogram_pdf',f'{filename}.pdf'))
-    plt.savefig(os.path.join(store_path,'histogram_png',f'{filename}.png'))
+    plt.savefig(os.path.join(store_path,'histogram_pdf',histogram_channel_cfg['tag'],f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'histogram_png',histogram_channel_cfg['tag'],f'{filename}.png'))
     plt.close()
 
 
-def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms', n_images = 0, log_scale = False, condition = '-'):
+def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms', n_images = 0, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path=store_path):
     plt.figure(figsize=(9, 3))
 
     # First subplot
@@ -242,7 +266,7 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
 
         if log_scale: plt.yscale('log')
         # Single histogram for each BGR channel
-        save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale, condition=condition)
+        save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
     
     plt.legend()
     plt.title(f'RGB histograms ({n_images} images) ({condition})')
@@ -259,27 +283,22 @@ def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename 
       
 
     if log_scale: plt.yscale('log')
-    save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale, condition=condition)
+    save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
     plt.legend()
     plt.title(f'LWIR histogram ({n_images} images) ({condition})')
     plt.xlabel('Pixel Value')
     plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
 
     plt.tight_layout()
-    plt.savefig(os.path.join(store_path,'histogram_pdf',f'{filename}.pdf'))
-    plt.savefig(os.path.join(store_path,'histogram_png',f'{filename}.png'))
+    plt.savefig(os.path.join(store_path,'histogram_pdf',histogram_channel_cfg['tag'],f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'histogram_png',histogram_channel_cfg['tag'],f'{filename}.png'))
     plt.close()
     # plt.show()
 
-# Store histograms in a list of [b,g,r,lwir] hists for each image
-set_info = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'hist': [], 'CLAHE hist': []},
-            'night': {'sets': ['set03', 'set04', 'set05', 'set06', 'set10', 'set11'], 'hist': [], 'CLAHE hist': []},
-            'day+night': {'hist': [], 'CLAHE hist': []}}
-
 
 # Condition is day/night
-def isPathCondition(condition, path):
-    for img_set in set_info[condition]['sets']:
+def isPathCondition(set_info, path):
+    for img_set in set_info:
         if img_set in path:
             return True
     return False
@@ -294,7 +313,7 @@ def shape(lista):
     else:
         return []
 
-def computeHistogramsModes(data_ch, y_bin_num = 50):
+def computeHistogramsModes(data_ch, y_bin_num = 30):
     modes = []
     
     density_matrix = (np.array(data_ch).T)[0]
@@ -321,32 +340,26 @@ def evaluateInputDataset():
     if not os.path.exists(cache_file_path):
         with ThreadPoolExecutor() as executor:
             futures = []
-            for folder_set in os.listdir(kaist_dataset_path):
-                for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
-                    path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
-                    if os.path.isdir(path_set):
-                        visible_folder = os.path.join(path_set, visible_folder_name)
-                        if os.path.exists(visible_folder):
-                            futures.append(executor.submit(process_image, visible_folder))
+            for histogram_channel_config in histogram_channel_cfg_list:
+                for folder_set in os.listdir(kaist_dataset_path):
+                    for subfolder_set in os.listdir(os.path.join(kaist_dataset_path, folder_set)):
+                        path_set = os.path.join(kaist_dataset_path, folder_set, subfolder_set)
+                        if os.path.isdir(path_set):
+                            visible_folder = os.path.join(path_set, visible_folder_name)
+                            if os.path.exists(visible_folder):
+                                args = visible_folder, histogram_channel_config
+                                futures.append(executor.submit(process_images, args))
                 #     break
                 # break
 
-            for future in tqdm(as_completed(futures), total=len(futures), desc='Processing imageSet folders'):
-                hist, eq_hist, path = future.result()
+            for future in tqdm(as_completed(futures), total=len(futures), desc='Processing folders'):
+                hist, eq_hist, path, histogram_channel_config = future.result()
+                tag = histogram_channel_config['tag']
                 for condition in ['day', 'night']:
-                    if isPathCondition(condition, path):
-                        set_info[condition]['hist'].extend(hist)
-                        set_info[condition]['CLAHE hist'].extend(eq_hist)
+                    if isPathCondition(set_info[tag][condition]['sets'], path):
+                        set_info[tag][condition]['hist'].extend(hist)
+                        set_info[tag][condition]['CLAHE hist'].extend(eq_hist)
                         break
-                
-        for condition in ['day', 'night']:
-            for hist_type in ['hist', 'CLAHE hist']:
-                set_info['day+night'][hist_type].extend(set_info[condition][hist_type])
-                # Theres n_images array of 4 elements, we want 4 arrays of hists. Need to transpose :)
-                set_info[condition][hist_type] = [[channel[i] for channel in set_info[condition][hist_type]] for i in range(4)]
-                # print(f"{condition} {hist_type} shape(data)={shape(set_info[condition][hist_type])}")
-                # plotAccumulatedHist(condition, set_info[condition][hist_type], hist_type)
-        
         
         with open(cache_file_path, 'wb') as f:
             pickle.dump(set_info, f)
@@ -356,10 +369,36 @@ def evaluateInputDataset():
         with open(cache_file_path, 'rb') as f:
             set_info = pickle.load(f)
 
-        
-    def plotAccumulatedHist(condition, data, hist_type):
+
+    # This is done once loaded to not interfere with the heavy process before in case of any issue
+    # day+night is just the sum of previous, so is not worth storing duplicated data in the pickle file
+    key_list = [item['tag'] for item in histogram_channel_cfg_list]
+    for tag in key_list:
+        for condition in ['day', 'night']:
+            for hist_type in ['hist', 'CLAHE hist']:
+                ## Accumulate day+night data
+                # set_info[tag]['day+night'][hist_type].extend(set_info[tag][condition][hist_type])
+
+                # Theres n_images array of 4 elements, we want 4 arrays of hists. Need to transpose :)
+                four_channel_hist_list = [[],[],[],[]]
+                for i in range(4):
+                    for channel in set_info[tag][condition][hist_type]:
+                        four_channel_hist_list[i].append(channel[i])
+
+                set_info[tag][condition][hist_type] = four_channel_hist_list
+ 
+        # condition = 'day+night'
+        # for hist_type in ['hist', 'CLAHE hist']:four_channel_hist_list = [[],[],[],[]]
+        #     for i in range(4):
+        #         for channel in set_info[tag][condition][hist_type]:
+        #             four_channel_hist_list[i].append(channel[i])
+
+        #     set_info[tag][condition][hist_type] = four_channel_hist_list
+
+
+    def plotAccumulatedHist(condition, data, hist_type, histogram_channel_cfg):
         hist_data = []
-        channel_name = ["B", "G", "R", "LWIR"]
+        
         for ch in range(4):
             data_ch = np.array(data[ch])
             min_vals = np.min(data_ch, axis=0)
@@ -370,64 +409,28 @@ def evaluateInputDataset():
             mode_vals = computeHistogramsModes(data_ch)
             
             hist_data.append({'min': min_vals, 'max': max_vals, 'average': mean_vals, 'data': data[ch]})
-
-
-            # Plot results
-            # plt.figure(figsize=(12, 6))
-            # # num_samples = data_ch.shape[0]//30
-            # # print(f'{num_samples = }')
-            # # sampled_data = np.random.choice(np.arange(data_ch.shape[0]), size=num_samples, replace=False)
-            # # data_sampled = data_ch[sampled_data, :]
-
-            # # for hist in data_sampled:
-            # #     plt.plot(hist, alpha=0.01, color='b')
-    
-            # plt.plot(min_vals, label='Min', linestyle='dashed', linewidth=0.5)
-            # plt.plot(max_vals, label='Max', linestyle='dashed', linewidth=0.5)
-            # plt.plot(mean_vals, label='Mean')
-            # plt.plot(median_vals, label='Median')
-            # plt.plot(mode_vals, label='Mode')
-            # plt.title(f'Channel {channel_name[ch]} - {hist_type}')
-            # plt.xlabel('Pixel Value')
-            # plt.ylabel('Frequency')
-            # plt.legend()
-            # # plt.tight_layout()
-            # plt.savefig(os.path.join(store_path,f'{channel_name[ch]}_{condition}_{hist_type}.pdf'))
-            # plt.close()
-
-            # plt.show()
-
-            # Store CSV for debugging
-            # np.savetxt(store_path+f"/{channel_name[ch]}_{condition}_{hist_type}.csv", np.squeeze(data_ch), delimiter=",")
         
         if isinstance(hist_type, list):
-            b_type, g_type, r_type, lwir_type = hist_type
+            ch0_type, ch1_type, ch2_type, lwich2_type = hist_type
             hist_type = 'combined'
         else:
-            b_type, g_type, r_type, lwir_type = hist_type, hist_type, hist_type, hist_type
-
+            ch0_type, ch1_type, ch2_type, lwich2_type = hist_type, hist_type, hist_type, hist_type
 
         for log_scale in [True, False]:
             plot_histograms(hist_data[0], hist_data[1], hist_data[2], hist_data[3],
-                            [f"B {b_type}",f"G {g_type}",f"R {r_type}",f"LWIR {lwir_type}"], 
+                            [f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",f"LWIR {lwich2_type}"], 
                             [c_blue, c_green, c_red, c_yellow],
                             f'{"log_" if log_scale else ""}{condition}_{hist_type}',
-                            n_images=len(data[ch]), log_scale=log_scale, condition = condition)
-                
-    condition = 'day+night'
-    for hist_type in ['hist', 'CLAHE hist']:
-        set_info[condition][hist_type] = [[channel[i] for channel in set_info[condition][hist_type]] for i in range(4)]
-        # print(f"{condition} {hist_type} shape(data)={shape(set_info[condition][hist_type])}")
-        # plotAccumulatedHist(condition, set_info[condition][hist_type], hist_type)
+                            n_images=len(data[ch]), log_scale=log_scale, condition = condition, histogram_channel_cfg=histogram_channel_cfg,
+                            store_path=store_path)
 
-    # PLOT BRG hist and LWIR CLAHE
-    for condition in ['day', 'night']: #, 'day+night']:
-        data = [set_info[condition]['CLAHE hist'][0], set_info[condition]['CLAHE hist'][1], set_info[condition]['CLAHE hist'][2], set_info[condition]['CLAHE hist'][3]]
-        plotAccumulatedHist(condition, data, 'CLAHE hist') #['hist', 'hist', 'hist', 'CLAHE hist'])
+            
+    for histogram_channel_cfg in histogram_channel_cfg_list:
+        tag = histogram_channel_cfg['tag']
+        for hist_type in ['hist', 'CLAHE hist']:
+            for condition in ['day', 'night']: #, 'day+night']:
+                plotAccumulatedHist(condition, set_info[tag][condition][hist_type], hist_type=hist_type, histogram_channel_cfg=histogram_channel_cfg) #['hist', 'hist', 'hist', 'CLAHE hist'])
 
-    for condition in ['day', 'night']: #, 'day+night']:
-        data = [set_info[condition]['hist'][0], set_info[condition]['hist'][1], set_info[condition]['hist'][2], set_info[condition]['hist'][3]]
-        plotAccumulatedHist(condition, data, 'hist')
 
 
 def evaluateEqualizationMethods():
@@ -479,9 +482,13 @@ if __name__ == '__main__':
 
     if not os.path.exists(os.path.join(store_path, 'histogram_pdf')):
         os.makedirs(os.path.join(store_path, 'histogram_pdf'))
+        for tag in [item['tag'] for item in histogram_channel_cfg_list]:
+            os.makedirs(os.path.join(store_path, 'histogram_pdf', tag))
     if not os.path.exists(os.path.join(store_path, 'histogram_png')):
         os.makedirs(os.path.join(store_path, 'histogram_png'))
-    
+        for tag in [item['tag'] for item in histogram_channel_cfg_list]:
+            os.makedirs(os.path.join(store_path, 'histogram_png', tag))
+
     # evaluateEqualizationMethods()
 
     evaluateInputDataset()
