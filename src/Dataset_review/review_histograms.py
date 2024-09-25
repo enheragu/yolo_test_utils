@@ -13,6 +13,7 @@ import threading
 from pathlib import Path
 import copy
 from tqdm import tqdm
+from tabulate import tabulate
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -340,6 +341,50 @@ def computeHistogramsModes(data_ch, y_bin_num = 30):
         
     return np.array(modes)
 
+def computeChannelMetrics(datach,hist_data,log_table):
+    data_ch = np.array(datach)
+    min_vals = np.min(data_ch, axis=0)
+    max_vals = np.max(data_ch, axis=0)
+    mean_vals = np.mean(data_ch, axis=0)  
+
+    std_vals = np.std(data_ch, axis=0)
+    max_vals = mean_vals + 4*std_vals
+    min_vals = np.maximum(mean_vals - 4 * std_vals, 0)
+
+    mean_mean = np.mean(mean_vals)
+    std_mean = np.mean(std_vals)
+    variation_coef =  (std_mean / mean_mean) * 100
+
+    brightness_values = []
+
+    # print(f"{data_ch.shape}")
+    for histogram in (data_ch.squeeze(axis=2)):
+        normalized_histogram = histogram / np.sum(histogram)
+        brightness = np.sum(normalized_histogram * np.arange(256))
+        brightness_values.append(brightness)
+
+    brightness_values = np.array(brightness_values)
+    mean_brightness = np.mean(brightness_values)
+    std_brightness = np.std(brightness_values)
+    variation_coef_brightness =  (std_brightness / mean_brightness) * 100
+                
+    hist_data.append({'min': min_vals, 'max': max_vals, 'average': mean_vals, 'data': datach,
+                        'std': std_vals, 'mean_stds': std_mean, 'mean_means': mean_mean, 'cv': variation_coef,
+                        'mean_brightness': mean_brightness, 'std_brightness':std_brightness, 'cv_brightness': variation_coef_brightness})
+    
+    if log_table is not None:
+        log_table[-1].extend([f"{variation_coef:.3f}",
+                              f"{mean_mean:.2f}",
+                              f"{std_mean:.3f}",
+                              f"{mean_brightness:.3f}",
+                              f"{std_brightness:.3f}",
+                              f"{variation_coef_brightness:.3f}"])
+
+    ## ¿Intervals that could be considered?
+    # Dark image: Average brightness between 0 and 85.
+    # Normal image: Average brightness between 85 and 170.
+    # Bright image: Average brightness between 170 and 255.
+
 def evaluateInputDataset():
     global set_info
 
@@ -405,18 +450,16 @@ def evaluateInputDataset():
 
     def plotAccumulatedHist(condition, data, hist_type, histogram_channel_cfg):
         hist_data = []
-        
+        channel_names = histogram_channel_cfg['channel_names'] + ['LWIR']
+
+        log_table_headers = ['Test', 'CV Freq.', 'Mean F.', 'Std. F.', 'Mean Bright.', 'Std B.', 'CV B.']
+        log_table_data = []
         for ch in range(4):
-            data_ch = np.array(data[ch])
-            min_vals = np.min(data_ch, axis=0)
-            max_vals = np.max(data_ch, axis=0)
-            
-            mean_vals = np.mean(data_ch, axis=0)
-            median_vals = np.median(data_ch, axis=0)
-            mode_vals = computeHistogramsModes(data_ch)
-            
-            hist_data.append({'min': min_vals, 'max': max_vals, 'average': mean_vals, 'data': data[ch]})
-        
+            log_table_data.append([f"[{condition}][{hist_type}][{channel_names[ch]}]"])
+            computeChannelMetrics(data[ch], hist_data, log_table_data)            
+
+        print(tabulate(log_table_data, headers=log_table_headers, tablefmt="pretty"))
+
         if isinstance(hist_type, list):
             ch0_type, ch1_type, ch2_type, lwich2_type = hist_type
             hist_type = 'combined'
@@ -425,16 +468,19 @@ def evaluateInputDataset():
 
         for log_scale in [True, False]:
             plot_histograms(hist_data[0], hist_data[1], hist_data[2], hist_data[3],
-                            [f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",f"LWIR {lwich2_type}"], 
+                            [f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",
+                             f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",
+                             f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",
+                             f"LWIR {lwich2_type}"], 
                             [c_blue, c_green, c_red, c_yellow],
                             f'{"log_" if log_scale else ""}{condition}_{hist_type}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = f"({condition} condition)", histogram_channel_cfg=histogram_channel_cfg,
                             store_path=store_path)
 
             
-    for histogram_channel_cfg in histogram_channel_cfg_list:
-        tag = histogram_channel_cfg['tag']
-        for hist_type in ['hist', 'CLAHE hist']:
+    for hist_type in ['CLAHE hist', 'hist']:
+        for histogram_channel_cfg in histogram_channel_cfg_list:
+            tag = histogram_channel_cfg['tag']
             for condition in ['day', 'night']: #, 'day+night']:
                 plotAccumulatedHist(condition, set_info[tag][condition][hist_type], hist_type=hist_type, histogram_channel_cfg=histogram_channel_cfg) #['hist', 'hist', 'hist', 'CLAHE hist'])
 
