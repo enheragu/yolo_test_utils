@@ -9,8 +9,6 @@
 
 import os  
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-from pathlib import Path
 import copy
 from tqdm import tqdm
 from tabulate import tabulate
@@ -31,11 +29,8 @@ import cv2 as cv
 # if __name__ == "__main__":
 import sys
 sys.path.append('./src')
-from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
-from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
-from utils import color_palette_list
 from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
-from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
+from Dataset_review.review_dataset import home, kaist_dataset_path, visible_folder_name, lwir_folder_name, store_path
 
 # Careful when chosing y_limit if working with or without normalized histograms or not!
 histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 
@@ -158,13 +153,16 @@ def extract_hist(img_path, histogram_channel_config, plot = False):
     # eq_g = gethistEqCLAHE(g_ch)[1]
     # eq_r = gethistEqCLAHE(r_ch)[1]
 
-    # Process LWIR correspondant image
-    img_path = img_path.replace(visible_folder_name, lwir_folder_name)
-    img = readImage(img_path, cv.IMREAD_GRAYSCALE)
-    assert img is not None, "file could not be read, check with os.path.exists()"
-    
-    lwir = cv.calcHist([img], [0], None, [256], [0, 256])
-    eq_lwir = gethistEqCLAHE(img)[1]
+    ## not elegant at all... :) sorryn't, for now...
+    # only LWIR when processing Kaist dataset
+    if __name__ == '__main__':
+        # Process LWIR correspondant image
+        img_path = img_path.replace(visible_folder_name, lwir_folder_name)
+        img = readImage(img_path, cv.IMREAD_GRAYSCALE)
+        assert img is not None, "file could not be read, check with os.path.exists()"
+        
+        lwir = cv.calcHist([img], [0], None, [256], [0, 256])
+        eq_lwir = gethistEqCLAHE(img)[1]
         
     return [ch0, ch1, ch2, lwir], [eq_ch0, eq_ch1, eq_ch2, eq_lwir]
 
@@ -361,16 +359,14 @@ def computeChannelMetrics(datach,hist_data,log_table):
         log_table[-1].extend([f"{variation_coef:.3f}",
                               f"{mean_mean:.2f}",
                               f"{std_mean:.3f}",
+                              f"{variation_coef_brightness:.3f}",
                               f"{mean_brightness:.3f}",
-                              f"{std_brightness:.3f}",
-                              f"{variation_coef_brightness:.3f}"])
+                              f"{std_brightness:.3f}"])
 
     ## ¿Intervals that could be considered?
     # Dark image: Average brightness between 0 and 85.
     # Normal image: Average brightness between 85 and 170.
     # Bright image: Average brightness between 170 and 255.
-
-
 
 
     # Histogram normalization for plotting!
@@ -464,7 +460,7 @@ def evaluateInputDataset():
         hist_data = []
         channel_names = histogram_channel_cfg['channel_names'] + ['LWIR']
 
-        log_table_headers = ['Test', 'CV Freq.', 'Mean F.', 'Std. F.', 'Mean Bright.', 'Std B.', 'CV B.']
+        log_table_headers = ['Test', 'CV Freq.', 'Mean F.', 'Std. F.', 'CV B.', 'Mean Bright.', 'Std B.']
         log_table_data = []
         for ch in range(4):
             log_table_data.append([f"[{condition}][{hist_type}][{channel_names[ch]}]"])
