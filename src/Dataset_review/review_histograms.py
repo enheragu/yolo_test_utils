@@ -15,6 +15,7 @@ import copy
 from tqdm import tqdm
 from tabulate import tabulate
 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 # import matplotlib.patches as mpatches
@@ -36,9 +37,11 @@ from utils import color_palette_list
 from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
 from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
 
-
-histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 'channel_names': ['B', 'G', 'R']},
-                              {'tag': 'HSV', 'conversion': cv.COLOR_BGR2HSV_FULL, 'channel_names': ['H', 'S', 'V']}]
+# Careful when chosing y_limit if working with or without normalized histograms or not!
+histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 
+                               'channel_names': ['B', 'G', 'R'], 'y_limit': [15,10,12.5,30]}, 
+                              {'tag': 'HSV', 'conversion': cv.COLOR_BGR2HSV_FULL, 
+                               'channel_names': ['H', 'S', 'V'], 'y_limit': [17,11,11,30]}]
 
 # Store histograms in a list of [b,g,r,lwir] hists for each image
 set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'hist': [], 'CLAHE hist': []},
@@ -46,6 +49,8 @@ set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set0
             'day+night': {'hist': [], 'CLAHE hist': []}}
             
 set_info =  {'BGR': copy.deepcopy(set_info_), 'HSV': copy.deepcopy(set_info_)}    
+
+store_path_histogram = os.path.join(store_path, 'review_histogram')
 
 
 def readImage(path, flag = None):
@@ -62,7 +67,7 @@ def readImage(path, flag = None):
     
     return imagen_final
 
-def save_images(img_hist_list, filename, img_path):
+def save_images(img_hist_list, filename, img_path, store_path=store_path_histogram):
     rows = 2
     cols = len(img_hist_list)
 
@@ -123,6 +128,7 @@ def extract_hist(img_path, histogram_channel_config, plot = False):
 
     # Process visible image
     img = readImage(img_path)
+
     assert img is not None, "file could not be read, check with os.path.exists()"
 
     if histogram_channel_config['conversion'] is not None:
@@ -178,46 +184,55 @@ def process_images(args):
     return hist, eq_hist, path, histogram_channel_config
 
 
-def plotHistogramHeatmap(data, ax, y_bin_num = 30, log_scale = False):
+def plotHistogramHeatmap(data, ax, density_bin_num = 40, freq_bin_num = 30, log_scale = False, y_limit = None):
     # List of histograms
+    
     histogram_array = np.squeeze(np.array(data))
     num_images, grey_scale = histogram_array.shape
     
     # "#ffffff", ... ,c_grey
     color_palette = [c_purple,c_blue,c_green,c_yellow,c_red,c_darkgrey]
-    cmap = LinearSegmentedColormap.from_list('custom_cmap', color_palette, N=y_bin_num)
-    # cmap = 'RdYlGn_r'
-    # cmap = 'inferno'
-    # cmap = plt.get_cmap('Spectral', y_bin_num)
+    cmap = LinearSegmentedColormap.from_list('custom_cmap', color_palette, N=density_bin_num)
+    
     vmin=1
     vmax = np.max(histogram_array) + 1e-10
     min_freq = 0
+    max_freq = 0
     
+    # Adapt frecuency bins to y_limit cut
+    freq_lim = y_limit if y_limit is not None else vmax
+    frecuency_bins = math.ceil((vmax*freq_bin_num)/freq_lim)
     try:
-        max_density = vmin
+        max_density = vmin # When normalized, else initialize to vmin
+        ## No normalization:
         for idx in range(grey_scale):
-            density_array, _ = np.histogram(histogram_array[:,idx], bins=y_bin_num)
+            density_array, _ = np.histogram(histogram_array[:,idx], bins=frecuency_bins)
+            # density_array = (density_array/num_images)*100
             max_density = max(np.max(density_array), max_density)
 
         for idx in range(grey_scale):
-            max_freq = np.max(histogram_array[:,idx])
-            density_array, _ = np.histogram(histogram_array[:,idx], bins=y_bin_num)
+            density_array, _ = np.histogram(histogram_array[:,idx], bins=frecuency_bins)
+            
+            # Normalization :)
+            # density_array = (density_array/num_images)*100
+            
             if np.any(density_array == 0): # If all zero -> Zero to small amount :)
                 density_array[density_array == 0] = 1e-10
-            # Generate heatmap to this bin
+            
             density_array_vertical = density_array.reshape(-1, 1)
-            # density_array_vertical[density_array_vertical<max_density*0.002] = 0
-
+            
             extra_x = 0 if not log_scale else 0.2
+            max_freq = np.max(histogram_array[:,idx])
             if max_freq > 0:
                 ax.imshow(density_array_vertical, cmap=cmap, norm=LogNorm(vmin=vmin, vmax=max_density),
                         extent=[idx, idx+1+extra_x, min_freq, max_freq],
                         origin='lower', aspect='auto')
-            
-        ax.autoscale()
+        
+        ax.set_ylim(0, freq_lim)
+        ax.set_xlim(0, 256)
 
         cb = plt.colorbar(ax.images[0], ax=ax, label='Num Images')
-        tick_locator = LogLocator(numticks=y_bin_num)
+        tick_locator = LogLocator(numticks=density_bin_num)
         cb.locator = tick_locator
         cb.update_ticks()
     
@@ -226,80 +241,58 @@ def plotHistogramHeatmap(data, ax, y_bin_num = 30, log_scale = False):
         raise e
     
     
-def save_histogram_image(hist, title, filename, color, n_images, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path = store_path):
+def save_histogram_image(hist, label, filename, color, n_images, y_limit = None, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path = store_path_histogram):
     # plt.figure(figsize=(4.5, 3))
     fig, ax = plt.subplots(figsize=(9, 6))
 
-    # ax.plot(hist[1], color = color, label = f"{title} (max)") # Plots max of histograms    
+    # ax.plot(hist[1], color = color, label = f"{label} (max)") # Plots max of histograms    
     # plt.fill_between(np.arange(len(hist['min'])), hist['min'], color=color, alpha=0.8, label = "min") # between 0 and min
 
-    plotHistogramHeatmap(data = hist['data'], ax = ax, log_scale=log_scale)
+    plotHistogramHeatmap(data = hist['data'], ax = ax, log_scale=log_scale, y_limit=y_limit)
 
     if log_scale: 
         plt.yscale('log') # y log scale is handled when generating  imshow for a better colorbar fitting
         plt.minorticks_on()
 
-    plt.title(f'{title} histogram ({n_images} images) {condition}')
+    plt.title(f'{label} histogram ({n_images} images) {condition}')
     plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
+    plt.ylabel('Frequency (%)' + (' (log scale)' if log_scale else ''))
     
     plt.tight_layout()
-    plt.savefig(os.path.join(store_path,'histogram_pdf',histogram_channel_cfg['tag'],f'{filename}.pdf'))
-    plt.savefig(os.path.join(store_path,'histogram_png',histogram_channel_cfg['tag'],f'{filename}.png'))
+    plt.savefig(os.path.join(store_path,'histogram_pdf',f"{histogram_channel_cfg['tag']}{'_log_scale' if log_scale else ''}",f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'histogram_png',f"{histogram_channel_cfg['tag']}{'_log_scale' if log_scale else ''}",f'{filename}.png'))
     plt.close()
 
 
-def plot_histograms(b_hist, g_hist, r_hist, lwir_hist, titles, colors, filename = 'histograms', n_images = 0, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path=store_path):
+def plot_histograms(hist_list, shape, labels, colors, y_limit = None, filename = 'histograms', n_images = 0, log_scale = False, condition = '-', histogram_channel_cfg={}, store_path=store_path_histogram):
     plt.figure(figsize=(9, 3))
 
-    # First subplot
-    if lwir_hist is not None:
-        ax = plt.subplot(1, 2, 1)
-    else:
-        ax = plt.subplot(1,1,1)
-
-    for hist, title, color in zip([b_hist, g_hist, r_hist], titles, colors):
-        if hist is None: 
-            continue
-        ax.plot(hist['average'], color = color, label = f"{title}") # Plots max of histograms
-        ax.plot(hist['max'], color = color, linestyle='dashed', linewidth=0.5)
-        ax.plot(hist['min'], color = color, linestyle='dashed', linewidth=0.5)
-        # plt.fill_between(np.arange(len(hist['min'])), hist['min'], color=color, alpha=0.8, label = "min histogram") # between 0 and min
-        # ax.fill_between(np.arange(len(hist['min'])), hist['max'], color=color, alpha=0.3) #, label = "variance") # between 0 and max
-
-        if log_scale: 
-            plt.yscale('log')
-            plt.minorticks_on()
-        # Single histogram for each BGR channel
-        save_histogram_image(hist, title, f'{title.lower().replace(" ", "_")}_{filename}', color=color, n_images=n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
-    
-    plt.legend()
-    plt.title(f'RGB histograms ({n_images} images) {condition}')
-    plt.xlabel('Pixel Value')
-    plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
-
-    if lwir_hist is not None:
-        # Second subplot
-        ax = plt.subplot(1, 2, 2)
-        ax.plot(lwir_hist['average'], color = colors[-1], label = f"{titles[-1]}")
-        ax.plot(lwir_hist['max'], color = colors[-1], linestyle='dashed', linewidth=0.5)
-        ax.plot(lwir_hist['min'], color = colors[-1], linestyle='dashed', linewidth=0.5)
-        # plt.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['min'], color=colors[-1], alpha=0.8, label = "min histogram") # between 0 and min
-        # ax.fill_between(np.arange(len(lwir_hist['min'])), lwir_hist['max'], color=colors[-1], alpha=0.3) #, label = "variance") # Minimum in between 0 and max    
-        
-
-        if log_scale: 
-            plt.yscale('log')
-            plt.minorticks_on()
-        save_histogram_image(lwir_hist, titles[-1], f'{titles[-1].lower().replace(" ", "_")}_{filename}', color=colors[-1], n_images = n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
+    hist_index = 0
+    for subfix_index, subfig in enumerate(shape):
+        ax = plt.subplot(1, len(shape), subfix_index+1)
+        for hist_index in range(hist_index,hist_index+subfig):
+            ax.plot(hist_list[hist_index]['average'], color = colors[hist_index], label = f"{labels[hist_index]}") # Plots max of histograms
+            ax.plot(hist_list[hist_index]['max'], color = colors[hist_index], linestyle='dashed', linewidth=0.5)
+            ax.plot(hist_list[hist_index]['min'], color = colors[hist_index], linestyle='dashed', linewidth=0.5)
+            
+            if log_scale: 
+                plt.yscale('log')
+                plt.minorticks_on()
+        hist_index+=1 # Last loop of for is not incrementing :)
+            
+            
         plt.legend()
-        plt.title(f'LWIR histogram ({n_images} images) {condition}')
+        plt.title(f'Histograms ({n_images} images) {condition}')
         plt.xlabel('Pixel Value')
-        plt.ylabel('Frequency' + (' (log scale)' if log_scale else ''))
+        plt.ylabel('Frequency (%)' + (' (log scale)' if log_scale else ''))
 
+    for index, histogram_ch in enumerate(hist_list):
+        curr_y_limit = None if y_limit is None else y_limit[index]
+        save_histogram_image(histogram_ch, labels[index], y_limit=curr_y_limit, filename=f'{labels[index].lower().replace(" ", "_")}_{filename}', color=colors[index], n_images=n_images, log_scale=log_scale, condition=condition, histogram_channel_cfg=histogram_channel_cfg, store_path=store_path)
+  
     plt.tight_layout()
-    plt.savefig(os.path.join(store_path,'histogram_pdf',histogram_channel_cfg['tag'],f'{filename}.pdf'))
-    plt.savefig(os.path.join(store_path,'histogram_png',histogram_channel_cfg['tag'],f'{filename}.png'))
+    plt.savefig(os.path.join(store_path,'histogram_pdf', f"{histogram_channel_cfg['tag']}{'_log_scale' if log_scale else ''}",f'{filename}.pdf'))
+    plt.savefig(os.path.join(store_path,'histogram_png', f"{histogram_channel_cfg['tag']}{'_log_scale' if log_scale else ''}",f'{filename}.png'))
     plt.close()
     # plt.show()
 
@@ -321,40 +314,30 @@ def shape(lista):
     else:
         return []
 
-def computeHistogramsModes(data_ch, y_bin_num = 30):
-    modes = []
+# def computeHistogramsModes(data_ch, density_bin_num = 40):
+#     modes = []
     
-    density_matrix = (np.array(data_ch).T)[0]
-    num_bins, num_images = density_matrix.shape
+#     density_matrix = (np.array(data_ch).T)[0]
+#     num_bins, num_images = density_matrix.shape
     
-    # print(f"{density_matrix.shape = }")
-    vmax = np.max(density_matrix)
+#     # print(f"{density_matrix.shape = }")
+#     vmax = np.max(density_matrix)
     
-    for idx in range(num_bins):
-        column = density_matrix[idx,:]
-        hist_values, hist_edges = np.histogram(column, bins=np.linspace(0, vmax, y_bin_num))
+#     for idx in range(num_bins):
+#         column = density_matrix[idx,:]
+#         hist_values, hist_edges = np.histogram(column, bins=np.linspace(0, vmax, density_bin_num))
 
-        mode_bin_index = np.argmax(hist_values) # higher freq. bin :)
-        mode_value = (vmax/y_bin_num)*(mode_bin_index+0.5)
-        # print(f"{y_bin_num = }; {mode_bin = }; {mode_value = }; {vmax = }")
-        modes.append(mode_value)
+#         mode_bin_index = np.argmax(hist_values) # higher freq. bin :)
+#         mode_value = (vmax/density_bin_num)*(mode_bin_index+0.5)
+#         # print(f"{density_bin_num = }; {mode_bin = }; {mode_value = }; {vmax = }")
+#         modes.append(mode_value)
         
-    return np.array(modes)
+#     return np.array(modes)
 
 def computeChannelMetrics(datach,hist_data,log_table):
     data_ch = np.array(datach)
-    min_vals = np.min(data_ch, axis=0)
-    max_vals = np.max(data_ch, axis=0)
-    mean_vals = np.mean(data_ch, axis=0)  
-
-    std_vals = np.std(data_ch, axis=0)
-    max_vals = mean_vals + 4*std_vals
-    min_vals = np.maximum(mean_vals - 4 * std_vals, 0)
-
-    mean_mean = np.mean(mean_vals)
-    std_mean = np.mean(std_vals)
-    variation_coef =  (std_mean / mean_mean) * 100
-
+    
+    ## Coeficients without normalization!
     brightness_values = []
 
     # print(f"{data_ch.shape}")
@@ -367,11 +350,13 @@ def computeChannelMetrics(datach,hist_data,log_table):
     mean_brightness = np.mean(brightness_values)
     std_brightness = np.std(brightness_values)
     variation_coef_brightness =  (std_brightness / mean_brightness) * 100
-                
-    hist_data.append({'min': min_vals, 'max': max_vals, 'average': mean_vals, 'data': datach,
-                        'std': std_vals, 'mean_stds': std_mean, 'mean_means': mean_mean, 'cv': variation_coef,
-                        'mean_brightness': mean_brightness, 'std_brightness':std_brightness, 'cv_brightness': variation_coef_brightness})
     
+    mean_vals = np.mean(data_ch, axis=0)  
+    std_vals = np.std(data_ch, axis=0)
+    mean_mean = np.mean(mean_vals)
+    std_mean = np.mean(std_vals)
+    variation_coef =  (std_mean / mean_mean) * 100
+
     if log_table is not None:
         log_table[-1].extend([f"{variation_coef:.3f}",
                               f"{mean_mean:.2f}",
@@ -385,10 +370,37 @@ def computeChannelMetrics(datach,hist_data,log_table):
     # Normal image: Average brightness between 85 and 170.
     # Bright image: Average brightness between 170 and 255.
 
+
+
+
+    # Histogram normalization for plotting!
+    normalized_data_ch = np.zeros_like(data_ch)
+    for i in range(data_ch.shape[0]):
+        histogram = data_ch[i].squeeze()
+        normalized_histogram = (histogram / np.sum(histogram)) * 100
+        normalized_data_ch[i] = normalized_histogram.reshape(256, 1)
+    data_ch = normalized_data_ch
+    datach = normalized_data_ch.tolist()
+        
+    min_vals = np.min(data_ch, axis=0)
+    max_vals = np.max(data_ch, axis=0)
+    mean_vals = np.mean(data_ch, axis=0)  
+
+    std_vals = np.std(data_ch, axis=0)
+    max_vals = mean_vals + 4*std_vals
+    min_vals = np.maximum(mean_vals - 4 * std_vals, 0)
+
+
+                
+    hist_data.append({'min': min_vals, 'max': max_vals, 'average': mean_vals, 'data': datach,
+                        'std': std_vals, 'mean_stds': std_mean, 'mean_means': mean_mean, 'cv': variation_coef,
+                        'mean_brightness': mean_brightness, 'std_brightness':std_brightness, 'cv_brightness': variation_coef_brightness})
+    
+
 def evaluateInputDataset():
     global set_info
 
-    cache_file_path = os.path.join(store_path, 'set_info.pkl')
+    cache_file_path = os.path.join(store_path_histogram, 'set_info.pkl')
     if not os.path.exists(cache_file_path):
         with ThreadPoolExecutor() as executor:
             futures = []
@@ -467,18 +479,20 @@ def evaluateInputDataset():
             ch0_type, ch1_type, ch2_type, lwich2_type = hist_type, hist_type, hist_type, hist_type
 
         for log_scale in [True, False]:
-            plot_histograms(hist_data[0], hist_data[1], hist_data[2], hist_data[3],
-                            [f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",
+            plot_histograms(hist_list=[hist_data[0], hist_data[1], hist_data[2], hist_data[3]],
+                            shape=[3,1],
+                            y_limit=histogram_channel_cfg['y_limit'],
+                            labels=[f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",
                              f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",
                              f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",
                              f"LWIR {lwich2_type}"], 
-                            [c_blue, c_green, c_red, c_yellow],
-                            f'{"log_" if log_scale else ""}{condition}_{hist_type}',
+                            colors=[c_blue, c_green, c_red, c_yellow],
+                            filename=f'{"log_" if log_scale else ""}{condition}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = f"({condition} condition)", histogram_channel_cfg=histogram_channel_cfg,
-                            store_path=store_path)
+                            store_path=store_path_histogram)
 
             
-    for hist_type in ['CLAHE hist', 'hist']:
+    for hist_type in ['hist']: # 'CLAHE hist', 
         for histogram_channel_cfg in histogram_channel_cfg_list:
             tag = histogram_channel_cfg['tag']
             for condition in ['day', 'night']: #, 'day+night']:
@@ -533,14 +547,10 @@ def evaluateEqualizationMethods():
 
 if __name__ == '__main__':
 
-    if not os.path.exists(os.path.join(store_path, 'histogram_pdf')):
-        os.makedirs(os.path.join(store_path, 'histogram_pdf'))
+    for hist_format in ['histogram_pdf', 'histogram_png']:
         for tag in [item['tag'] for item in histogram_channel_cfg_list]:
-            os.makedirs(os.path.join(store_path, 'histogram_pdf', tag))
-    if not os.path.exists(os.path.join(store_path, 'histogram_png')):
-        os.makedirs(os.path.join(store_path, 'histogram_png'))
-        for tag in [item['tag'] for item in histogram_channel_cfg_list]:
-            os.makedirs(os.path.join(store_path, 'histogram_png', tag))
+            os.makedirs(os.path.join(store_path_histogram, hist_format, tag), exist_ok=True)
+            os.makedirs(os.path.join(store_path_histogram, hist_format, f'{tag}_log_scale'), exist_ok=True)
 
     # evaluateEqualizationMethods()
 
