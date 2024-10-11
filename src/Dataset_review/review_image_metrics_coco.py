@@ -48,7 +48,6 @@ def reviewImageMetrics():
                 if isPathCondition(set_info[condition]['sets'], path):
                     set_info[condition]['contrast'].extend(contrast)
                     set_info[condition]['sharpness'].extend(sharpness)
-                    break
         
         with open(cache_file_path, 'wb') as f:
             pickle.dump(set_info, f)
@@ -64,10 +63,14 @@ def reviewImageMetrics():
         # set_info['day+night'][data_type].extend(set_info[condition][data_type])
 
         # Theres n_images array of 2 elements, only one channel, make it flat
-        set_info[condition][data_type] = set_info[condition][data_type][0]
+        one_channel_list = []
+        for channel in set_info[condition][data_type]:
+            one_channel_list.append(channel[0])
+
+        set_info[condition][data_type] = one_channel_list
  
     for data_type in ['contrast', 'sharpness']:
-        data = set_info[condition][data_type][0]
+        data = set_info[condition][data_type]
         log_table_headers = ['Test', 'CV', 'Mean', 'Std.', 'N Img.']
         
         log_table_data = []

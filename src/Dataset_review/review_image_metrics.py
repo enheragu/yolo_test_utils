@@ -9,20 +9,10 @@
 
 import os  
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-from pathlib import Path
-import copy
 from tqdm import tqdm
 from tabulate import tabulate
 
-import math
 import numpy as np
-import matplotlib.pyplot as plt
-# import matplotlib.patches as mpatches
-from matplotlib.colors import LogNorm 
-from matplotlib.ticker import LogLocator
-from matplotlib.colors import LinearSegmentedColormap
-from scipy import stats
 
 import pickle
 import cv2 as cv      
@@ -31,11 +21,7 @@ import cv2 as cv
 # if __name__ == "__main__":
 import sys
 sys.path.append('./src')
-from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
-from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch
-from utils import color_palette_list
-from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
-from Dataset_review.review_dataset import home, kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
+from Dataset_review.review_dataset import kaist_dataset_path, visible_folder_name, lwir_folder_name, store_path
 from Dataset_review.review_histograms import readImage
 
 # Store histograms in a list of [b,g,r,lwir] hists for each image
@@ -127,7 +113,7 @@ def computeChannelMetrics(datach,log_table):
         log_table[-1].extend([f"{variation_coef:.3f}",
                               f"{data_mean:.2f}",
                               f"{data_std:.3f}",
-                              f"{len(datach)}"])
+                              f"{len(data_ch)}"])
                 
 
 def reviewImageMetrics():
