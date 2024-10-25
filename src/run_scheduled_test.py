@@ -21,13 +21,49 @@ import src # Imports __init__.py defined in paralel to this script
 
 def ask_yes_no(question):
     while True:
-        response = input(f"{question} (y/n): ").strip().lower()
+        print(f"{question} (y/n): ")
+        response = input().strip().lower()
         if response in ['y', 'yes']:
             return True
         elif response in ['n', 'no']:
             return False
         else:
             print("Answer with 'y' or 'n'.")
+
+
+
+import threading
+import psutil
+import faulthandler
+"""
+    Review unfinished threads and processes status launched from this script.
+
+    terminate_process (bool): If true forces termination of all child processes found
+"""
+def monitor_threads_and_processes(terminate_process=False):
+    parent = psutil.Process()
+    children = parent.children(recursive=True)
+    
+    log(f"Total child processes: {len(children)}", bcolors.WARNING)
+    for child in children:
+        log(f"PID: {child.pid}, Name: {child.name()}, Status: {child.status()}", bcolors.WARNING)
+        log(f"\t· Cmdline: {child.cmdline()}", bcolors.WARNING)
+        log(f"\t· CPU Time: {child.cpu_times()}", bcolors.WARNING)
+        log(f"\t· Memory Info: {child.memory_info()}", bcolors.WARNING)
+        
+        if terminate_process:
+            log(f"\t· Terminating process {child.pid}...", bcolors.WARNING)
+            child.terminate()
+            child.wait()  
+            log(f"\t· Process {child.pid} terminated.\n", bcolors.WARNING)
+
+    active_threads = threading.enumerate()
+    log(f"Total active threads: {len(active_threads)}", bcolors.WARNING)
+    for thread in active_threads:
+        log(f"\t· Thread Name: {thread.name}, Thread ID: {thread.ident}, Is daemon: {thread.daemon}", bcolors.WARNING)
+    
+    # log("Thread Tracebacks:", bcolors.WARNING)
+    # faulthandler.dump_traceback()
 
 if __name__ == '__main__':
     logger = Logger(yolo_outpu_log_path)
@@ -138,6 +174,7 @@ if __name__ == '__main__':
                         log(f"Options executed (iteration: {index+1}/{opts.iterations}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
                         raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: {dataset = }; {model_list = }; run mode = {opts.run_mode}"
                         log_ntfy(raw_msg, success=True)
+            monitor_threads_and_processes(terminate_process=True)
             logCoolMessage(f"CLEAN FINISH TEST EXECUTION")
             clearCFGFIles(dataset_config_list)
             test_queue.finished_test(True)

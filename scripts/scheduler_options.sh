@@ -45,6 +45,38 @@ function eeha_stop_device1_scheduler() {
     # Remove file :) -> rm $HOME/.cache/eeha_yolo_test/STOP_REQUESTED
 }
 
+
+
+function eeha_keep_scheduler_running()
+{
+    export PENDING_TESTS="/home/arvc/.cache/eeha_yolo_test/pending.yaml"
+    export SCHEDULER_CMD="python3 ./src/run_scheduled_test.py"
+
+    while true; do
+        # Check if the process is running
+        if pgrep -f "$SCHEDULER_CMD" > /dev/null; then
+            echo "Scheduler process is still running :) just do nothing, checking again in 30 min."
+            sleep 1800  # sleep for 30 minutes
+        else
+            eeha_run_scheduler
+        fi
+
+        # Check if the YAML file exists and has relevant content
+        if [ -f "$PENDING_TESTS" ]; then
+            if grep -q '^[^#[:space:]]' "$PENDING_TESTS" && ! grep -q '^\[\]$' "$PENDING_TESTS"; then
+                echo "YAML file ($PENDING_TESTS) still has content, keeping the loop."
+            else
+                echo "YAML file ($PENDING_TESTS) is empty, no more tests to execute :)"
+                break
+            fi
+        else
+            echo "YAML file ($PENDING_TESTS) does not exist, exiting."
+            break
+        fi
+    done
+}
+
+
 function eeha_run_scheduler() {
     echo "EEHA_ACTIVE_TEST_TIMETABLE: $EEHA_ACTIVE_TEST_TIMETABLE"
     echo "EEHA_TRAIN_DEVICE_TAG: $EEHA_TRAIN_DEVICE_TAG"
@@ -173,13 +205,16 @@ function rsync_cache() {
 
 # Effects of equalization on original images 
 # (both eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
 
 # (rgb_eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
 
 # (th_eq)
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'rgbt' 'vt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
 
 
@@ -190,9 +225,9 @@ function rsync_cache() {
 # Is sameseed really working?
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_sameseed" --iterations 10
 
-########################################
-##  MALAGA NON-STATIC PAPER SIMPOSIO  ##
-########################################
+###################################
+##       NON-STATIC PAPER        ##
+###################################
 
 ## First channel is the only one with information :(
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' 'fa_rgbt_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_no_equalization"
@@ -205,8 +240,6 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_th_equalization" --th_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'
-
-
 
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vt_2ch' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
