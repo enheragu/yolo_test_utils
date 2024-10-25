@@ -53,11 +53,17 @@ class Logger(object):
         from ultralytics.yolo.utils import LOGGER
         LOGGER.addHandler(logging.StreamHandler(self))
 
+    def fileno(self):
+        # Needed function for some libraries
+        return self.terminal.fileno()
+    
     def _create_log_file(self):
         timetag = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         self.log_file_name = f"{self.output_path}/{timetag}_test_yolo.log"
 
-        if os.path.exists(self.executing_symlink):
+        # Use islink instead of exists. If it appears in red, pointing to nonexistent
+        # file, exist will return false
+        if os.path.islink(self.executing_symlink):
             log(f"Refresh previous 'executing' simlink with new on pointing to current execution log: {self.log_file_name}.", bcolors.WARNING)
             os.unlink(self.executing_symlink)
         os.symlink(self.log_file_name, self.executing_symlink)
@@ -68,7 +74,7 @@ class Logger(object):
 
     def retagOutputFile(self, new_tag = ""):
         # Remove previous executing link to make the new one
-        if os.path.exists(self.executing_symlink):
+        if os.path.islink(self.executing_symlink):
             os.unlink(self.executing_symlink)
         new_name = self.log_file_name.replace(f'{self.output_path}/', f"{self.output_path}/{new_tag}_")
         os.rename(self.log_file_name, new_name)
@@ -76,9 +82,9 @@ class Logger(object):
         os.symlink(self.log_file_name, self.executing_symlink)
 
     def finishTest(self):
-        if os.path.exists(self.executing_symlink):
+        if os.path.islink(self.executing_symlink):
             os.unlink(self.executing_symlink)
-        if os.path.exists(self.latest_symlink):
+        if os.path.islink(self.latest_symlink):
             os.unlink(self.latest_symlink)
             
         os.symlink(self.log_file_name, self.latest_symlink)
@@ -134,6 +140,7 @@ def log_ntfy(msg, success = True, title = None, tags = None):
             set_tags = ("+1,partying_face" if success else "-1,man_facepalming")
         else:
             set_tags = tags
+
         requests.post(f"https://ntfy.sh/{topic}", data =str(msg).encode(encoding='utf-8'),
                     headers={"Title": set_title, "Priority": priority, "Tags": set_tags
                     })
@@ -141,3 +148,15 @@ def log_ntfy(msg, success = True, title = None, tags = None):
 def logCoolMessage(msg, bcolors = bcolors.OKCYAN):
     min_len = len(msg) + 6
     log(f"\n\n{'#'*min_len}\n#{' '*(min_len-2)}#\n#  {msg}  #\n#{' '*(min_len-2)}#\n{'#'*min_len}\n\n", bcolors)
+
+
+
+
+
+def printDictKeys(diccionario, nivel=0):
+    if nivel==0:
+        print(f"Print dict keys: ")
+    for key, value in diccionario.items():
+        print(f"{'    ' * (1+nivel)}· {key}")
+        if isinstance(value, dict):
+            printDictKeys(value, nivel + 1)
