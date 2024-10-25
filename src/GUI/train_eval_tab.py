@@ -3,7 +3,7 @@
 """
     Defines a Qt tab view with all plot available to compare between different training runs
 """
-
+from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
 
 from scipy.ndimage.filters import gaussian_filter1d
@@ -25,12 +25,12 @@ class TrainEvalPlotter(BaseClassPlotter):
         ## --- Adds window selector to be able to add manually individual tests from variance_ stuff
         self.dataset_checkboxes_extra = DatasetCheckBoxWidget(self.options_widget, dataset_handler, exclude = None, include="variance_", title_filter=["train_based_"], max_rows = 8)
         self.dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_extra_button = QPushButton(" Select extra ")
-        self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
-        self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
         self.extra_dataset_dialog = DialogWithCheckbox(title="Extra dataset selector", checkbox_widget=self.dataset_checkboxes_extra, render_func = self.render_data)
-        self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
+        # self.select_extra_button = QPushButton(" Select extra ")
+        # self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        # self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        # self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
         ## ---
 
         self.select_all_button = QPushButton(" Select All ", self)
@@ -53,14 +53,21 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.deselect_all_button)
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
-        self.buttons_layout.addWidget(self.select_extra_button)   
+        # self.buttons_layout.addWidget(self.select_extra_button)   
         
-        if tab_keys:
-            self.change_labels_button = QPushButton(" Edit labels ", self)
-            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
-            self.buttons_layout.addWidget(self.change_labels_button)
             
+
+    def update_view_and_menu(self, menu_list):
+        archive_menu, view_menu, tools_menu, edit_menu = menu_list
+
+        self.selec_extra_action = QAction("Select extra data", self)
+        self.selec_extra_action.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        self.selec_extra_action.triggered.connect(self.extra_dataset_dialog.show)
+        tools_menu.addAction(self.selec_extra_action)
+        
+        super().update_view_and_menu(menu_list)
+
+
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
         self.dataset_checkboxes_extra.update_checkboxes()

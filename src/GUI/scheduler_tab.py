@@ -368,7 +368,8 @@ class SchedulerHandlerPlotter(QWidget):
         else:
             self.options_widget.show()
 
-    def update_view_and_menu(self, archive_menu, view_menu, tools_menu):
+    def update_view_and_menu(self, menu_list):
+        archive_menu, view_menu, tools_menu, edit_menu = menu_list
         self.load_and_display_data()
 
         self.show_options_action = QAction('Show Options Tab', self, checkable=True)

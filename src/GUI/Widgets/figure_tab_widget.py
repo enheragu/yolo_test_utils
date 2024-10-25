@@ -4,12 +4,12 @@
 """
     Creates a widget with the different tabs that contain graphs as figures
 """
-
+import re
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QDialog, QLineEdit, QPushButton
+from PyQt6.QtWidgets import QMessageBox, QWidget, QTabWidget, QVBoxLayout, QDialog, QLineEdit, QPushButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
@@ -111,7 +111,6 @@ class PlotTabWidget(QTabWidget):
             print(f"Plot saved to {plot_name}")
 
 
-        
     def edit_labels(self):
         labels_dict = {}
         for figure in self.figure.values():
@@ -119,6 +118,10 @@ class PlotTabWidget(QTabWidget):
                 handles, labels = ax.get_legend_handles_labels()
                 labels_dict.update({label: label for label in labels})
         
+        if not labels_dict:
+            QMessageBox.warning(None, 'No labels found', 'Theres no plot or labels to edit :) Plot something before changing its labels.')
+            return
+    
         dialog = LabelEditDialog(labels_dict.values())
         if dialog.exec():
             updated_labels = dialog.get_updated_labels()
@@ -139,3 +142,59 @@ class PlotTabWidget(QTabWidget):
 
         # Redibuja los gráficos para aplicar los cambios
         self.draw()
+
+    def edit_xlabels(self):
+        xlabels_dict = {}
+        rotation_dict = {}
+        alignment_dict = {}
+
+
+        def is_numeric_label(label):
+            """Comprueba si una etiqueta es numérica usando expresiones regulares."""
+            return bool(re.match(r"^\d+(\.\d+)?$", label))
+
+        # Recolecta todas las etiquetas del eje X y sus propiedades de rotación y alineación
+        for figure in self.figure.values():
+            for ax in figure.ax:
+                xlabels = [label.get_text() for label in ax.get_xticklabels()]
+                xrotations = [label.get_rotation() for label in ax.get_xticklabels()]
+                xalignments = [label.get_ha() for label in ax.get_xticklabels()]  # 'ha' = horizontal alignment
+
+                for label, rotation, alignment in zip(xlabels, xrotations, xalignments):
+                    if not is_numeric_label(label):  # Solo procesa etiquetas no numéricas
+                        xlabels_dict[label] = label
+                        rotation_dict[label] = rotation
+                        alignment_dict[label] = alignment
+        
+        if not xlabels_dict:
+            QMessageBox.warning(None, 'No labels found', 'Theres no plot or labels to edit :) Plot something before changing its labels.')
+            return
+
+        # Lanza un diálogo para editar las etiquetas del eje X
+        dialog = LabelEditDialog(xlabels_dict.values())
+        if dialog.exec():
+            updated_xlabels = dialog.get_updated_labels()
+            print("Updated X labels:", updated_xlabels)
+            
+            # Actualiza las etiquetas en el diccionario de etiquetas del eje X
+            for label, item in zip(updated_xlabels, xlabels_dict.keys()):
+                xlabels_dict[item] = label
+            
+            # Actualiza las etiquetas en los ejes X de los gráficos
+            for figure in self.figure.values():
+                for ax in figure.ax:
+                    current_xlabels = [label.get_text() for label in ax.get_xticklabels()]
+                    new_xlabels = [xlabels_dict[label] if label in xlabels_dict else label for label in current_xlabels]
+                    
+                    # Aplica las etiquetas nuevas, conservando la rotación y alineación previas
+                    ax.set_xticklabels(new_xlabels)
+                    for label in ax.get_xticklabels():
+                        label_text = label.get_text()
+                        if label_text in rotation_dict:
+                            label.set_rotation(rotation_dict[label_text])
+                        if label_text in alignment_dict:
+                            label.set_ha(alignment_dict[label_text])  # Aplica la alineación horizontal anterior
+
+        # Redibuja los gráficos para aplicar los cambios
+        self.draw()
+

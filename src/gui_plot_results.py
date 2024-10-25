@@ -103,10 +103,11 @@ class GUIPlotter(QMainWindow):
 
         view_menu = self.menuBar().addMenu('View')
         tools_menu = self.menuBar().addMenu('Tools')
+        edit_menu = self.menuBar().addMenu('Edit')
 
         # Obtener la pestaña/tab actual
         current_tab_widget = self.tab_widget.currentWidget()
-        current_tab_widget.update_view_and_menu(archive_menu, view_menu, tools_menu)
+        current_tab_widget.update_view_and_menu([archive_menu, view_menu, tools_menu, edit_menu])
         
 
 def handleArguments():

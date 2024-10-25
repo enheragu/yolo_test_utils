@@ -57,7 +57,8 @@ class BaseClassPlotter(QWidget):
         # Convert the checkbox state to True or False
         self.plot_background_img = checked
 
-    def update_view_and_menu(self, archive_menu, view_menu, tools_menu):
+    def update_view_and_menu(self, menu_list):
+        archive_menu, view_menu, tools_menu, edit_menu = menu_list
 
         self.show_options_action = QAction('Show Options Tab', self, checkable=True)
         self.show_options_action.setShortcut(Qt.Key.Key_F11)
@@ -82,6 +83,14 @@ class BaseClassPlotter(QWidget):
         # Add the checkbox action to the file menu
         view_menu.addAction(self.checkbox_action)
         
+        self.edit_labels_action = QAction("Edit labels", self)
+        self.edit_labels_action.triggered.connect(self.figure_tab_widget.edit_labels)
+        edit_menu.addAction(self.edit_labels_action)
+
+        self.edit_xlabels_action = QAction("Edit X labels", self)
+        self.edit_xlabels_action.triggered.connect(self.figure_tab_widget.edit_xlabels)
+        edit_menu.addAction(self.edit_xlabels_action)
+
         self.update_checkbox()
 
     def update_checkbox(self):

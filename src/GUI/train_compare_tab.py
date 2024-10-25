@@ -14,6 +14,7 @@ import csv
 import math
 
 import numpy as np
+from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy
 
 import mplcursors
@@ -62,12 +63,11 @@ class TrainComparePlotter(BaseClassPlotter):
         ## --- Adds window selector to be able to add manually individual tests from variance_ stuff
         self.dataset_checkboxes_extra = DatasetCheckBoxWidget(self.options_widget, dataset_handler, exclude = None, include="variance_", title_filter=["train_based_"], max_rows = 8)
         self.dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_extra_button = QPushButton(" Select extra ")
-        self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
-        self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-
         self.extra_dataset_dialog = DialogWithCheckbox(title="Extra dataset selector", checkbox_widget=self.dataset_checkboxes_extra, render_func = self.render_data)
-        self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
+        # self.select_extra_button = QPushButton(" Select extra ")
+        # self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        # self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)        
+        # self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
         ## ---
 
         self.select_all_button = QPushButton(" Select All ", self)
@@ -93,18 +93,23 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
         self.buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
         self.buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
-        self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
-        
-        if tab_keys:
-            self.change_labels_button = QPushButton(" Edit labels ", self)
-            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
-            self.buttons_layout.addWidget(self.change_labels_button, 5,0,1,3)
-       
+        # self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
+               
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
+
+    def update_view_and_menu(self, menu_list):
+        archive_menu, view_menu, tools_menu, edit_menu = menu_list
+
+        self.selec_extra_action = QAction("Select extra data", self)
+        self.selec_extra_action.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
+        self.selec_extra_action.triggered.connect(self.extra_dataset_dialog.show)
+        tools_menu.addAction(self.selec_extra_action)
+
+        super().update_view_and_menu(menu_list)
+        
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
         self.dataset_checkboxes_extra.update_checkboxes()
@@ -175,14 +180,17 @@ class TrainComparePlotter(BaseClassPlotter):
                         if canvas_key in ['mAP50-95', 'mAP50']:
                             data_tag = plot_data[canvas_key]['py']
                             values[group_name].append(data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag)))
-                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
+                            
                         else:
                             data_tag = plot_data[canvas_key]['py']
                             y_data = data['pr_data_best'].get(data_tag)
                             if y_data is None:
                                 print(f'{y_data = }; {canvas_key = } for {key}, tagged as {data_tag}')
                             values[group_name].append(y_data[0])
-                            labels[group_name].append(self.dataset_handler.getInfo()[key]['label'])
+                        
+                        label = self.dataset_handler.getInfo()[key]['label']
+                        label = label.split("(")[0] # Remove group name, they are to be grouped and diferentiated by color
+                        labels[group_name].append(label)
                         
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] KeyError problem generating curve for {key} for {data_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)

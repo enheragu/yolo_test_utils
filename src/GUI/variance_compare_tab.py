@@ -64,12 +64,6 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
         
-        if tab_keys:
-            self.change_labels_button = QPushButton(" Edit labels ", self)
-            self.change_labels_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.change_labels_button.clicked.connect(self.figure_tab_widget.edit_labels)
-            self.buttons_layout.addWidget(self.change_labels_button)
-
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_train_checkboxes,self.dataset_variance_checkboxes])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
