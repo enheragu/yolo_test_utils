@@ -8,7 +8,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QDialog
 
-max_rows_checkboxes = 5
+max_rows_checkboxes = 4
 
 # Remove machine tag
 title_filter_global = []

@@ -18,7 +18,10 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 from utils import log, bcolors
+from utils.log_utils import printDictKeys
 from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
+
+TABLE_DECIMAL_PRECISION="{:.3f}"
 
 class TrainCSVDataTable(QWidget):
     """
@@ -88,7 +91,10 @@ class TrainCSVDataTable(QWidget):
     def load_table_data(self):
         # Limpiar la tabla antes de cargar nuevos datos
 
-        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 'Instances', 'Num Classes', 'Dataset', 'Device', 'Date', 'Title', 'Group Key']]
+        row_list = [['Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'MR', 'LAMR', 'FPPI',
+                     'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)', 
+                     'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 
+                     'Instances', 'Num Classes', 'Dataset', 'Device', 'Date', 'Title', 'Group Key']]
         row_list_averaged = [[]] # Empty line, no title needed here
 
         for key, data in self.getDataDictToPlot().items():
@@ -115,12 +121,16 @@ class TrainCSVDataTable(QWidget):
                         condition = 'all'
                     else:
                         condition = "Unknown"
-
+                    
+                    # printDictKeys(data)
                     row_list.append([model, condition, dataset_type[1],
-                                    "{:.4f}".format(data_class.get('P', data_class.get(f"mP"))), 
-                                    "{:.4f}".format(data_class.get('R', data_class.get(f"mR"))), 
-                                    "{:.4f}".format(data_class['mAP50']), 
-                                    "{:.4f}".format(data_class['mAP50-95']), 
+                                    TABLE_DECIMAL_PRECISION.format(data_class.get('P', data_class.get(f"mP"))), 
+                                    TABLE_DECIMAL_PRECISION.format(data_class.get('R', data_class.get(f"mR"))), 
+                                    TABLE_DECIMAL_PRECISION.format(data_class['mAP50']), 
+                                    TABLE_DECIMAL_PRECISION.format(data_class['mAP50-95']), 
+                                    TABLE_DECIMAL_PRECISION.format(data['pr_data_best']['mr'][0]),
+                                    TABLE_DECIMAL_PRECISION.format(data['pr_data_best']['lamr'][0]),
+                                    TABLE_DECIMAL_PRECISION.format(data['pr_data_best']['fppi'][0]),
                                     class_type, 
                                     dataset_type[0], 
                                     data['train_data']['epoch_best_fit_index'],
@@ -152,6 +162,9 @@ class TrainCSVDataTable(QWidget):
             mAP50_vec = []
             mAP50_95_vec = []
             instances_vec = []
+            mr_vec = []
+            lamr_vec = []
+            fppi_vec = []
             for key in keys:
                 data = self.dataset_handler[key]
                 if not data:
@@ -163,13 +176,16 @@ class TrainCSVDataTable(QWidget):
                     r_vec_vec.append(data_class.get('R', data_class.get(f"mR")))
                     mAP50_vec.append(data_class['mAP50'])
                     mAP50_95_vec.append(data_class['mAP50-95'])
+                    mr_vec.append(data['pr_data_best']['mr'][0])
+                    lamr_vec.append(data['pr_data_best']['lamr'][0])
+                    fppi_vec.append(data['pr_data_best']['fppi'][0])
                     for class_type, data_class in data['validation_best']['data'].items():
                         if 'all' in class_type:
                             continue
                         instances_vec.append(data_class['Instances'])
 
                 except KeyError as e:
-                    log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                    log(f"[{self.__class__.__name__}] Key error problem generating averaged CSV for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                     self.dataset_handler.markAsIncomplete(key)
 
             model = data['validation_best']['model'].split("/")[-1]
@@ -190,49 +206,33 @@ class TrainCSVDataTable(QWidget):
                     condition = 'all'
                 else:
                     condition = "Unknown"
-                row_list_averaged.append([model, condition, dataset_type[1],
-                                f"(mean) {np.mean(p_vec_vec, axis = 0):.4f}", 
-                                f"(mean) {np.mean(r_vec_vec, axis = 0):.4f}", 
-                                f"(mean) {np.mean(mAP50_vec, axis = 0):.4f}", 
-                                f"(mean) {np.mean(mAP50_95_vec, axis = 0):.4f}", 
+
+                for tag, function in [("mean", np.mean), ("std", np.std)]:
+                    row_list_averaged.append([model, condition, dataset_type[1],
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(p_vec_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(r_vec_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mAP50_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mAP50_95_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mr_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(lamr_vec, axis = 0))}", 
+                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(fppi_vec, axis = 0))}", 
                                 class_type, 
                                 dataset_type[0], 
-                                f"(mean) {np.mean(bestfit_epoch_vec, axis = 0):.2f}",
-                                f"(mean) {np.mean(train_duration_vec, axis = 0):.2f}",
+                                f"({tag}) {function(bestfit_epoch_vec, axis = 0):.2f}",
+                                f"({tag}) {function(train_duration_vec, axis = 0):.2f}",
                                 data['pretrained'],
                                 data['deterministic'],
                                 data['batch'],
                                 int(data['n_images']['train']),
                                 int(data['n_images']['val']), 
-                                f"(mean) {np.mean(instances_vec, axis = 0):.2f}", 
+                                f"({tag}) {function(instances_vec, axis = 0):.2f}", 
                                 data['n_classes'],
                                 data['dataset_tag'],
                                 data['device_type'],
                                 date_tag,
-                                f"{test_title}_mean",
-                                f"{keys[0].split('/')[0]}/mean"])
+                                f"{test_title}_{tag}",
+                                f"{keys[0].split('/')[0]}/{tag}"])
                 
-                row_list_averaged.append([model, condition, dataset_type[1],
-                                f"(std) {np.std(p_vec_vec, axis = 0):.4f}", 
-                                f"(std) {np.std(r_vec_vec, axis = 0):.4f}", 
-                                f"(std) {np.std(mAP50_vec, axis = 0):.4f}", 
-                                f"(std) {np.std(mAP50_95_vec, axis = 0):.4f}", 
-                                class_type, 
-                                dataset_type[0], 
-                                f"(std) {np.std(bestfit_epoch_vec, axis = 0):.2f}",
-                                f"(std) {np.std(train_duration_vec, axis = 0):.2f}",
-                                data['pretrained'],
-                                data['deterministic'],
-                                data['batch'],
-                                int(data['n_images']['train']),
-                                int(data['n_images']['val']), 
-                                f"(std) {np.std(instances_vec, axis = 0):.2f}", 
-                                data['n_classes'],
-                                data['dataset_tag'],
-                                data['device_type'],
-                                date_tag,
-                                f"{test_title}_std",
-                                f"{keys[0].split('/')[0]}/std"])
 
         self.csv_table.clear()
         self.csv_table.setRowCount(0)
