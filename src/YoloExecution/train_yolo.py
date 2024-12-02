@@ -58,7 +58,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     args['batch'] = opts.batch
     args['save'] = True
     # args['save_period'] = 2
-    # args['save_json'] = True
+    args['save_json'] = True
     # args['save_hybrid'] = True
 
     args['save_txt'] = True

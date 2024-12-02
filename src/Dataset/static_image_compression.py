@@ -47,8 +47,6 @@ def combine_hsvt(visible_image, thermal_image):
     
     return hsvt_image
     
-    return hsvt_image
-
 
 @save_image_if_path
 def combine_rgbt(visible_image, thermal_image):

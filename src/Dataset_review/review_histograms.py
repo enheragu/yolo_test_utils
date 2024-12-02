@@ -63,26 +63,27 @@ def readImage(path, flag = None):
     return imagen_final
 
 def save_images(img_hist_list, filename, img_path, store_path=store_path_histogram):
-    rows = 2
-    cols = len(img_hist_list)
+    rows = len(img_hist_list)
+    cols = 2
 
     item = 1
     plt.figure(figsize=[cols*6.4, rows*5.12])
-    for row_daat in img_hist_list:
+    plt.rc('font', size=14)
+    for col_data in img_hist_list:
         plt.subplot(rows, cols, item)
-        plt.imshow(row_daat['img'])
-        plt.title(row_daat['img_title'])
+        plt.imshow(col_data['img'])
+        plt.title(col_data['img_title'], fontsize=20)
         plt.axis('off')
 
-        plt.subplot(rows, cols, item+cols)
-        plt.plot(row_daat['hist'], color = '#F6AE2D')
-        plt.title(row_daat['hist_title'])
+        plt.subplot(rows, cols, item+1)
+        plt.plot(col_data['hist'], color = '#F6AE2D')
+        plt.title(col_data['hist_title'], fontsize=20)
         # plt.axis('off')
-        item+=1   
+        item+=2   
     
     plt.annotate(f'Img: {img_path}',
-                    xy = (1.0, -0.17), xycoords='axes fraction',
-                    ha='right', va="center", fontsize=12,
+                    xy = (1.0, -0.1), xycoords='axes fraction',
+                    ha='right', va="center", fontsize=14,
                     color='black', alpha=0.2)
     
     plt.tight_layout()
@@ -469,26 +470,26 @@ def evaluateInputDataset():
         print(tabulate(log_table_data, headers=log_table_headers, tablefmt="pretty"))
 
         if isinstance(hist_type, list):
-            ch0_type, ch1_type, ch2_type, lwich2_type = hist_type
+            ch0_type, ch1_type, ch2_type, lwir_type = hist_type
             hist_type = 'combined'
         else:
-            ch0_type, ch1_type, ch2_type, lwich2_type = hist_type, hist_type, hist_type, hist_type
+            ch0_type, ch1_type, ch2_type, lwir_type = hist_type, hist_type, hist_type, hist_type
 
         for log_scale in [True, False]:
             plot_histograms(hist_list=[hist_data[0], hist_data[1], hist_data[2], hist_data[3]],
                             shape=[3,1],
                             y_limit=histogram_channel_cfg['y_limit'],
-                            labels=[f"{histogram_channel_cfg['channel_names'][0]} {ch0_type}",
-                             f"{histogram_channel_cfg['channel_names'][1]} {ch1_type}",
-                             f"{histogram_channel_cfg['channel_names'][2]} {ch2_type}",
-                             f"LWIR {lwich2_type}"], 
+                            labels=[f"{histogram_channel_cfg['channel_names'][0]}", #  {ch0_type} # all the same for now
+                             f"{histogram_channel_cfg['channel_names'][1]}", #  {ch1_type} # all the same for now
+                             f"{histogram_channel_cfg['channel_names'][2]}", #  {ch2_type} # all the same for now
+                             f"LWIR"],  #  {lwir_type} # all the same for now
                             colors=[c_blue, c_green, c_red, c_yellow],
-                            filename=f'{"log_" if log_scale else ""}{condition}',
+                            filename=f'{hist_type.lower().replace(" ", "_")}_{"log_" if log_scale else ""}{condition}',
                             n_images=len(data[ch]), log_scale=log_scale, condition = f"({condition} condition)", histogram_channel_cfg=histogram_channel_cfg,
                             store_path=store_path_histogram)
 
             
-    for hist_type in ['hist']: # 'CLAHE hist', 
+    for hist_type in ['hist', 'CLAHE hist']: 
         for histogram_channel_cfg in histogram_channel_cfg_list:
             tag = histogram_channel_cfg['tag']
             for condition in ['day', 'night']: #, 'day+night']:
@@ -517,7 +518,6 @@ def evaluateEqualizationMethods():
     save_images(plot,'lwir_histogram_clahe_6_6_6_comparison', clean_path)
 
 
-    
     eq_img, eq_hist = gethistEq(img)
     plot = [{'img':img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Hist'},
             {'img':eq_img,'img_title': 'Eq-Histogram Image','hist':eq_hist,'hist_title': 'Eq Histogram'}]
@@ -534,6 +534,14 @@ def evaluateEqualizationMethods():
             {'img':eq_img,'img_title': 'CLAHE-Histogram Image','hist':clahe_hist,'hist_title': 'CLAHE Histogram'}]
     save_images(plot,'lwir_histogram_all_comparison', clean_path)
 
+    # Separate images to add as subfigures in paper
+    plot = [{'img':img,'img_title': 'Original Image','hist':lwir,'hist_title': 'Original Image Histogram'}]
+    save_images(plot,'lwir_histogram_all_comparison_original', clean_path)
+    plot = [{'img':eq_img,'img_title': 'Histogram equalized Image','hist':eq_hist,'hist_title': 'Equalized Histogram'}]
+    save_images(plot,'lwir_histogram_all_comparison_eq', clean_path)
+    plot = [{'img':eq_img,'img_title': 'CLAHE Image','hist':clahe_hist,'hist_title': 'CLAHE Histogram'}]
+    save_images(plot,'lwir_histogram_all_comparison_clahe', clean_path)
+
 
     print(f"Image resolution for LWIR images is: {img.shape}. Num pixels: {img.shape[0]*img.shape[1]}")
     img = readImage(img_path.replace("lwir", "visible"))
@@ -548,6 +556,6 @@ if __name__ == '__main__':
             os.makedirs(os.path.join(store_path_histogram, hist_format, tag), exist_ok=True)
             os.makedirs(os.path.join(store_path_histogram, hist_format, f'{tag}_log_scale'), exist_ok=True)
 
-    # evaluateEqualizationMethods()
+    evaluateEqualizationMethods()
 
-    evaluateInputDataset()
+    # evaluateInputDataset()

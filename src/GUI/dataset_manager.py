@@ -139,7 +139,9 @@ def find_results_file(search_path = yolo_output_path, file_name = data_file_name
                 title = re.sub(clear_pattern, "", title)
             key = f"{model}/{name}"
             info = title.split('_')
-            ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
+            print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
+            # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
+            ax_label = f"{info[0].title()} {info[1].upper()}" + f" ({model.replace('_sameseed','')})"
             dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
 
     ## Order dataset by name

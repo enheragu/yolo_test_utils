@@ -78,7 +78,7 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     # autov_path = "/".join(autov_path) + "/00_eigenvalue_vector.yaml"
 
     # import yaml
-    # from yaml.loader im   port SafeLoader
+    # from yaml.loader import SafeLoader
     # import os
 
     # data = {}

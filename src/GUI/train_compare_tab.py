@@ -33,7 +33,7 @@ equations = {
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
         'MR': r'M$R(c) = \dfrac{FN(c)}{TP(c) + FN(c)} = 1 - Recall(c)$',
         'F1': r'F$1(c) = \dfrac{TP(c)}{TP(c) + \dfrac{1}{2}*(FP(c) + FN(c))}$',
-        'PR': r'$P(R)$'
+        'PR': r'' #r'$P(R)$' # A arturo no le gusta eso de fondo para el paper...
 }
 
 class TrainComparePlotter(BaseClassPlotter):
@@ -138,14 +138,14 @@ class TrainComparePlotter(BaseClassPlotter):
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
                      'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'},
                      'MRFPPI Curve': {'py': 'mrfppi_plot', 'xlabel': "FPPI", "ylabel": 'Miss Rate'},
-                     'mAP50-95': {'py': 'mAP50-95', 'xlabel': "Test", "ylabel": 'mAP50-95'},
-                     'mAP50': {'py': 'mAP50', 'xlabel': "Test", "ylabel": 'mAP50'},
-                     'precision': {'py': 'p', 'xlabel': "Test", "ylabel": 'Precision'},
-                     'recall': {'py': 'r', 'xlabel': "Test", "ylabel": 'Recall'},
-                     'F1': {'py': 'f1', 'xlabel': "Test", "ylabel": 'F1'},
-                     'MissRate': {'py': 'mr', 'xlabel': "Test", "ylabel": 'MissRate', 'invert': True},
-                     'FPPI': {'py': 'fppi', 'xlabel': "Test", "ylabel": 'FPPI', 'invert': True},
-                     'LAMR': {'py': 'lamr', 'xlabel': "Test", "ylabel": 'LAMR', 'invert': True}}
+                     'mAP50-95': {'py': 'mAP50-95', 'xlabel': "", "ylabel": 'mAP50-95'},
+                     'mAP50': {'py': 'mAP50', 'xlabel': "", "ylabel": 'mAP50'},
+                     'precision': {'py': 'p', 'xlabel': "", "ylabel": 'Precision'},
+                     'recall': {'py': 'r', 'xlabel': "", "ylabel": 'Recall'},
+                     'F1': {'py': 'f1', 'xlabel': "", "ylabel": 'F1'},
+                     'MissRate': {'py': 'mr', 'xlabel': "", "ylabel": 'MissRate', 'invert': True},
+                     'FPPI': {'py': 'fppi', 'xlabel': "", "ylabel": 'FPPI', 'invert': True},
+                     'LAMR': {'py': 'lamr', 'xlabel': "", "ylabel": 'LAMR', 'invert': True}}
         
         # Borrar gráficos previos
         self.figure_tab_widget.clear()
@@ -233,7 +233,7 @@ class TrainComparePlotter(BaseClassPlotter):
                     # sorted_pairs = sorted(zip(values, labels))
                     # sorted_values, sorted_labels = zip(*sorted_pairs)
                     # sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{group}')
-                    sns.scatterplot(x=sorted_labels, y=value, ax = ax, label=f'{group}')
+                    sns.scatterplot(x=sorted_labels, y=value, ax = ax, label=f'{group.replace("_sameseed","")}')
                     # ax.set_xticks(np.arange(len(labels)))
                     # ax.set_xticklabels(labels, rotation=45, ha='right')
                 
@@ -246,7 +246,7 @@ class TrainComparePlotter(BaseClassPlotter):
                 ax.set_xticklabels(labels, rotation=20, ha='right')
 
                 ax.grid(True, linestyle='--', linewidth=0.5)
-                ax.set_title(f'{ylabel} comparison')
+                ax.set_title(f'{ylabel}')
 
                 # Use a Cursor to interactively display the label for a selected line.
                 self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)

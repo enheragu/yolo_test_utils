@@ -198,8 +198,9 @@ if __name__ == '__main__':
             sys.stdout.retagOutputFile("exception")
         
         # Gets next test for next iteration
-        next_test = test_queue.get_next_test()
+        ## TBD check memory leak when continuous execution
+        next_test = False #test_queue.get_next_test()
         if next_test:
             logger.renew()
     
-    log_ntfy(title="Finished all tests", msg=f"No more test to execute in queue in {getGPUTestIDTag()}. Process will be finished, add more test to be executed if you have any pending 😀", tags = "tada,woman_dancing")
+    #log_ntfy(title="Finished all tests", msg=f"No more test to execute in queue in {getGPUTestIDTag()}. Process will be finished, add more test to be executed if you have any pending 😀", tags = "tada,woman_dancing")

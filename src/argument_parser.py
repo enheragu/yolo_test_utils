@@ -29,10 +29,10 @@ yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
 def configArgParser():
     parser = ArgumentParser(description="Handle operations with YOLOv8, both Validation and Training. Tests will be executed iteratively from all combinations of the configurations provided (condition, option and model).")
     parser.add_argument('-c', '--condition', action='store', dest='clist', metavar='CONDITION',
-                        type=str, nargs='*', default=condition_list_default, choices=condition_list_default,
+                        type=str, nargs='*', default=None, choices=condition_list_default,
                         help=f"Condition from which datasets to use while training. Available options are {condition_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-o', '--option', action='store', dest='olist', metavar='OPTION',
-                        type=str, nargs='*', default=option_list_default, choices=option_list_default,
+                        type=str, nargs='*', default=None, choices=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
                         type=str, nargs='*', default=model_list_default, choices=model_list_default,
@@ -88,10 +88,10 @@ def handleArguments(argument_list = sys.argv[1:]):
     parser = configArgParser()
     opts = parser.parse_args(argument_list)
 
-    condition_list = list(opts.clist)
-    option_list = list(opts.olist)
-    model_list = list(opts.mlist)
-    run_modes = list(opts.run_mode)
+    condition_list = None if opts.clist is None else list(opts.clist)
+    option_list = None if opts.olist is None else list(opts.olist)
+    model_list = None if opts.mlist is None else list(opts.mlist)
+    run_modes = None if opts.run_mode is None else list(opts.run_mode)
 
     if opts.dformat not in dataset_tags_default:
         raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")

@@ -69,7 +69,8 @@ dataset_options_keys = ['visible', 'lwir'] + list(dataset_options.keys())
 
 # Dataset class to take into account when generating YOLO style dataset
 default_kaist = {  'person': 0,  'cyclist': 1, 'people': 2 }
-class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag
+class_data = {'coco': {  'person': 0,  'bicycle': 1,  'car': 2,  'motorcycle': 3,  'airplane': 4,  'bus': 5,  'train': 6,  'truck': 7,  'boat': 8,  'traffic light': 9,  'fire hydrant': 10,  'stop sign': 11,  'parking meter': 12,  'bench': 13,  'bird': 14,  'cat': 15,  'dog': 16,  'horse': 17,  'sheep': 18,  'cow': 19,  'elephant': 20,  'bear': 21,  'zebra': 22,  'giraffe': 23,  'backpack': 24,  'umbrella': 25,  'handbag': 26,  'tie': 27,  'suitcase': 28,  'frisbee': 29,  'skis': 30,  'snowboard': 31,  'sports ball': 32,  'kite': 33,  'baseball bat': 34,  'baseball glove': 35,  'skateboard': 36,  'surfboard': 37,  'tennis racket': 38,  'bottle': 39,  'wine glass': 40,  'cup': 41,  'fork': 42,  'knife': 43,  'spoon': 44,  'bowl': 45,  'banana': 46,  'apple': 47,  'sandwich': 48,  'orange': 49,  'broccoli': 50,  'carrot': 51,  'hot dog': 52,  'pizza': 53,  'donut': 54,  'cake': 55,  'chair': 56,  'couch': 57,  'potted plant': 58,  'bed': 59,  'dining table': 60,  'toilet': 61,  'tv': 62,  'laptop': 63,  'mouse': 64,  'remote': 65,  'keyboard': 66,  'cell phone': 67,  'microwave': 68,  'oven': 69,  'toaster': 70,  'sink': 71,  'refrigerator': 72,  'book': 73,  'clock': 74,  'vase': 75,  'scissors': 76,  'teddy bear': 77,  'hair drier': 78,  'toothbrush},': 79},
+              'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # people does not exist in coco dataset, use 80 as tag
               'kaist_small': default_kaist,
               'kaist_full': default_kaist,
               'kaist_90_10': default_kaist,
@@ -82,7 +83,8 @@ class_data = {'kaist_coco': {  'person': 0,  'cyclist': 80, 'people': 81 }, # pe
 # kaist_coco -> makes use of kaist_small but with class dict as defined by coco
 # kaist_small -> kaist with reduced version (less images)
 # kaist_full -> kaist with all images
-templates_cfg = {'kaist_coco': {'template': f"{dataset_config_path}/dataset_kaist_coco_option.j2"},
+templates_cfg = {'coco': {'template': f"{dataset_config_path}/coco.yaml"},
+                 'kaist_coco': {'template': f"{dataset_config_path}/dataset_kaist_coco_option.j2"},
                  'kaist_small': {'template': f"{dataset_config_path}/dataset_kaist_small_option.j2"},
                  'kaist_full': {'template': f"{dataset_config_path}/dataset_kaist_full_option.j2"},
                  'kaist_90_10': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '90_10'}}, # Extra arguments that can be provided to the template
@@ -96,7 +98,7 @@ dataset_keys = list(class_data.keys())
 
 condition_list_default = ['day','night','all']
 option_list_default = dataset_options_keys
-model_list_default = ['yoloCh1m.yaml','yoloCh2m.yaml','yoloCh3m.yaml','yoloCh4m.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+model_list_default = ['yoloNoTrained.pt','yoloCh1m.yaml','yoloCh2m.yaml','yoloCh3m.yaml','yoloCh4m.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = dataset_keys   # Just list of availables :)
 
 dataset_generated_cache = f'{kaist_yolo_dataset_path}dataset_options.cache'

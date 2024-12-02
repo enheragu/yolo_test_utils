@@ -91,6 +91,10 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
 
 def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
 
+    if options is None:
+        log(f"[UpdateDataset::checkKaistDataset] No options provided, no checking Kaist dataset", bcolors.WARNING)
+        return
+
     # Locks to avoid re-generation of dataset while other scheduler is generating it
     lock_path = os.path.join(kaist_yolo_dataset_path, '../.dataset_generation.lock')
     log(f'[UpdateDataset::checkKaistDataset] Try to acquire lock in {lock_path}.')

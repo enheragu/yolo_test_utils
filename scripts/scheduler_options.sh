@@ -56,7 +56,7 @@ function eeha_keep_scheduler_running()
         # Check if the process is running
         if pgrep -f "$SCHEDULER_CMD" > /dev/null; then
             echo "Scheduler process is still running :) just do nothing, checking again in 30 min."
-            sleep 1800  # sleep for 30 minutes
+            sleep 900  # sleep for 30 minutes
         else
             eeha_run_scheduler
         fi
@@ -199,6 +199,13 @@ function rsync_cache() {
 # vths_v3  ->  average
 # vt       ->  average
 
+## From no trained model!!!
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' 'hsvt' 'vt' 'vths_v2' 'rgbt_v2' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_notrained" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'vths_v2' 'rgbt_v2' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "rgb_equalization_notrained" --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'vths_v2' 'rgbt_v2' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "th_equalization_notrained" --th_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' 'hsvt' 'vt' 'vths_v2' 'rgbt_v2' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "no_equalization_notrained"
+###
+
 # Check two best (split in two to save space) 
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vths' 'vt' 'rgbt' 'hsvt' 'vths_v2' 'vths_v3' 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
@@ -223,7 +230,9 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_90_10" --path-name "kaist_90_10"
 
 # Is sameseed really working?
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_sameseed" --iterations 10
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_sameseed" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "variance_notrained" --iterations 5
+
 
 ###################################
 ##       NON-STATIC PAPER        ##
@@ -254,3 +263,9 @@ function rsync_cache() {
 
 
 
+#######################################
+##  Variance COCO and modifications  ##
+#######################################
+
+# Run variance training set with YOLO and COCO dataset
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --batch 32 --dataset-format "coco" --path-name "variance_default_coco" --iterations 5
