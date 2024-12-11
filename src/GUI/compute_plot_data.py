@@ -127,6 +127,7 @@ def compute_plot_data(data, dataset):
                         }
     except KeyError as e:
         log(f"[{inspect.currentframe().f_code.co_name}] Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)
-        
+        return {}
+    
     return data_filtered
 

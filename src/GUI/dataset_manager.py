@@ -94,9 +94,11 @@ def background_load_data(dataset_key_tuple):
     if (os.path.exists(filename) and not update_cache) or load_from_cache:
         data = parseYaml(filename)
         # log(f"Loaded data from cache file in {filename}")
-
     else:
         data = getResultsYamlData(dataset)
+        if data is {}:
+            log(f"Detected error in data loader for {key} dataset")
+            return data
         data.update(getCSVData(dataset))
         data.update(getArgsYamlData(dataset))
         log(f"Reloaded data from RAW data for {key} dataset")

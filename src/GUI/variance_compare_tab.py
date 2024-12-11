@@ -22,8 +22,9 @@ from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 
-            'mAP50', 'mAP50-95', 'P', 'R', 'MR','FPPI','LAMR']
+tab_keys = [#'PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 
+            'mAP50', 'mAP50-95', 'P', 'R', 'MR','FPPI','LAMR'
+           ]
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -147,12 +148,12 @@ class VarianceComparePlotter(BaseClassPlotter):
                             bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
                             train_duration_vec.append(data['train_data']['train_duration_h'])
                         except KeyError as e:
-                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}; {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                            log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}; {canvas_key} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                             self.dataset_handler.markAsIncomplete(key)
                             continue
                     
                     if np.size(data_y) == 0 or data_y is None or np.all(data_y == None):
-                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {group}; {py_tag} plot", bcolors.ERROR)
+                        log(f"[{self.__class__.__name__}] Empty data_y vector, nothing to plot for {group}; {canvas_key} plot", bcolors.ERROR)
                         continue
                     
                     # If all data are exactly the same plotting will have issues (STD=0)
