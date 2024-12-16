@@ -15,7 +15,7 @@ import math
 
 import numpy as np
 from PyQt6.QtGui import QKeySequence, QAction
-from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy
+from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy, QComboBox, QHBoxLayout, QLabel
 
 import mplcursors
 import matplotlib.pyplot as plt
@@ -77,6 +77,24 @@ class TrainComparePlotter(BaseClassPlotter):
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
+        
+        combobox_layout = QHBoxLayout()
+        label = QLabel("Class:")
+        
+        det_classes = set(str('all'))
+        for key in self.dataset_handler.keys():
+            if 'validation_best' in self.dataset_handler[key]:
+                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
+                    det_classes.add(class_key)
+        # Sorted with 'all' at the beginning
+        sorted(det_classes, key=lambda x: (x != 'all', x))
+        
+        self.combobox = QComboBox()
+        self.combobox.addItems(list(det_classes))
+        self.combobox.setCurrentIndex(0)
+
+        combobox_layout.addWidget(label)
+        combobox_layout.addWidget(self.combobox)
 
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -91,8 +109,9 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.select_all_all_button, 1, 0, 1, 1)
         self.buttons_layout.addWidget(self.select_all_button, 1, 1, 1, 1)
         self.buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
-        self.buttons_layout.addWidget(self.plot_button, 2, 0, 1, 3)
-        self.buttons_layout.addWidget(self.save_button, 3, 0, 1, 3)
+        self.buttons_layout.addLayout(combobox_layout, 2, 0, 1, 3)
+        self.buttons_layout.addWidget(self.plot_button, 3, 0, 1, 3)
+        self.buttons_layout.addWidget(self.save_button, 4, 0, 1, 3)
         # self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
                
         # Tab for CSV data
@@ -179,7 +198,8 @@ class TrainComparePlotter(BaseClassPlotter):
 
                         if canvas_key in ['mAP50-95', 'mAP50']:
                             data_tag = plot_data[canvas_key]['py']
-                            values[group_name].append(data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag)))
+                            plot_class = self.combobox.currentText() if  self.combobox.currentText() in data['validation_best']['data'] else 'all'
+                            values[group_name].append(data['validation_best']['data'][plot_class].get(f"m{data_tag}", data['validation_best']['data'][plot_class].get(data_tag)))
                             
                         else:
                             data_tag = plot_data[canvas_key]['py']

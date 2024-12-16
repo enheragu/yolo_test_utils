@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import seaborn as sns
 from scipy.stats import norm
-from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy, QComboBox, QLabel, QHBoxLayout
 
 import mplcursors
 
@@ -55,6 +55,24 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
 
+        combobox_layout = QHBoxLayout()
+        label = QLabel("Class:")
+        
+        det_classes = set(str('all'))
+        for key in self.dataset_handler.keys():
+            if 'validation_best' in self.dataset_handler[key]:
+                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
+                    det_classes.add(class_key)
+        # Sorted with 'all' at the beginning
+        sorted(det_classes, key=lambda x: (x != 'all', x))
+
+        self.combobox = QComboBox()
+        self.combobox.addItems(list(det_classes))
+        self.combobox.setCurrentIndex(0)
+
+        combobox_layout.addWidget(label)
+        combobox_layout.addWidget(self.combobox)
+
         self.save_button = QPushButton(" Save Output ", self)
         self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.save_button.clicked.connect(self.save_plot)
@@ -62,6 +80,7 @@ class VarianceComparePlotter(BaseClassPlotter):
 
         self.buttons_layout.addWidget(self.select_all_button)
         self.buttons_layout.addWidget(self.deselect_all_button)
+        self.buttons_layout.addLayout(combobox_layout)
         self.buttons_layout.addWidget(self.plot_button)
         self.buttons_layout.addWidget(self.save_button)
         
@@ -131,7 +150,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                         try:
                             if canvas_key in ['mAP50-95', 'mAP50']:
                                 data_tag = canvas_key
-                                new_y = data['validation_best']['data']['all'].get(f"m{data_tag}", data['validation_best']['data']['all'].get(data_tag))
+                                plot_class = self.combobox.currentText() if  self.combobox.currentText() in data['validation_best']['data'] else 'all'
+                                new_y = data['validation_best']['data'][plot_class].get(f"m{data_tag}", data['validation_best']['data'][plot_class].get(data_tag))
                                 if new_y is None:
                                     print(f'{new_y = }; {canvas_key = } for {key}, tagged as {data_tag}')
                                 data_y = np.append(data_y, new_y)
@@ -142,8 +162,8 @@ class VarianceComparePlotter(BaseClassPlotter):
                                     print(f'{new_y = }; {canvas_key = } for {key}, tagged as {data_tag}')
                                 data_y = np.append(data_y, new_y)
                         
-                            # Some 'all' cases have mP instead of only P as tag...
-                            # new_y = data['validation_best']['data']['all'].get(f"m{canvas_key}", data['validation_best']['data']['all'].get(canvas_key))
+                            # Some cases have mP instead of only P as tag...
+                            # new_y = data['validation_best']['data'][plot_class].get(f"m{canvas_key}", data['validation_best']['data'][plot_class].get(canvas_key))
                             # data_y = np.append(data_y, new_y)
                             bestfit_epoch_vec.append(data['train_data']['epoch_best_fit_index'])
                             train_duration_vec.append(data['train_data']['train_duration_h'])
