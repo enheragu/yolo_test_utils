@@ -3,7 +3,7 @@
 # encoding: utf-8
 
 """
-    Script to evaluate dataset image fussion techniques. Time consumption and results :)
+    Script to evaluate dataset image fussion techniques. Time consumption and resulting image :)
 """
 
 

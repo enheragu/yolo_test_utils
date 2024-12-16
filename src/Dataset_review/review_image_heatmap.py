@@ -199,14 +199,21 @@ def evaluateInputDataset():
                                 futures.append(executor.submit(process_images, args))
                 #     break
                 # break
-
+            results = []
             for future in tqdm(as_completed(futures), total=len(futures), desc='Processing folders'):
-                heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = future.result()
+                results.append(future.result())
+
+            total_images = 0
+            for result in results:
+                total_images+=result[4] 
+                
+            for result in results:
+                heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = result
                 tag = heatheatmap_channel_config['tag']
                 for condition in ['day', 'night']:
                     if isPathCondition(set_info[tag][condition]['sets'], path):
-                        updateHeatmapList(set_info[tag][condition]['heatmap'], heatmap, n_images)
-                        updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], eq_heatmap, n_images)
+                        updateHeatmapList(set_info[tag][condition]['heatmap'], heatmap*n_images, total_images)
+                        updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], eq_heatmap*n_images, total_images)
                         break
         
         with open(cache_file_path, 'wb') as f:
