@@ -15,11 +15,11 @@ from tabulate import tabulate
 
 import math
 import numpy as np
+from matplotlib import cm
 import matplotlib.pyplot as plt
 # import matplotlib.patches as mpatches
-from matplotlib.colors import LogNorm 
-from matplotlib.ticker import LogLocator
-from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from scipy import stats
 
 import pickle
@@ -39,14 +39,48 @@ heatheatmap_channel_cfg_list = [{'tag': 'BGR', 'conversion': None,
                                'channel_names': ['H', 'S', 'V'], 'y_limit': [17,11,11,30]}]
 
 # Store heatheatmaps in a list of [b,g,r,lwir] heatmaps for each image
-set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'heatmap': None},
-            'night': {'sets': ['set03', 'set04', 'set05', 'set09', 'set10', 'set11'], 'heatmap': None},
-            'day+night': {'heatmap': None}}
+set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
+            'night': {'sets': ['set03', 'set04', 'set05', 'set09', 'set10', 'set11'], 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
+            'day+night': {'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]}}
             
 set_info =  {'BGR': copy.deepcopy(set_info_), 'HSV': copy.deepcopy(set_info_)}    
 
 store_path_heatheatmap = os.path.join(store_path, 'review_heatheatmap')
 
+def rescale_channel_minmax(channel, min_value=None, max_value=None, new_min=0, new_max=255, mask=None):
+    channel_rescaled = channel.copy().astype(np.float32)
+    
+    if mask is not None:
+        mask_index = mask > 0
+    else:
+        mask_index = np.ones(channel_rescaled.shape, dtype=bool)
+
+    if min_value is None:
+        min_value = np.min(channel_rescaled[mask_index])    
+
+    if max_value is None:
+        max_value = np.max(channel_rescaled[mask_index])   
+
+    # Set average value to masked parts so that they do not interfere later
+    average = np.average(channel_rescaled[mask_index])
+    channel_rescaled[~mask_index] = average
+
+    if max_value == min_value:
+        print(f"[ERROR] Min and max value are the same ({min_value = }; {max_value = })")
+        channel_rescaled[mask_index] = (new_min + new_max) / 2
+        return channel_rescaled.astype(np.uint8), min_value, max_value
+
+    channel_rescaled = (channel_rescaled - min_value) / (max_value - min_value)  # Normalize a [0, 1]
+    channel_rescaled = channel_rescaled * (new_max - new_min) + new_min          # Escalar a [new_min, new_max]
+        
+    # Asegurarse de que los valores estén dentro del rango [new_min, new_max]
+    channel_rescaled = np.clip(channel_rescaled, new_min, new_max)
+        
+    # Convertir de nuevo a uint8 si los nuevos valores están en el rango 0-255
+    if new_min >= 0 and new_max <= 255:
+        channel_rescaled = channel_rescaled.astype(np.uint8)
+
+    return channel_rescaled, min_value, max_value
 
 def readImage(path, flag = None):
     if flag is not None:
@@ -62,34 +96,6 @@ def readImage(path, flag = None):
     
     return imagen_final
 
-def save_images(img_heatmap_list, filename, img_path, store_path=store_path_heatheatmap):
-    rows = len(img_heatmap_list)
-    cols = 2
-
-    item = 1
-    plt.figure(figsize=[cols*6.4, rows*5.12])
-    plt.rc('font', size=14)
-    for col_data in img_heatmap_list:
-        plt.subplot(rows, cols, item)
-        plt.imshow(col_data['img'])
-        plt.title(col_data['img_title'], fontsize=20)
-        plt.axis('off')
-
-        plt.subplot(rows, cols, item+1)
-        plt.plot(col_data['heatmap'], color = '#F6AE2D')
-        plt.title(col_data['heatmap_title'], fontsize=20)
-        # plt.axis('off')
-        item+=2   
-    
-    plt.annotate(f'Img: {img_path}',
-                    xy = (1.0, -0.1), xycoords='axes fraction',
-                    ha='right', va="center", fontsize=14,
-                    color='black', alpha=0.2)
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(store_path,'heatheatmap_pdf',f'{filename}.pdf'))
-    plt.savefig(os.path.join(store_path,'heatheatmap_png',f'{filename}.png'))
-    plt.close()
 
 
 def getheatmapEqCLAHE(img_channel):
@@ -135,17 +141,22 @@ def extract_heatmap(img_path, heatheatmap_channel_config, plot = False):
         assert lwir is not None, f"File could not be read, check with os.path.exists() that {img_path} exists"
         
         eq_lwir = getheatmapEqCLAHE(lwir)
+
         
     return [ch0, ch1, ch2, lwir], [eq_ch0, eq_ch1, eq_ch2, eq_lwir]
 
 
 def updateHeatmapList(all_heatmaps, image_heatmaps, n_images):
+    if all_heatmaps is None:
+        all_heatmaps = [None, None, None, None]
+        
     for i in range(4):  
         if all_heatmaps[i] is None:
             all_heatmaps[i] = np.zeros_like(image_heatmaps[0]).astype(float)
 
-        single_heatmap = image_heatmaps[i].astype(float) / n_images        
-        all_heatmaps[i] += single_heatmap
+        all_heatmaps[i] += image_heatmaps[i].astype(float) / float(n_images)   
+    
+    return all_heatmaps
 
 def process_images(args):
     path, heatheatmap_channel_config = args
@@ -158,8 +169,8 @@ def process_images(args):
             img_path = os.path.join(path, file)
             ret_heatmap, ret_eq_heatmap = extract_heatmap(img_path, heatheatmap_channel_config)
 
-            updateHeatmapList(heatmap, ret_heatmap, n_images)
-            updateHeatmapList(eq_heatmap, ret_eq_heatmap, n_images)
+            heatmap = updateHeatmapList(heatmap, ret_heatmap, n_images)
+            eq_heatmap = updateHeatmapList(eq_heatmap, ret_eq_heatmap, n_images)
     
     return heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images
 
@@ -197,25 +208,47 @@ def evaluateInputDataset():
                             if os.path.exists(visible_folder):
                                 args = visible_folder, heatheatmap_channel_config
                                 futures.append(executor.submit(process_images, args))
+                #         break
                 #     break
                 # break
             results = []
             for future in tqdm(as_completed(futures), total=len(futures), desc='Processing folders'):
                 results.append(future.result())
 
-            total_images = 0
+            total_images = {}
             for result in results:
-                total_images+=result[4] 
+                heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = result
+                tag = heatheatmap_channel_config['tag']
+                if not tag in total_images:
+                    total_images[tag] = {}
+                for condition in ['day', 'night']:
+                    if not condition in total_images[tag]:
+                        total_images[tag][condition] = 0
+                        
+                    if isPathCondition(set_info[tag][condition]['sets'], path):
+                        total_images[tag][condition]+=n_images
                 
             for result in results:
                 heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = result
                 tag = heatheatmap_channel_config['tag']
                 for condition in ['day', 'night']:
                     if isPathCondition(set_info[tag][condition]['sets'], path):
-                        updateHeatmapList(set_info[tag][condition]['heatmap'], heatmap*n_images, total_images)
-                        updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], eq_heatmap*n_images, total_images)
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"heatmap[0]_{n_images}.png"), heatmap[0].astype(np.uint8)) 
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"heatmap[1]_{n_images}.png"), heatmap[1].astype(np.uint8)) 
+
+                        rescaled_heatmap = [heatmap_ch*n_images for heatmap_ch in heatmap]
+                        rescaled_eq_heatmap = [heatmap_ch*n_images for heatmap_ch in eq_heatmap]
+                        set_info[tag][condition]['heatmap'] = updateHeatmapList(set_info[tag][condition]['heatmap'], rescaled_heatmap, total_images[tag][condition])
+                        set_info[tag][condition]['CLAHE heatmap'] = updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], rescaled_eq_heatmap, total_images[tag][condition])
+
+                        # img_data,_ ,_ = rescale_channel_minmax(set_info[tag][condition]['heatmap'][0])
+                        # img_data2,_ ,_ = rescale_channel_minmax(set_info[tag]['day']['heatmap'][1])
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[0]_{total_images[tag][condition]}.png"), img_data) 
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[1]_{total_images[tag][condition]}.png"), img_data2) 
                         break
-        
+                
+            print(f"{total_images = }")
+
         with open(cache_file_path, 'wb') as f:
             pickle.dump(set_info, f)
 
@@ -233,21 +266,32 @@ def evaluateInputDataset():
                 for ch in range(len(channel_names)):
                     
                     img_data = set_info[tag][condition][heatmap_type][ch]
-
+                    if img_data is None:
+                        continue
                     file_name = f'{heatmap_type}_{condition}_{channel_names[ch]}'
-                    file_name_pdf = os.path.join(store_path_heatheatmap,'heatheatmap_pdf', f'{file_name}.pdf')
-                    file_name_png = os.path.join(store_path_heatheatmap,'heatheatmap_png', f'{file_name}.png')
+                    file_name_png = os.path.join(store_path_heatheatmap, tag, f'{file_name}.png')
+                    img_data,_ ,_ = rescale_channel_minmax(img_data)
+                    colored_img = cv.applyColorMap(img_data, cv.COLORMAP_JET)
                     
-                    cv.imwrite(file_name_pdf, img_data)
-                    cv.imwrite(file_name_png, img_data)
+                    cv.imwrite(file_name_png.replace('.png','_bn.png'), img_data)
+                    cv.imwrite(file_name_png, colored_img)
+
+                    fig, ax = plt.subplots(figsize=(6, 6))
+
+                    cax = ax.imshow(img_data, cmap='jet', vmin=np.min(img_data), vmax=np.max(img_data))
+                    ax.axis('off')
+                    cbar = plt.colorbar(cax, ax=ax, orientation='vertical', fraction=0.037, pad=0.04)
+                    cbar.ax.tick_params(labelsize=6)
+                    # cbar.set_label('Intensity')
+
+                    plt.subplots_adjust(right=0.85)
+                    plt.savefig(file_name_png.replace('png', 'pdf'), bbox_inches='tight', pad_inches=0.05)
             
 
 if __name__ == '__main__':
 
-    for heatmap_format in ['heatheatmap_pdf', 'heatheatmap_png']:
-        for tag in [item['tag'] for item in heatheatmap_channel_cfg_list]:
-            os.makedirs(os.path.join(store_path_heatheatmap, heatmap_format, tag), exist_ok=True)
-            os.makedirs(os.path.join(store_path_heatheatmap, heatmap_format, f'{tag}_log_scale'), exist_ok=True)
-
-
+    for tag in [item['tag'] for item in heatheatmap_channel_cfg_list]:
+        os.makedirs(os.path.join(store_path_heatheatmap, tag), exist_ok=True)
+            
     evaluateInputDataset()
+    print(f"Finished heatmap generation, stored data in {store_path_heatheatmap}")
