@@ -120,7 +120,11 @@ def compute_plot_data(data, dataset):
             data[last_fit_tag]['lamr'] = [lamr]
 
 
-        data_filtered = {'validation_best': data[last_val_tag], 'pr_data_best': data[last_fit_tag],
+
+        validation_data_filtered = {k: v for k, v in data[last_val_tag].items() if k not in ['confusion_matrix']}
+        pr_data_filtered = {k: v for k, v in data[last_fit_tag].items() if k not in ['data_store']}
+        data_filtered = {'validation_best': validation_data_filtered, 
+                         'pr_data_best': pr_data_filtered,
                         'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],
                         'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag'],
                         'device_type': data['system_data']['device_type']

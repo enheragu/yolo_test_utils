@@ -83,13 +83,14 @@ class BaseClassPlotter(QWidget):
         # Add the checkbox action to the file menu
         view_menu.addAction(self.checkbox_action)
         
-        self.edit_labels_action = QAction("Edit labels", self)
-        self.edit_labels_action.triggered.connect(self.figure_tab_widget.edit_labels)
-        edit_menu.addAction(self.edit_labels_action)
+        if hasattr(self, 'figure_tab_widget'):
+            self.edit_labels_action = QAction("Edit labels", self)
+            self.edit_labels_action.triggered.connect(self.figure_tab_widget.edit_labels)
+            edit_menu.addAction(self.edit_labels_action)
 
-        self.edit_xlabels_action = QAction("Edit X labels", self)
-        self.edit_xlabels_action.triggered.connect(self.figure_tab_widget.edit_xlabels)
-        edit_menu.addAction(self.edit_xlabels_action)
+            self.edit_xlabels_action = QAction("Edit X labels", self)
+            self.edit_xlabels_action.triggered.connect(self.figure_tab_widget.edit_xlabels)
+            edit_menu.addAction(self.edit_xlabels_action)
 
         self.update_checkbox()
 

@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import seaborn as sns
 from scipy.stats import norm
-from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy, QComboBox, QLabel, QHBoxLayout
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy, QComboBox, QLabel, QHBoxLayout, QCheckBox
 
 import mplcursors
 
@@ -58,19 +58,26 @@ class VarianceComparePlotter(BaseClassPlotter):
         combobox_layout = QHBoxLayout()
         label = QLabel("Class:")
         
-        det_classes = set(str('all'))
+        det_classes = set([str('all')])
         for key in self.dataset_handler.keys():
             if 'validation_best' in self.dataset_handler[key]:
                 for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
                     det_classes.add(class_key)
         # Sorted with 'all' at the beginning
-        sorted(det_classes, key=lambda x: (x != 'all', x))
+        det_classes = sorted(det_classes)
+        if 'all' in det_classes:
+            det_classes.remove('all')
+            det_classes.insert(0, 'all')
 
+        self.plot_all_checkbox = QCheckBox("Plot All")
+
+        self.plot_classes_list = det_classes
         self.combobox = QComboBox()
         self.combobox.addItems(list(det_classes))
         self.combobox.setCurrentIndex(0)
 
         combobox_layout.addWidget(label)
+        combobox_layout.addWidget(self.plot_all_checkbox)
         combobox_layout.addWidget(self.combobox)
 
         self.save_button = QPushButton(" Save Output ", self)
@@ -110,8 +117,8 @@ class VarianceComparePlotter(BaseClassPlotter):
         # PY is an interpolated versino to plot it with a consistent px value. That's why
         # it is used here instead of plotting raw p-r values averaged
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'},
-                     'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
-                     'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
+                     'P Curve': {'py': 'P', 'xlabel': "Confidence", "ylabel": 'Precision'},
+                     'R Curve': {'py': 'R', 'xlabel': "Confidence", "ylabel": 'Recall'},
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},
                      'MR Curve': {'py': 'mr_plot', 'xlabel': "Confidence", "ylabel": 'Miss Rate'}}
         
@@ -148,7 +155,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                             continue
                         
                         try:
-                            if canvas_key in ['mAP50-95', 'mAP50']:
+                            if canvas_key in ['mAP50-95', 'mAP50', 'P', 'R']:
                                 data_tag = canvas_key
                                 plot_class = self.combobox.currentText() if  self.combobox.currentText() in data['validation_best']['data'] else 'all'
                                 new_y = data['validation_best']['data'][plot_class].get(f"m{data_tag}", data['validation_best']['data'][plot_class].get(data_tag))

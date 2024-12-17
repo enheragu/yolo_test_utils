@@ -15,7 +15,7 @@ import math
 
 import numpy as np
 from PyQt6.QtGui import QKeySequence, QAction
-from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy, QComboBox, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QGridLayout, QWidget, QPushButton, QFileDialog, QSizePolicy, QComboBox, QHBoxLayout, QLabel, QCheckBox
 
 import mplcursors
 import matplotlib.pyplot as plt
@@ -81,19 +81,26 @@ class TrainComparePlotter(BaseClassPlotter):
         combobox_layout = QHBoxLayout()
         label = QLabel("Class:")
         
-        det_classes = set(str('all'))
+        det_classes = set([str('all')])
         for key in self.dataset_handler.keys():
             if 'validation_best' in self.dataset_handler[key]:
                 for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
                     det_classes.add(class_key)
         # Sorted with 'all' at the beginning
-        sorted(det_classes, key=lambda x: (x != 'all', x))
+        det_classes = sorted(det_classes)
+        if 'all' in det_classes:
+            det_classes.remove('all')
+            det_classes.insert(0, 'all')
         
+        self.plot_all_checkbox = QCheckBox("Plot All")
+        
+        self.plot_classes_list = det_classes
         self.combobox = QComboBox()
         self.combobox.addItems(list(det_classes))
         self.combobox.setCurrentIndex(0)
 
         combobox_layout.addWidget(label)
+        combobox_layout.addWidget(self.plot_all_checkbox)
         combobox_layout.addWidget(self.combobox)
 
         self.plot_button = QPushButton(" Generate Plot ", self)

@@ -51,8 +51,8 @@ class GUIPlotter(QMainWindow):
         # train_eval_tab = TrainEvalPlotter(self.dataset_handler)
         # self.tab_widget.addTab(train_eval_tab, f"Review training process")
         
-        # train_eval_tab = CSVTablePlotter(self.dataset_handler)
-        # self.tab_widget.addTab(train_eval_tab, f"Table")
+        train_eval_tab = CSVTablePlotter(self.dataset_handler)
+        self.tab_widget.addTab(train_eval_tab, f"Table")
 
         # train_eval_tab = SchedulerHandlerPlotter()
         # self.tab_widget.addTab(train_eval_tab, f"Scheduled tests")
