@@ -39,9 +39,9 @@ heatheatmap_channel_cfg_list = [{'tag': 'BGR', 'conversion': None,
                                'channel_names': ['H', 'S', 'V'], 'y_limit': [17,11,11,30]}]
 
 # Store heatheatmaps in a list of [b,g,r,lwir] heatmaps for each image
-set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
-            'night': {'sets': ['set03', 'set04', 'set05', 'set09', 'set10', 'set11'], 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
-            'day+night': {'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]}}
+set_info_ = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'num_images': 0, 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
+            'night': {'sets': ['set03', 'set04', 'set05', 'set09', 'set10', 'set11'], 'num_images': 0, 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]},
+            'day+night': {'num_images': 0, 'heatmap': [None,None,None,None], 'CLAHE heatmap': [None,None,None,None]}}
             
 set_info =  {'BGR': copy.deepcopy(set_info_), 'HSV': copy.deepcopy(set_info_)}    
 
@@ -215,18 +215,13 @@ def evaluateInputDataset():
             for future in tqdm(as_completed(futures), total=len(futures), desc='Processing folders'):
                 results.append(future.result())
 
-            total_images = {}
             for result in results:
                 heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = result
                 tag = heatheatmap_channel_config['tag']
-                if not tag in total_images:
-                    total_images[tag] = {}
                 for condition in ['day', 'night']:
-                    if not condition in total_images[tag]:
-                        total_images[tag][condition] = 0
-                        
                     if isPathCondition(set_info[tag][condition]['sets'], path):
-                        total_images[tag][condition]+=n_images
+                        set_info[tag][condition]['num_images']+=n_images
+                        break
                 
             for result in results:
                 heatmap, eq_heatmap, path, heatheatmap_channel_config, n_images = result
@@ -238,17 +233,15 @@ def evaluateInputDataset():
 
                         rescaled_heatmap = [heatmap_ch*n_images for heatmap_ch in heatmap]
                         rescaled_eq_heatmap = [heatmap_ch*n_images for heatmap_ch in eq_heatmap]
-                        set_info[tag][condition]['heatmap'] = updateHeatmapList(set_info[tag][condition]['heatmap'], rescaled_heatmap, total_images[tag][condition])
-                        set_info[tag][condition]['CLAHE heatmap'] = updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], rescaled_eq_heatmap, total_images[tag][condition])
+                        set_info[tag][condition]['heatmap'] = updateHeatmapList(set_info[tag][condition]['heatmap'], rescaled_heatmap, set_info[tag][condition]['num_images'])
+                        set_info[tag][condition]['CLAHE heatmap'] = updateHeatmapList(set_info[tag][condition]['CLAHE heatmap'], rescaled_eq_heatmap, set_info[tag][condition]['num_images'])
 
                         # img_data,_ ,_ = rescale_channel_minmax(set_info[tag][condition]['heatmap'][0])
                         # img_data2,_ ,_ = rescale_channel_minmax(set_info[tag]['day']['heatmap'][1])
-                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[0]_{total_images[tag][condition]}.png"), img_data) 
-                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[1]_{total_images[tag][condition]}.png"), img_data2) 
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[0]_{set_info[tag][condition]['num_images']}.png"), img_data) 
+                        # cv.imwrite(os.path.join(store_path_heatheatmap, f"{tag}_{condition}_heatmap[1]_{set_info[tag][condition]['num_images']}.png"), img_data2) 
                         break
-                
-            print(f"{total_images = }")
-
+                            
         with open(cache_file_path, 'wb') as f:
             pickle.dump(set_info, f)
 
@@ -257,7 +250,7 @@ def evaluateInputDataset():
         with open(cache_file_path, 'rb') as f:
             set_info = pickle.load(f)
 
-    for heatmap_type in ['heatmap', 'CLAHE heatmap']: 
+    for heatmap_type in ['heatmap']: #, 'CLAHE heatmap']: 
         for heatheatmap_channel_cfg in heatheatmap_channel_cfg_list:
             tag = heatheatmap_channel_cfg['tag']
             for condition in ['day', 'night']:
@@ -285,7 +278,9 @@ def evaluateInputDataset():
                     # cbar.set_label('Intensity')
 
                     plt.subplots_adjust(right=0.85)
+                    plt.title(f"{channel_names[ch]} Channel ({condition} with {set_info[tag][condition]['num_images']} images)", fontsize=10)
                     plt.savefig(file_name_png.replace('png', 'pdf'), bbox_inches='tight', pad_inches=0.05)
+                    plt.close()
             
 
 if __name__ == '__main__':
