@@ -268,4 +268,4 @@ function rsync_cache() {
 #######################################
 
 # Run variance training set with YOLO and COCO dataset
-# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --batch 32 --dataset-format "coco" --path-name "variance_default_coco" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --deterministic False --dataset-format "coco" --path-name "variance_default_coco" --iterations 2

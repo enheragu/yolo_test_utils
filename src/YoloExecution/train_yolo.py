@@ -6,6 +6,7 @@
 """
 import os
 
+import random
 from pathlib import Path
 import glob
 from datetime import datetime
@@ -73,7 +74,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     args['pretrained'] = opts.pretrained
     args['seed'] = 1
     args['resume'] = opts.resume
-    yaml_data['seed'] = 1
+    yaml_data['seed'] = random.random() #0
                 
     yaml_data['pretrained'] = opts.pretrained
     yaml_data['dataset_tag'] = opts.dformat
