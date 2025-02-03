@@ -14,16 +14,19 @@ import cv2 as cv
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+    sys.path.append('./src/Dataset')
 
-from utils import kaist_annotation_path, kaist_images_path
+from Dataset.constants import kaist_annotation_path, kaist_images_path
 
-kaist_annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
-kaist_images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
+# kaist_annotation_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/annotations-xml-new/"
+# kaist_images_path = "/home/quique/umh/kaist_dataset_rgbt/kaist-cvpr15/images/"
 labeled_images = "./kaist_labeled_images/"
 
 lwir = "/lwir/"
 visible = "/visible/"
-
 
 class_color = {  'person': (114,196,83), 'person?': (70,133,46), 'cyclist': (26,209,226), 'people': (229,29,46) }
 
@@ -81,16 +84,28 @@ def processXML(xml_path, image_path):
                 img = cv.rectangle(image, (start_point[0], start_point[1]-h-8), (start_point[0]+w+4, start_point[1]), class_color[obj_name], -1)
                 img = cv.putText(image, label_str, (start_point[0]+4, int(start_point[1]-h/2)),
                                     cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
-
+            return image
     # cv.imshow("img_labeled", image)
     # cv.waitKey(0)
-    return image
+    return None
 
 
 if __name__ == '__main__':
     
     # Iterate XML folder to process it, gets image associated with the file and 
     # prepare output folder for iages
+    print(f"Process {kaist_annotation_path} dataset:")
+
+
+    # lwir_image = processXML('/home/arvc/eeha/kaist-cvpr15/annotations-xml-new/set00/V000/I01689.xml',
+    #             '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg')
+    # rgb_image = processXML('/home/arvc/eeha/kaist-cvpr15/annotations-xml-new/set00/V000/I01689.xml',
+    #             '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/visible/I01689.jpg')
+    # cv.imshow("lwir", lwir_image)
+    # cv.imshow("rgb", rgb_image)
+    # cv.waitKey(0)
+    # exit()
+
     for subdir, dirs, files in os.walk(kaist_annotation_path):    
         # If its not the lower path with imag just continue
         if len(files) == 0:
@@ -114,7 +129,10 @@ if __name__ == '__main__':
 
                     # print(f"Process:\n\t· IMG: {img_path}\n\t· XML: {xml_path}\n\t· Outpu: {output_image_path}")
                     image = processXML(xml_path, img_path  + file.replace(".xml",".jpg"))
-
+                    
+                    if image is None:
+                        # Empty labels
+                        continue
                     # Resize imag to save memory
                     scale_percent = 60 # percent of original size
                     width = int(image.shape[1] * scale_percent / 100)
@@ -123,11 +141,11 @@ if __name__ == '__main__':
                     resized = cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
                     cv.imwrite(output_image_path + file.replace(".xml","_labeled.jpg"), resized)
-                        
+                    # print(f"Processed {output_image_path}")   
             except Exception as e:
                 print(f"Exception catched processing {xml_path} with message: {e}")
                 raise e
             
         r = process_map(processFile, files_filtered, max_workers = 4, chunksize = 5)
-
+        
     cv.destroyAllWindows()
