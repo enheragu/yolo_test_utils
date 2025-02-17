@@ -35,8 +35,6 @@ def printColoredTable(file, title):
     table_width = len(formatted_table.splitlines()[1]) # Get length from dashes, which is second one
     title_dashes = '-' * ((table_width - len(title)) // 2)
 
-
-
     print("\n")
     log(f"Get test queue from {file}")
     print(f"{bcolors.OKCYAN}{title_dashes}{title}{title_dashes}{bcolors.ENDC}\n")

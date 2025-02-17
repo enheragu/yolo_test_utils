@@ -35,8 +35,8 @@ def configArgParser():
                         type=str, nargs='*', default=None, choices=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
-                        type=str, nargs='*', default=model_list_default, choices=model_list_default,
-                        help=f"Model to be used. Available options are {model_list_default}. Usage: -c item1 item2, -c item3")
+                        type=str, nargs='*', default=model_list_default, # choices=model_list_default,
+                        help=f"Model to be used. Available options are {model_list_default}. Usage: -m item1 item2, -c item3")
     # Commented for now as it is called using env var. Is set in handleArguments to None by default
     #  parser.add_argument('-d', '--device', dest='device',
                         # default=None, choices=['cpu', '0', '1', 'None'],
@@ -56,6 +56,8 @@ def configArgParser():
                         help="Test name. Implies changes in the path in which it will be stored. Left to 'None' for a default test name.")
     parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[1], choices=dataset_tags_default,
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
+    parser.add_argument('-d', '--dataset', dest='dataset', type=str, default=None,
+                        help=f"YAML file with dataset configuration")
     parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
     parser.add_argument('-te', '--th_equalization', dest='thermal_eq',
@@ -80,6 +82,12 @@ def configArgParser():
                     nargs='?', const=True, default=True,
                     help='Whether training process makes use of deterministic algorithms or not.')
 
+    parser.add_argument('--distortion_correct', dest='distortion_correct', type=str2bool,
+                    nargs='?', const=True, default=True,
+                    help='Whether the dataset generation will update images with distortion correction or not.')
+    parser.add_argument('--relabeling', dest='relabeling', type=str2bool,
+                    nargs='?', const=True, default=True,
+                    help='Whether the training will take into account the relabeling performed to the original dataset, or just the original labels.')
     return parser
 
 def handleArguments(argument_list = sys.argv[1:]):
@@ -93,8 +101,9 @@ def handleArguments(argument_list = sys.argv[1:]):
     model_list = None if opts.mlist is None else list(opts.mlist)
     run_modes = None if opts.run_mode is None else list(opts.run_mode)
 
-    if opts.dformat not in dataset_tags_default:
-        raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")
+    if not opts.dataset:
+        if opts.dformat not in dataset_tags_default:
+            raise KeyError(f"Dataset format provided ({opts.dformat}) is not part of the ones avalable: {dataset_tags_default}.")
 
     opts.device = None
     if "EEHA_TRAIN_DEVICE" in os.environ:

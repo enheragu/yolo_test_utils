@@ -47,6 +47,7 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts):
     args['model'] = yolo_model
     args['data'] = dataset
     # args['imgsz'] = 640
+    args['save'] = True
     args['save_txt'] = True
     args['verbose'] = True
     args['save_conf'] = True

@@ -16,11 +16,24 @@ import yolo.v8.detect as yolo_detc
 from yolo.cfg import get_cfg
 from ultralytics import YOLO
 
+
 from utils import parseYaml, dumpYaml, log, bcolors
 from Dataset import dataset_config_path
 
 from compress_label_folder import compress_output_labels
 
+
+def set_seed(seed=42):
+    import numpy as np
+    import random
+    import torch
+    
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def TestTrainYolo(dataset, yolo_model, path_name, opts):
     start_time = datetime.now()
@@ -74,7 +87,8 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     args['pretrained'] = opts.pretrained
     args['seed'] = 1
     args['resume'] = opts.resume
-    yaml_data['seed'] = random.random() #0
+    yaml_data['seed'] = 42
+    set_seed(yaml_data['seed'])
                 
     yaml_data['pretrained'] = opts.pretrained
     yaml_data['dataset_tag'] = opts.dformat

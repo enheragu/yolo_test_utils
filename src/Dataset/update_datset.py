@@ -55,7 +55,7 @@ def getKaistData():
 """
     Returns true if generated dataset does not match the expected options
 """
-def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
+def resetDatset(options, dataset_format, rgb_eq, thermal_eq, distortion_correct = True, relabeling = True):
     global dataset_generated_cache
 
     if os.path.exists(dataset_generated_cache):
@@ -64,16 +64,18 @@ def resetDatset(options, dataset_format, rgb_eq, thermal_eq):
         # Dataset format does not affect -> all formats are generated
         #if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
         if  'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
-            'thermal_eq' in data and data['thermal_eq'] == thermal_eq:
-            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}. No reset needed.")
+            'thermal_eq' in data and data['thermal_eq'] == thermal_eq and \
+            'distortion_correct' in data and data['distortion_correct'] == distortion_correct and\
+            'relabeling' in data and data['relabeling'] == relabeling:
+            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}. No reset needed.")
             return False
         # Just for logging
         elif 'dataset_format' in data and 'rgb_eq' in data and 'thermal_eq' in data:
-            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}")
+            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}")
 
     return True
     
-def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
+def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct = True, relabeling = True):
     global dataset_generated_cache
 
     if os.path.exists(dataset_generated_cache):
@@ -86,10 +88,13 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq):
     data['rgb_eq'] = rgb_eq
     data['thermal_eq'] = thermal_eq
     data['last_update'] = getTimetagNow()
+    data['distortion_correct'] = distortion_correct
+    data['relabeling'] = relabeling
 
     dumpYaml(dataset_generated_cache, data, mode = "w+")
 
-def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
+def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none',
+                      distortion_correct = True, relabeling = True):
 
     if options is None:
         log(f"[UpdateDataset::checkKaistDataset] No options provided, no checking Kaist dataset", bcolors.WARNING)
@@ -113,7 +118,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
         
         # make sure that kaist-yolo path exists
 
-        if os.path.exists(kaist_yolo_dataset_path) and resetDatset(options, dataset_format, rgb_eq, thermal_eq):
+        if os.path.exists(kaist_yolo_dataset_path) and resetDatset(options, dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling):
             log(f'[UpdateDataset::checkKaistDataset] Deleting previous dataset generated as options does not match current request.', bcolors.WARNING)
             shutil.rmtree(kaist_yolo_dataset_path)
 
@@ -128,10 +133,10 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
 
         if 'lwir' not in options_found and 'visible' not in options_found:
             log(f"[UpdateDataset::checkKaistDataset] Kaist-YOLO dataset could not be found in {kaist_yolo_dataset_path}. Generating new labeling for both lwir and visible sets.")
-            kaistToYolo(dataset_format, rgb_eq, thermal_eq)
+            kaistToYolo(dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
             # Update with new options
-            dumpCacheFile('lwir', dataset_format, rgb_eq, thermal_eq)
-            dumpCacheFile('visible', dataset_format, rgb_eq, thermal_eq)
+            dumpCacheFile('lwir', dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
+            dumpCacheFile('visible', dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
             setfolders = [ f.path for f in os.scandir(kaist_yolo_dataset_path) if f.is_dir() ]
             options_found = [ f.name for f in os.scandir(setfolders[0]) if f.is_dir() ] if setfolders else []
         else:
@@ -148,7 +153,7 @@ def checkKaistDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'non
                 if "preprocess" in dataset_options[option]:
                     dataset_options[option]["preprocess"](dataset_format)
                 make_dataset(option, dataset_format, rgb_eq, thermal_eq)
-                dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq)
+                dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
             else:
                 log(f"[UpdateDataset::checkKaistDataset] Custom dataset for option {option} requested is already in dataset folder.")
 

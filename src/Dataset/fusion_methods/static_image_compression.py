@@ -75,6 +75,16 @@ def combine_rgbt_v2(visible_image, thermal_image):
     return rgbt_image
 
 @save_image_if_path
+def combine_rgbtalpha(visible_image, thermal_image):
+    b,g,r = cv.split(visible_image)
+    th_channel = thermal_image
+    
+    rgbt_image = cv.merge([b,g,r,th_channel])
+    rgbtalpha_image = cv.cvtColor(rgbt_image, cv.COLOR_BGRA2BGR)
+    
+    return rgbtalpha_image
+
+@save_image_if_path
 def combine_vths(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th_channel = thermal_image

@@ -3,7 +3,7 @@
 """
     Defines a Qt widget to display data from trainig into a CSV table format
 """
-
+import os
 import itertools
 from datetime import datetime
 import csv
@@ -18,6 +18,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTableWidget, QTableWidgetItem
 
 from utils import log, bcolors
+from utils.log_utils import logTable
 from utils.log_utils import printDictKeys
 from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
 
@@ -59,6 +60,8 @@ class TrainCSVDataTable(QWidget):
                 log(f"[{self.__class__.__name__}] Summary CVS data in stored {file_name}.csv")
                 writer = csv.writer(file)
                 writer.writerows(self.csv_data)
+
+            logTable(self.csv_data, os.path.join(file_name.split('/')[:-1]), file_name.split('/')[-1])
 
     ## Overloadable function :)
     def getDataDictToPlot(self):

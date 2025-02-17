@@ -201,6 +201,8 @@ class TestQueue:
     def updateCurrentExecutingPath(self, path):
         with FileLock(f'{self.executing_file}.lock') as lock1:
             data = self._read_file(self.executing_file)
+            if not data:
+                data = {}
             data['path'] = path
             self._save_file(self.executing_file, data)
 

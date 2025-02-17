@@ -86,9 +86,15 @@ if __name__ == '__main__':
         index = 0
         try:
             condition_list, option_list, model_list, opts = handleArguments(next_test)
-            checkKaistDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq)
-            
-            dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
+
+            if not opts.dataset:
+                checkKaistDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq,
+                                  opts.distortion_correct, opts.relabeling)
+                
+                dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
+            else:
+                dataset_config_list = [opts.dataset]
+
         except Exception as e:
             log(f"Problem generating dataset or configuration files for {next_test}.", bcolors.ERROR)
             log(f"Catched exception: {e}", bcolors.ERROR)
@@ -128,9 +134,9 @@ if __name__ == '__main__':
                                 test_name = opts.test_name + id
 
                             if opts.path_name is None:
-                                if mode == 'val':
+                                if 'val' in opts.run_mode:
                                     path_name = "validate_" + yolo_model + "/" + test_name
-                                elif mode == 'train':
+                                elif 'train' in opts.run_mode:
                                     path_name = f'train_based_{yolo_model}/{test_name}'
                             else:
                                 path_name = opts.path_name + "/" + test_name

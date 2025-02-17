@@ -10,8 +10,10 @@ clint
 requests
 scipy
 scikit-learn
+curvelets
 mplcursors
 tabulate
 p-tqdm
 PyWavelets
+umap-learn
 psutil

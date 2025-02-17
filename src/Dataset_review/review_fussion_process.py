@@ -15,7 +15,7 @@ import concurrent.futures
 from collections import defaultdict
 from p_tqdm import p_map
 
-from tabulate import tabulate
+from utils.log_utils import logTable
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -180,9 +180,6 @@ def evaluateFussion(fussion_functions, dataset_whitelist):
     if not os.path.exists(images_store_path):
         os.makedirs(images_store_path)
 
-    latex_table = str()
-    latex_table += "\t\t Fussion Function & Mean & Std \\\\"+"\n" 
-    latex_table += "\t\t\\hline"+"\n" 
     table_headers = ["Fussion Function", "Mean (s)", "Std (s)"]
     table_data = []
     for index, fussion_function in enumerate(fussion_functions):
@@ -196,22 +193,11 @@ def evaluateFussion(fussion_functions, dataset_whitelist):
         std_dev = np.std(data)
         path = os.path.join(images_store_path, f'{fussion_function.__name__}.png')
         plot_distribution(data, mean, std_dev, title=f"{fussion_function.__name__} for {directory}", path = path)
-
-        latex_table += f"\t\t{fussion_function.__name__.title()} & {mean:.5f} & {std_dev:.5f} \\\\" + "\n"
-        latex_table += "\t\t\\hline" + "\n"
         
         row = [f"{fussion_function.__name__.title()}", f"{mean:.5f}", f"{std_dev:.5f}"]
         table_data.append(row)
     
-    print(tabulate(table_data, headers=table_headers, tablefmt="pretty")+'\n')
-
-    tex_result_store = os.path.join(store_path, 'fussion', 'fussion_table.tex')
-    with open(tex_result_store, 'w') as file:
-        file.write(latex_table+"\n")
-
-    table_file_log = os.path.join(store_path, 'fussion', 'fussion_table.txt')
-    with open(table_file_log, 'w') as file:
-        file.write(tabulate(table_data, headers=table_headers, tablefmt="pretty")+'\n')
+    logTable(table_data, os.path.join(store_path, 'fussion'), 'fussion_table')
 
 """
     Creates a demo image of the result of applying the fussion functions provided

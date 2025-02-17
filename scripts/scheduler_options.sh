@@ -234,6 +234,37 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloNoTrained.pt' --dataset-format "kaist_80_20" --path-name "variance_notrained" --iterations 5
 
 
+## Add rgbt taking t as alpha channel in PNG and converting to BGR directly. Execute all options with and without equalization
+# eeha_schedule_new_test -c 'day' 'night' -o 'alphat_rgbt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed"
+# eeha_schedule_new_test -c 'day' 'night' -o 'alphat_rgbt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_sameseed" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# eeha_schedule_new_test -c 'day' 'night' -o 'alphat_rgbt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
+# eeha_schedule_new_test -c 'day' 'night' -o 'alphat_rgbt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_sameseed" --th_equalization 'clahe'
+
+
+## KAIST CORRECTED
+
+# Reference without correction and relabeling
+# eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4m.yaml' --dataset-format "kaist_80_20" --cache "disk" --distortion_correct "False" --relabeling "False" --path-name "no_equalization_sameseed"
+# Relabeled
+# eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed_corrected_relabeled"
+# eeha_schedule_new_test -c 'day' 'night' -o 'alphat_rgbt' 'hsvt' 'vt' 'rgbt_v2' 'vths_v2'   -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed_corrected_relabeled"
+# eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_sameseed_corrected_relabeled"
+
+# Optical flow
+# eeha_schedule_new_test -c 'night' -o 'alphat_rgbt' 'lwir' 'visible'  -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed_opticalflow_v2"
+
+
+## MDPI first review results
+# eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_mdpi_review"
+# eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_mdpi_review"
+# eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_mdpi_review"
+# (both eq)
+# eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_mdpi_review" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# (rgb_eq)
+# eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_mdpi_review" --rgb_equalization 'clahe'
+# (th_eq)
+# eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_mdpi_review" --th_equalization 'clahe'
+
 ###################################
 ##       NON-STATIC PAPER        ##
 ###################################

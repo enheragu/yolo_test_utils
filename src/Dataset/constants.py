@@ -1,9 +1,9 @@
 
 
-from .static_image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch
-from .static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
-from .pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch
-from .wavelet_compression import combine_wavelet
+from .fusion_methods.static_image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch, combine_rgbtalpha
+from .fusion_methods.static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
+from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch
+from .fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
 from pathlib import Path
 
 home = Path.home()
@@ -11,10 +11,18 @@ repo_path = f"{home}/eeha/yolo_test_utils"
 
 # Path setup for dataset parsing and generation
 kaist_path = f"{home}/eeha/kaist-cvpr15"
-kaist_sets_paths = [f"{repo_path}/kaist_imageSets", f"{kaist_path}/imageSets"]
+kaist_sets_paths = [f"{repo_path}/ImageSets/kaist_imageSets", f"{kaist_path}/imageSets"]
 kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
 kaist_images_path = f"{kaist_path}/images"
 kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset in YOLO format
+
+llvip_path = f"{home}/eeha/LLVIP"
+llvip_annotation_path = f"{llvip_path}/Annotations"
+llvip_sets_paths = [f"{repo_path}/ImageSets/llvip_imageSets"]
+llvip_images_path = f"{llvip_path}/images"
+llvip_lwir_folder_name =  f"infrared"
+llvip_yolo_dataset_path = f"{home}/eeha/llvip-yolo-annotated/" # Output dataset in YOLO format
+
 
 dataset_config_path = f"{repo_path}/yolo_config"
 
@@ -32,7 +40,8 @@ dataset_whitelist = [] #['train-day-04', 'train-day-20', 'test-day-01', 'test-da
 dataset_options = {
                     'hsvt': {'merge': combine_hsvt, 'extension': '.png' },
                     'rgbt': {'merge': combine_rgbt, 'extension': '.png' },
-                    '4ch': {'merge': combine_4ch, 'extension': '.npy' },
+                    'alphat_rgbt' : {'merge': combine_rgbtalpha, 'extension': '.png' },
+                    '4ch': {'merge': combine_4ch, 'extension': '.npz' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
                     'lwir_npy' : {'merge': combine_lwir_npy, 'extension': '.npz' },
@@ -52,7 +61,11 @@ fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension'
                   'fa_full_npy' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
                   }
 
-wavelets_options = {'wavelet_npy' : {'merge': combine_wavelet, 'extension': '.npz' }
+wavelets_options = {
+                    'wavelet_hsvt_npy' : {'merge': combine_hsvt_wavelet, 'extension': '.npz'},
+                    'wavelet_rgbt_npy' : {'merge': combine_rgb_wavelet, 'extension': '.npz'},
+                    'curvelet_hsvt_npy' : {'merge': combine_hsv_curvelet, 'extension': '.npz'},
+                    'curvelet_rgbt_npy' : {'merge': combine_rgb_curvelet, 'extension': '.npz'}
                   }
          # Modified YOLO dataloader so it only loads needed stuff
          #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
@@ -76,7 +89,8 @@ class_data = {'coco': {  'person': 0,  'bicycle': 1,  'car': 2,  'motorcycle': 3
               'kaist_90_10': default_kaist,
               'kaist_80_20': default_kaist,
               'kaist_70_30': default_kaist,
-              'kaist_debug': default_kaist
+              'kaist_debug': default_kaist,
+              'llvip_80_20': default_kaist
              }
 
 ## Templates for TMP YOLO dataset configuration
@@ -90,7 +104,8 @@ templates_cfg = {'coco': {'template': f"{dataset_config_path}/coco.yaml"},
                  'kaist_90_10': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '90_10'}}, # Extra arguments that can be provided to the template
                  'kaist_80_20': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '80_20'}}, # Extra arguments that can be provided to the template
                  'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}}, # Extra arguments that can be provided to the template
-                 'kaist_debug': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': 'debug'}} # Extra arguments that can be provided to the template. Just for debugging training/val process
+                 'kaist_debug': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': 'debug'}}, # Extra arguments that can be provided to the template. Just for debugging training/val process
+                 'llvip_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option.j2", 'extra': {'percent': '80_20'}}
                  }
 
 dataset_keys = list(class_data.keys())

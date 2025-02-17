@@ -10,7 +10,11 @@
 import os  
 from pathlib import Path
 from itertools import zip_longest
-from tabulate import tabulate
+
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+from utils.log_utils import logTable
 
 home = Path.home()
 kaist_dataset_path = f"{home}/eeha/kaist-cvpr15/images"
@@ -62,7 +66,7 @@ def count_backgrounds(path):
     return backgrounds
 
 
-def evaluateOutputDataset(white_list = white_list, print_latex_table = True, title = "dataset_info.txt"):
+def evaluateOutputDataset(white_list = white_list, title = "dataset_info.txt"):
     
     # Dictionary to store the count of images and lines of output dataset
     count = {"all": {"test": {"images": 0, "backgrounds": 0, "b_percent": 0, "instances": 0, "unique_images": set()},
@@ -99,12 +103,8 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True, tit
 
 
     # Print results
-    latex_table = str()
     print(f"Evaluated dirs: {evaluated_dirs}")
-    latex_table += "\t\t& Images & Backgrounds & Instances\\\\" + "\n" # & Unique Images \\\\"+"\n" 
-    latex_table += "\t\t\\midrule"+"\n" 
 
-    log_str = ""
     for condition in ["all", "day", "night"]:
         set_unique = set()
         total_len = 0
@@ -118,45 +118,22 @@ def evaluateOutputDataset(white_list = white_list, print_latex_table = True, tit
             total_len += len(count[condition][type]['unique_images'])
             count[condition][type]["unique_images"] = len(set_unique)/total_len if total_len != 0 else total_len
 
-            latex_table += f"\t\t{type.title()} {condition} & {count[condition][type]['images']} & {count[condition][type]['backgrounds']} & {count[condition][type]['instances']} \\\\" + "\n" #& {count[condition][type]['unique_images']} \\\\" + "\n"
-
-        latex_table += "\t\t\\midrule" + "\n"  
-    latex_table += "\t\t\\bottomrule" + "\n"  
-            
-            # log_str+=f"{type.title()} {condition}: images: {count[condition][type]['images']}; backgrounds: {count[condition][type]['backgrounds']}; labels: {count[condition][type]['instances']}; unique: {len(count[condition][type]['unique_images'])}\n"
-        # log_str+=f"{condition}: Unique images between both train/test: {len(set_unique)}/{total_len}\n"
-        
-    if print_latex_table:
-        print(latex_table)
-    # print(f"\n\n{log_str}")
-    # for traintest, data in count.items():
-    #     for condition, values in data.items():
-    #         print(f"{traintest.title()} {condition}: {values}")
-
     headers = [""] + list(count['day']['test'].keys())
     # row_header = [f"{key} {sub_key}" for key in count.keys() for sub_key in count[key].keys()]
 
     # Crear una lista de listas para los datos de la tabla
-    table_data = []
+    table_data = [headers]
     for key, value in count.items():
         for sub_key, sub_value in value.items():
             row = [f"{sub_key} {key}"] + [sub_value[key] for key in sub_value.keys()]
             table_data.append(row)
 
-    # Imprimir la tabla utilizando tabulate
-    print(tabulate(table_data, headers=headers, tablefmt="pretty"))
 
     file_log_path = os.path.join(store_path, 'dataset_info')
     if not os.path.exists(file_log_path):
         os.makedirs(file_log_path)
 
-    file_log = os.path.join(file_log_path, title)
-    with open(file_log, 'w') as file:
-        file.write(tabulate(table_data, headers=headers, tablefmt="pretty")+'\n')
-
-    file_log = os.path.join(file_log_path, title.replace('txt','tex'))
-    with open(file_log, 'w') as file:
-        file.write(latex_table+"\n")
+    logTable(table_data, file_log_path, title.replace('.txt',''))
 
     return count
 
@@ -285,14 +262,14 @@ if __name__ == '__main__':
         os.makedirs(store_path)
 
     # evaluateOutputDataset()
-    evaluateInputDataset()
+    # evaluateInputDataset()
     # splitDatsets()
 
     
-    evaluateOutputDataset(white_list=['test-all-01','train-all-01','test-day-01','train-day-02','test-night-01','train-night-02'], print_latex_table=True, title="dataset_kaist.txt")
-    print("\nCase 70-30:")
-    evaluateOutputDataset(white_list=['test-day-70_30','train-day-70_30','test-night-70_30','train-night-70_30'], print_latex_table=True, title="dataset_70-30.txt")
+    # evaluateOutputDataset(white_list=['test-all-01','train-all-01','test-day-01','train-day-02','test-night-01','train-night-02'], title="dataset_kaist.txt")
+    # print("\nCase 70-30:")
+    # evaluateOutputDataset(white_list=['test-day-70_30','train-day-70_30','test-night-70_30','train-night-70_30'], title="dataset_70-30.txt")
     print("\nCase 80-20:")
-    evaluateOutputDataset(white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20'], print_latex_table=True, title="dataset_80-20.txt")
-    print("\nCase 90-10:")
-    evaluateOutputDataset(white_list=['test-day-90_10','train-day-90_10','test-night-90_10','train-night-90_10'], print_latex_table=True, title="dataset_90-10.txt")
+    evaluateOutputDataset(white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20'], title="dataset_80-20.txt")
+    # print("\nCase 90-10:")
+    # evaluateOutputDataset(white_list=['test-day-90_10','train-day-90_10','test-night-90_10','train-night-90_10'], title="dataset_90-10.txt")
