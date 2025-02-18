@@ -29,11 +29,11 @@ from Dataset.th_equalization import th_equalization, rgb_equalization
 test = None
 test_plot = False
 
-def process_image(folder, combine_method, option_path, dataset_format, rgb_eq, thermal_eq, image):
+def process_image(yolo_dataset_path, folder, combine_method, option_path, dataset_format, rgb_eq, thermal_eq, image):
     # log(f"Processing image {image} from {folder} dataset")
 
-    thermal_image_path = os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
-    rgb_image_path = os.path.join(kaist_yolo_dataset_path,folder,visible_folder_name,images_folder_name,image)
+    thermal_image_path = os.path.join(yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
+    rgb_image_path = os.path.join(yolo_dataset_path,folder,visible_folder_name,images_folder_name,image)
 
     rgb_img = cv.imread(rgb_image_path)
     th_img = cv.imread(thermal_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
@@ -84,7 +84,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             images_list_create = images_list_create[:test]
             for image in images_list_create[:test]:
                 # Creating visualization windows
-                process_image(folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, image)
+                process_image(yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, image)
                 if test_plot:
                     fused_image = cv.imread(option_path + image)
                     cv.namedWindow("Image fussion", cv.WINDOW_AUTOSIZE)
@@ -99,7 +99,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             # Iterate images multiprocessing
             # with Pool(processes = 5) as pool:
             with Pool() as pool:    
-                func = partial(process_image, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq)
+                func = partial(process_image, yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq)
                 results = pool.map(func, images_list_create)
 
                 execution_times = [result[1] for result in results]

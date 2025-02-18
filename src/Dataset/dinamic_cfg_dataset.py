@@ -9,6 +9,7 @@ from utils import log, bcolors
 from utils import getGPUTestID
 
 from .constants import kaist_yolo_dataset_path, templates_cfg, condition_list_default, option_list_default, model_list_default, dataset_tags_default
+from .constants import llvip_yolo_dataset_path
 
 #################################
 #       Dinamic CFG stuff       #
@@ -16,12 +17,18 @@ from .constants import kaist_yolo_dataset_path, templates_cfg, condition_list_de
 
 def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_in = None, dataset_tag = dataset_tags_default[0]):
     from jinja2 import Template
-
-    global condition_list_default, option_list_default, kaist_yolo_dataset_path
+    global condition_list_default, option_list_default
+    
+    if 'kaist' in dataset_tag:
+        datase_yolo_path = kaist_yolo_dataset_path
+    elif 'llvip' in dataset_tag:
+        datase_yolo_path = llvip_yolo_dataset_path
+    else:
+        log("[ERROR] [ConfigUtils::generateCFGFiles] Unknown dataset tag provided ({dataset_tag})", bcolors.ERROR)
     
     condition_list = condition_list_in if condition_list_in is not None else condition_list_default
     option_list = option_list_in if option_list_in is not None else option_list_default
-    data_path = data_path_in if data_path_in is not None else kaist_yolo_dataset_path
+    data_path = data_path_in if data_path_in is not None else datase_yolo_path
     
     cfg_generated_files = []
     

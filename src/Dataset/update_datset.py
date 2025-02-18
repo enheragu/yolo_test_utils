@@ -19,7 +19,7 @@ import shutil
 from utils import FileLock
 
 from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow
-from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path, llvip_yolo_dataset_path, llvip_path
+from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path, llvip_yolo_dataset_path, llvip_path, repo_path
 from .constants import dataset_options, dataset_generated_cache
 from .KAIST.kaist_to_yolo_annotations import kaistToYolo
 from .LLVIP.llvip_to_yolo_annotations import llvipToYolo

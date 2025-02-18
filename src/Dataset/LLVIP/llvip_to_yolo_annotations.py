@@ -18,6 +18,7 @@ from multiprocessing.pool import Pool
 from functools import partial
 
 import cv2 as cv
+import numpy as np
 
 # Small hack so packages can be found
 if __name__ == "__main__":
@@ -32,6 +33,41 @@ from Dataset.th_equalization import th_equalization, rgb_equalization
 # from .check_dataset import checkImageLabelPairs
 
 from utils import log, bcolors
+
+
+def check_txt(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        log(f"Error with file {file_path}: {e}", bcolors.ERROR)
+        return False
+
+def check_image(file_path):
+    try:
+        img = cv.imread(file_path, cv.IMREAD_UNCHANGED)
+        if img is None or img.size == 0:
+            print(f"[ERROR] Error with image {file_path}. Img is None or size is 0")
+            return False
+        
+        if len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] == 1):
+            if np.all(img == 0) or np.all(img == 255):
+                print(f"[ERROR] Error with image {file_path}. All 0 or 255.")
+                return False
+        else:
+            if np.all(img == [0,0,0]) or np.all(img == [255,255,255]):
+                print(f"[ERROR] Error with image {file_path}. All 0 or 255 in all channels.")
+                return False
+        
+        if len(img.shape) == 3 and img.shape[2] == 3:
+            cv.cvtColor(img, cv.COLOR_BGR2RGB)
+            cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        
+        return True
+    except Exception as e:
+        log(f"Error with file {file_path}: {e}", bcolors.ERROR)
+        return False
 
 def processXML(xml_path, output_paths, dataset_format, relabeling):
     global class_data
@@ -58,7 +94,10 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                 ymax = float(object.bndbox.ymax.cdata)
                 xmin = float(object.bndbox.xmin.cdata)
                 ymin = float(object.bndbox.ymin.cdata)
-                
+
+                w,h = (xmax-xmin),(ymax-ymin)
+                x,y = xmin+w/2, ymin+h/2
+
                 if dataset_format == 'llvip_coco':
                     if obj_name == "people" or obj_name == "cyclist":
                         obj_name = "person"
@@ -76,7 +115,7 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                         obj_name = "person"
                     
                     if obj_name == "person":
-                        label = [obj_class_dict[obj_name], xmin,ymin,(xmax-xmin),(ymax-ymin)]
+                        label = [obj_class_dict[obj_name], x,y,w,h]
                     # label = [obj_class_dict[obj_name], x,y,w,h]
                 
                 img_labels.append(label)
@@ -103,6 +142,9 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                 
                 updateSymlink(output_paths[0], output_paths[1])
 
+                check_txt(output_paths[0])
+                check_txt(output_paths[1])
+
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
 def processLineLabels(new_dataset_label_paths, dataset_format, relabeling, line):
@@ -123,7 +165,7 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, relabeling, line):
         image_path = os.path.join(data_type, line)
         root_image_path = os.path.join(llvip_images_path,f"{image_path}.jpg")
         file_name = line.split("/")[-1]
-        new_image_path = os.path.join(llvip_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{file_name}.png")
+        new_image_path = os.path.join(llvip_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{file_name}.jpg")
 
         # print(f"{root_image_path = }; {new_image_path = }")
         # Apply clahe equalization to LWIR images if needed, or add symlink instead
@@ -148,6 +190,7 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, relabeling, line):
             ## Now needs transform anyway
             cv.imwrite(new_image_path, img)
         
+        check_image(new_image_path)
         processed[data_type][line] = new_image_path
     
     return processed
@@ -166,8 +209,8 @@ def upateProcessedSymlinks(pre_processed, data_set_name, line):
         if os.path.exists(label_root_path):
             updateSymlink(label_root_path, label_new_path)
     
-
-def llvipToYolo(dataset_format = 'llvip_coco', rgb_eq = 'none', thermal_eq = 'none', relabeling = True):
+# Distortion correct added just for compatibility
+def llvipToYolo(dataset_format = 'llvip_coco', rgb_eq = 'none', thermal_eq = 'none', distortion_correct = None, relabeling = True):
     global class_data
 
     dataset_processed = 0
