@@ -19,8 +19,7 @@ kaist_yolo_dataset_path = f"{home}/eeha/kaist-yolo-annotated/" # Output dataset 
 llvip_path = f"{home}/eeha/LLVIP"
 llvip_annotation_path = f"{llvip_path}/Annotations"
 llvip_sets_paths = [f"{repo_path}/ImageSets/llvip_imageSets"]
-llvip_images_path = f"{llvip_path}/images"
-llvip_lwir_folder_name =  f"infrared"
+llvip_images_path = f"{llvip_path}"
 llvip_yolo_dataset_path = f"{home}/eeha/llvip-yolo-annotated/" # Output dataset in YOLO format
 
 
@@ -116,4 +115,4 @@ option_list_default = dataset_options_keys
 model_list_default = ['yoloNoTrained.pt','yoloCh1m.yaml','yoloCh2m.yaml','yoloCh3m.yaml','yoloCh4m.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
 dataset_tags_default = dataset_keys   # Just list of availables :)
 
-dataset_generated_cache = f'{kaist_yolo_dataset_path}dataset_options.cache'
+dataset_generated_cache = f'{repo_path}/.dataset_generation_options.cache'

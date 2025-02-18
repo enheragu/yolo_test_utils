@@ -29,7 +29,7 @@ from utils import updateSymlink
 from Dataset.constants import class_data, dataset_whitelist, dataset_blacklist, kaist_sets_paths, kaist_annotation_path, kaist_images_path, kaist_yolo_dataset_path
 from Dataset.constants import images_folder_name, labels_folder_name, lwir_folder_name, visible_folder_name
 from Dataset.th_equalization import th_equalization, rgb_equalization
-from Dataset.kaist_correction import generateCorrectedImage, generateCorrectedLabels, crop_w, crop_h
+from Dataset.KAIST.kaist_correction import generateCorrectedImage, generateCorrectedLabels, crop_w, crop_h
 # from .check_dataset import checkImageLabelPairs
 
 from utils import log, bcolors

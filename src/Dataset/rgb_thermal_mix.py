@@ -50,7 +50,7 @@ def process_image(folder, combine_method, option_path, dataset_format, rgb_eq, t
     total_time = end_time - start_time
     return image_combined, total_time
 
-def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none'):
+def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none', yolo_version_dataset_path = kaist_yolo_dataset_path):
     if option not in dataset_options:
         log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
@@ -61,21 +61,21 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
     execution_time_all = []
     # Iterate each of the datasets
     log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
-    for folder in os.listdir(kaist_yolo_dataset_path):
-        if not os.path.isdir(os.path.join(kaist_yolo_dataset_path,folder)):
+    for folder in os.listdir(yolo_version_dataset_path):
+        if not os.path.isdir(os.path.join(yolo_version_dataset_path,folder)):
              continue
         
         # Images as new dataset option to new path with its labels
-        option_path = os.path.join(kaist_yolo_dataset_path,folder,option,images_folder_name)
+        option_path = os.path.join(yolo_version_dataset_path,folder,option,images_folder_name)
         Path(option_path).mkdir(parents=True, exist_ok=True)
         # Symlink to labels instead of deepcopy to save memory
-        updateSymlink(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
-                        os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name))
-        # shutil.copytree(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,labels_folder_name), 
-        #                 os.path.join(kaist_yolo_dataset_path,folder,option,labels_folder_name), 
+        updateSymlink(os.path.join(yolo_version_dataset_path,folder,lwir_folder_name,labels_folder_name), 
+                        os.path.join(yolo_version_dataset_path,folder,option,labels_folder_name))
+        # shutil.copytree(os.path.join(yolo_version_dataset_path,folder,lwir_folder_name,labels_folder_name), 
+        #                 os.path.join(yolo_version_dataset_path,folder,option,labels_folder_name), 
         #                 dirs_exist_ok=True)
 
-        images_list = os.listdir(os.path.join(kaist_yolo_dataset_path,folder,lwir_folder_name,images_folder_name))
+        images_list = os.listdir(os.path.join(yolo_version_dataset_path,folder,lwir_folder_name,images_folder_name))
         images_list_create = [image for image in images_list if image not in processed_images]
         images_list_symlink = [image for image in images_list if image in processed_images]
         
@@ -121,7 +121,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             log(f"Test mode enabled for {test} images. Finished processing {folder}.")
             break
 
-        # checkImageLabelPairs(os.path.join(kaist_yolo_dataset_path,folder,option))
+        # checkImageLabelPairs(os.path.join(yolo_version_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
     log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {stdev(execution_time_all)}) on each image.")
 

@@ -27,8 +27,7 @@ if __name__ == "__main__":
 
 from utils import updateSymlink
 from Dataset.constants import class_data, dataset_whitelist, dataset_blacklist, llvip_annotation_path, llvip_images_path, llvip_yolo_dataset_path, llvip_sets_paths
-from Dataset.constants import images_folder_name, labels_folder_name, visible_folder_name
-from Dataset.constants import llvip_lwir_folder_name as lwir_folder_name
+from Dataset.constants import images_folder_name, labels_folder_name, visible_folder_name, lwir_folder_name
 from Dataset.th_equalization import th_equalization, rgb_equalization
 # from .check_dataset import checkImageLabelPairs
 
@@ -55,10 +54,10 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                 img_width = float(doc.annotation.size.width.cdata)
                 img_height = float(doc.annotation.size.height.cdata)
                 
-                w = float(object.bndbox.w.cdata)
-                h = float(object.bndbox.h.cdata)
-                x = float(object.bndbox.x.cdata)
-                y = float(object.bndbox.y.cdata)
+                xmax = float(object.bndbox.xmax.cdata)
+                ymax = float(object.bndbox.ymax.cdata)
+                xmin = float(object.bndbox.xmin.cdata)
+                ymin = float(object.bndbox.ymin.cdata)
                 
                 if dataset_format == 'llvip_coco':
                     if obj_name == "people" or obj_name == "cyclist":
@@ -77,7 +76,7 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                         obj_name = "person"
                     
                     if obj_name == "person":
-                        label = [obj_class_dict[obj_name], x,y,w,h]
+                        label = [obj_class_dict[obj_name], xmin,ymin,(xmax-xmin),(ymax-ymin)]
                     # label = [obj_class_dict[obj_name], x,y,w,h]
                 
                 img_labels.append(label)
@@ -107,10 +106,10 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
 def processLineLabels(new_dataset_label_paths, dataset_format, relabeling, line):
-    path = '_'.join(line.split("/"))
+    file_name = line.split("/")[-1]
     
-    root_label_path = os.path.join(llvip_annotation_path,f"{line}.xml")
-    output_paths = [os.path.join(folder,f"{path}.txt") for folder in  new_dataset_label_paths]
+    root_label_path = os.path.join(llvip_annotation_path,f"{file_name}.xml")
+    output_paths = [os.path.join(folder,f"{file_name}.txt") for folder in  new_dataset_label_paths]
     # log(output_paths)
     processXML(root_label_path, output_paths, dataset_format, relabeling)
 
@@ -119,20 +118,20 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, relabeling, line):
     processed = {lwir_folder_name: {}, visible_folder_name: {}}
 
     for data_type in (lwir_folder_name, visible_folder_name):
-        path = line.split("/")
-        path = (path[0], path[1], data_type, path[2])
-
+    
         # Create images
-        root_image_path = os.path.join(llvip_images_path,"/".join(path) + ".jpg")
-        new_image_path = os.path.join(llvip_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{path[0]}_{path[1]}_{path[3]}.png")
+        image_path = os.path.join(data_type, line)
+        root_image_path = os.path.join(llvip_images_path,f"{image_path}.jpg")
+        file_name = line.split("/")[-1]
+        new_image_path = os.path.join(llvip_yolo_dataset_path,data_set_name,data_type,images_folder_name,f"{file_name}.png")
 
+        # print(f"{root_image_path = }; {new_image_path = }")
         # Apply clahe equalization to LWIR images if needed, or add symlink instead
 
         if 'lwir' in data_type:
             img = cv.imread(root_image_path, cv.IMREAD_GRAYSCALE)
         else:
             img = cv.imread(root_image_path)
-
 
         if 'lwir' in data_type and str(thermal_eq).lower() != 'none':
             img = th_equalization(img, thermal_eq)
