@@ -112,6 +112,7 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
         
     else:
         log(f"[ERROR] [UpdateDataset::checkDataset] No conversion known for dataset format provided.", bcolors.ERROR)
+        exit()
     # Locks to avoid re-generation of dataset while other scheduler is generating it
     
     log(f'[UpdateDataset::checkDataset] Try to acquire lock in {lock_path}.')
@@ -127,8 +128,7 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
                 log(f"[UpdateDataset::checkDataset] Kaist dataset could not be found in {dataset_path}. Downloading it from scratch.")
                 getKaistData()
             else:
-                log(f"[UpdateDataset::checkDataset] Kaist dataset found in {dataset_path}, no need to re-download.")
-                exit()
+                log(f"[UpdateDataset::checkDataset] Kaist dataset found in {dataset_path}, no need to re-download.", bcolors.ERROR)
         
         # make sure that kaist-yolo path exists
 

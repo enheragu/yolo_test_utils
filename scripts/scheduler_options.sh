@@ -254,16 +254,30 @@ function rsync_cache() {
 # eeha_schedule_new_test -c 'night' -o 'alphat_rgbt' 'lwir' 'visible'  -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_sameseed_opticalflow_v2"
 
 
-## MDPI first review results
+## MDPI first review results 
+# Kaist
 # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_mdpi_review"
 # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_mdpi_review"
-# eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_mdpi_review"
 # (both eq)
 # eeha_schedule_new_test -c 'day' 'night' -o 'visible' 'lwir' 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization_mdpi_review" --th_equalization 'clahe' --rgb_equalization 'clahe'
 # (rgb_eq)
 # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_equalization_mdpi_review" --rgb_equalization 'clahe'
 # (th_eq)
 # eeha_schedule_new_test -c 'day' 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "th_equalization_mdpi_review" --th_equalization 'clahe'
+# (4ch)
+# eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4_v2.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_mdpi_review"
+
+# LLVIP
+# eeha_schedule_new_test -c 'night' -o 'visible' 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_no_equalization_mdpi_review"
+# eeha_schedule_new_test -c 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_no_equalization_mdpi_review"
+# (both eq)
+# eeha_schedule_new_test -c 'night' -o 'visible' 'lwir' 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_rgb_th_equalization_mdpi_review" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# (rgb_eq)
+# eeha_schedule_new_test -c 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_rgb_equalization_mdpi_review" --rgb_equalization 'clahe'
+# (th_eq)
+# eeha_schedule_new_test -c 'night' -o 'hsvt' 'vt' 'rgbt_v2' 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_th_equalization_mdpi_review" --th_equalization 'clahe'
+# (4ch)
+# eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_v2.yaml' --dataset-format "llvip_80_20" --cache "disk" --path-name "llvip_no_equalization_mdpi_review"
 
 ###################################
 ##       NON-STATIC PAPER        ##

@@ -24,7 +24,7 @@ from argument_parser import handleArguments
 from utils import log, bcolors
 from YoloExecution.train_yolo import TestTrainYolo
 from YoloExecution.validation_yolo import TestValidateYolo
-from update_datset import checkKaistDataset
+from update_datset import checkDataset
 
 
 if __name__ == '__main__':
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     try:
         log(f"Arguments from system: {sys.argv = }")
         condition_list, option_list, model_list, opts = handleArguments()
-        checkKaistDataset(option_list, opts.dformat)
+        checkDataset(option_list, opts.dformat)
 
         for mode in opts.run_mode:
             if mode == 'val':

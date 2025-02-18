@@ -7,7 +7,7 @@ import traceback
 
 from datetime import datetime
 
-from Dataset.update_datset import checkKaistDataset
+from Dataset.update_datset import checkDataset
 from test_scheduler import TestQueue, stop_env_var
 from test_scheduler import isTimetableActive, sleep_until
 
@@ -88,7 +88,7 @@ if __name__ == '__main__':
             condition_list, option_list, model_list, opts = handleArguments(next_test)
 
             if not opts.dataset:
-                checkKaistDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq,
+                checkDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq,
                                   opts.distortion_correct, opts.relabeling)
                 
                 dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
