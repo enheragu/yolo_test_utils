@@ -13,7 +13,7 @@ from Dataset.constants import kaist_path, images_folder_name, labels_folder_name
 image_shape = (640,512)
 
 optical_flow_cache = {}
-def load_transform(image_path, optical_flow_data_path = '/home/arvc/eeha/multiespectral_correction/data'):
+def load_transform(image_path, optical_flow_data_path = '/home/arvc/eeha/multiespectral_correction/data/transform'):
     global optical_flow_cache
     pattern = r"(set\d{2}).*?(V\d{3})"
     match = re.search(pattern, image_path)

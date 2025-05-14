@@ -109,7 +109,9 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
         lock_path = os.path.join(llvip_yolo_dataset_path, '../.dataset_generation.lock')
         dataset_path = llvip_path
         dataset_yolo_path = llvip_yolo_dataset_path
-        
+    elif 'coco' in dataset_format:
+        log(f"[UpdateDataset::checkDataset] Original COCO dataset does not need generation.", bcolors.WARNING)
+        return
     else:
         log(f"[ERROR] [UpdateDataset::checkDataset] No conversion known for dataset format provided.", bcolors.ERROR)
         exit()
@@ -128,7 +130,7 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
                 log(f"[UpdateDataset::checkDataset] Kaist dataset could not be found in {dataset_path}. Downloading it from scratch.")
                 getKaistData()
             else:
-                log(f"[UpdateDataset::checkDataset] Kaist dataset found in {dataset_path}, no need to re-download.", bcolors.ERROR)
+                log(f"[UpdateDataset::checkDataset] Kaist dataset found in {dataset_path}, no need to re-download.")
         
         # make sure that kaist-yolo path exists
 
@@ -149,9 +151,9 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
             log(f"[UpdateDataset::checkDataset] YOLO version dataset for {dataset_format} could not be found in {dataset_yolo_path}. Generating new labeling for both lwir and visible sets.")
             
             if 'kaist' in dataset_format:
-                kaistToYolo(dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
+                kaistToYolo(dataset_format=dataset_format, rgb_eq=rgb_eq, thermal_eq=thermal_eq, distortion_correct=distortion_correct, relabeling=relabeling)
             elif 'llvip' in dataset_format:
-                llvipToYolo(dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
+                llvipToYolo(dataset_format=dataset_format, rgb_eq=rgb_eq, thermal_eq=thermal_eq, distortion_correct=distortion_correct, relabeling=relabeling)
             # Update with new options
             dumpCacheFile('lwir', dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
             dumpCacheFile('visible', dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)

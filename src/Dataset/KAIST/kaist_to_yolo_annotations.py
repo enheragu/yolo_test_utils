@@ -34,6 +34,90 @@ from Dataset.KAIST.kaist_correction import generateCorrectedImage, generateCorre
 
 from utils import log, bcolors
 
+image_shape = (640,512)
+PROCESS_FILE='.xml' # '.txt'
+
+def processTXT(txt_path, output_paths, dataset_format, distortion_correct, relabeling):
+    global class_data
+    global obj_class_dict
+
+    obj_class_dict = class_data[dataset_format]
+    
+    img_labels = []
+    if not os.path.exists(txt_path):
+        return
+    
+    with open(txt_path) as file:
+        for line in file:
+            line = line.strip()
+            if '% bbGt version=3' in line:
+                continue
+            line_attr = line.split(' ')
+            
+            label_id = line_attr[5]
+            label = None
+            obj_name = line_attr[0]
+
+            # Unpaired are instances that are not seen in both images do to distortion. 
+            # As distortion is removed...they are not taken into account
+            if obj_name == "person?" or obj_name == "unpaired":
+                continue
+
+            img_width = float(image_shape[0])
+            img_height = float(image_shape[1])
+            
+            x = float(line_attr[1])
+            y = float(line_attr[2])
+            w = float(line_attr[3])
+            h = float(line_attr[4])
+            
+            if dataset_format == 'kaist_coco':
+                if obj_name == "people" or obj_name == "cyclist":
+                    obj_name = "person"
+                    
+                # Only processes person for now 
+                if obj_name == "person":
+                    label = [obj_class_dict[obj_name], x,y,w,h]
+
+            # For now Kaist format takes only into account persons
+            # Assumes kaist regular format
+            # (dataset_format == 'kaist_small' or dataset_format == 'kaist_full')
+            else:
+                # For now tag all classes
+                if obj_name == "cyclist":
+                    obj_name = "person"
+                
+                if obj_name == "person":
+                    label = [obj_class_dict[obj_name], x,y,w,h]
+                # label = [obj_class_dict[obj_name], x,y,w,h]
+                                    
+            if label:
+                img_labels.extend(generateCorrectedLabels(label, xml_path = txt_path))
+
+        txt_data = ""
+        for label in img_labels:
+            obj, x_centered, y_centered, w, h = label
+            x_normalized = x_centered / img_width
+            y_normalized = y_centered / img_height
+            w_normalized = float(w) / img_width
+            h_normalized = float(h) / img_height
+            txt_data += f"{obj} {x_normalized} {y_normalized} {w_normalized} {h_normalized}\n"
+
+        # log(f"Processed {len(obj_name_list)} objects in image ({obj_name_list}); stored {len(img_labels)} labels in:"+\
+        #     f"\n\t\t {output_paths}")
+        # for file in output_paths:
+        if len(output_paths) >=3:
+            log(f"len(output_paths) >=3 - {len(output_paths) = }: {output_paths}", bcolors.ERROR)
+        
+        # First file made, second is symlink to first one
+        if txt_data != "":
+            with open(output_paths[0], 'w+') as output:
+                output.write(txt_data)
+            
+            updateSymlink(output_paths[0], output_paths[1])
+
+
+
 def processXML(xml_path, output_paths, dataset_format, distortion_correct, relabeling):
     global class_data
     global obj_class_dict
@@ -114,13 +198,22 @@ def processXML(xml_path, output_paths, dataset_format, distortion_correct, relab
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
 def processLineLabels(new_dataset_label_paths, dataset_format, distortion_correct, relabeling, line):
+    global PROCESS_FILE
     path = '_'.join(line.split("/"))
     
-    root_label_path = os.path.join(kaist_annotation_path,f"{line}.xml")
     output_paths = [os.path.join(folder,f"{path}.txt") for folder in  new_dataset_label_paths]
-    # log(output_paths)
-    processXML(root_label_path, output_paths, dataset_format, distortion_correct, relabeling)
-
+    if PROCESS_FILE == '.xml':
+        root_label_path = os.path.join(kaist_annotation_path,f"{line}.xml")
+        # log(output_paths)
+        processXML(root_label_path, output_paths, dataset_format, distortion_correct, relabeling) # Process original KAIST labelling
+    elif PROCESS_FILE == '.txt':
+        path_dir, file_name = os.path.split(root_label_path)
+        root_label_path = os.path.join(kaist_annotation_path,f"{line}.txt")
+        root_label_path = os.path.join(path_dir, lwir_folder_name, file_name)
+        processTXT(root_label_path, output_paths, dataset_format, distortion_correct, relabeling) # Process paierd KAIST labelling
+    else:
+        log(f"Unknown option to convert KAIST dataset to yolo annotations", bcolors.ERROR)
+    
 
 def processLineImages(data_set_name, rgb_eq, thermal_eq, distortion_correct, relabeling, line):
     processed = {lwir_folder_name: {}, visible_folder_name: {}}
@@ -143,20 +236,25 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, distortion_correct, rel
         if distortion_correct:
             img = generateCorrectedImage(img, data_type, image_path=root_image_path)
 
-        if 'lwir' in data_type and str(thermal_eq).lower() != 'none':
-            img = th_equalization(img, thermal_eq)
-            cv.imwrite(new_image_path, img)
-        elif str(rgb_eq).lower() != 'none':
-            # log(new_image_path)
-            # Create or update symlink if already exists
-            # updateSymlink(root_image_path, new_image_path)
-            img = rgb_equalization(img, rgb_eq)
-            cv.imwrite(new_image_path, img)
-        else:
-            # Create or update symlink if already exists
-            # updateSymlink(root_image_path, new_image_path)
-            ## Now needs transform anyway
-            cv.imwrite(new_image_path, img)
+        try:
+            if 'lwir' in data_type and str(thermal_eq).lower() != 'none':
+                img = th_equalization(img, thermal_eq)
+                cv.imwrite(new_image_path, img)
+            elif 'visible' in data_type and str(rgb_eq).lower() != 'none':
+                # log(new_image_path)
+                # Create or update symlink if already exists
+                # updateSymlink(root_image_path, new_image_path)
+                img = rgb_equalization(img, rgb_eq)
+                cv.imwrite(new_image_path, img)
+            else:
+                # Create or update symlink if already exists
+                # updateSymlink(root_image_path, new_image_path)
+                ## Now needs transform anyway
+                cv.imwrite(new_image_path, img)
+        except Exception as e:
+            log(f"Exception catched in the image equalization: {e}", bcolors.ERROR)
+            log(f"Requested transform: {data_type = }; {rgb_eq = }; {thermal_eq =} for image {root_image_path}", bcolors.ERROR)
+            raise e
         
         processed[data_type][line] = new_image_path
     
@@ -221,7 +319,7 @@ def kaistToYolo(dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'no
                     images_list_symlink = [image for image in lines_list if image in pre_processed[visible_folder_name]]
 
                     with Pool() as pool:
-                        func = partial(processLineImages, data_set_name, rgb_eq ,thermal_eq, distortion_correct, relabeling)
+                        func = partial(processLineImages, data_set_name, rgb_eq, thermal_eq, distortion_correct, relabeling)
                         results = pool.map(func, images_list_create)
 
                         for result in results:
