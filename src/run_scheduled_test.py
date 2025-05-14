@@ -14,7 +14,7 @@ from test_scheduler import isTimetableActive, sleep_until
 from utils import Logger, log, log_ntfy, logCoolMessage, bcolors, getGPUTestID
 from Dataset import generateCFGFiles, clearCFGFIles
 from utils import getGPUTestIDTag
-from argument_parser import handleArguments, yolo_outpu_log_path
+from argument_parser import handleArguments, yolo_output_log_path, yolo_output_path_2
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -66,7 +66,7 @@ def monitor_threads_and_processes(terminate_process=False):
     # faulthandler.dump_traceback()
 
 if __name__ == '__main__':
-    logger = Logger(yolo_outpu_log_path)
+    logger = Logger(yolo_output_log_path)
     test_queue = TestQueue()
 
     if len(sys.argv) > 1:
@@ -140,12 +140,12 @@ if __name__ == '__main__':
                                     path_name = f'train_based_{yolo_model}/{test_name}'
                             else:
                                 path_name = opts.path_name + "/" + test_name
-                            path_name + "_" + datetime.now().strftime("%Y%m%d")
+                            path_name = path_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
                         else:
                             opts.resume = False
                             path_name = resume_path 
                             resume_path = None # Reset :)
-                            yolo_model = f'{yolo_outpu_log_path}/{path_name}/weights/last.pt'
+                            yolo_model = f'{yolo_output_path_2}/{path_name}/weights/last.pt'
                             log(f"Load previously executing test to continue in {path_name}")
 
                         test_queue.updateCurrentExecutingPath(path_name)
@@ -155,11 +155,11 @@ if __name__ == '__main__':
                             # code
                             if mode == 'val':
                                 from YoloExecution.validation_yolo import TestValidateYolo
-                                TestValidateYolo(dataset, yolo_model, path_name, opts)
+                                TestValidateYolo(dataset, yolo_model, path_name, opts, logger.log_file_name)
                                 
                             elif mode == 'train':
                                 from YoloExecution.train_yolo import TestTrainYolo
-                                TestTrainYolo(dataset, yolo_model, path_name, opts)
+                                TestTrainYolo(dataset, yolo_model, path_name, opts, logger.log_file_name)
                         
                         # If stop is requested, pending iterations are added to queue, then
                         # queu handler will handle the stop not providing next test in queu e

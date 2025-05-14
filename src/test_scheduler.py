@@ -266,7 +266,7 @@ if __name__ == '__main__':
     test_queue = TestQueue()
 
     if len(sys.argv) > 1:
-        log(f"Add new test to queue (decaupled): {sys.argv[1:]}")
+        log(f"Add new test to queue (decoupled): {sys.argv[1:]}")
         test_queue.add_new_test(sys.argv[1:]) 
     else:
         log(f"Not enough arguments provided to add new test", bcolors.ERROR)

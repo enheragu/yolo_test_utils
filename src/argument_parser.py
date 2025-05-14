@@ -19,7 +19,8 @@ home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
 
 yolo_output_path = f"{repo_path}/runs/detect"
-yolo_outpu_log_path = f"{repo_path}/runs/exec_log"
+yolo_output_path_2 = f"{os.getenv('HOME')}/eeha/kaist-cvpr15/runs/detect"
+yolo_output_log_path = f"{repo_path}/runs/exec_log"
 
 
 ###################################
