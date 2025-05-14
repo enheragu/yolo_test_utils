@@ -30,7 +30,7 @@ import cv2 as cv
 import sys
 sys.path.append('./src')
 from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
-from Dataset_review.review_dataset import home, kaist_dataset_path, visible_folder_name, lwir_folder_name, store_path
+from Dataset_review.review_dataset_kaist import home, kaist_dataset_path, visible_folder_name, lwir_folder_name, store_path
 
 # Careful when chosing y_limit if working with or without normalized histograms or not!
 histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 
@@ -81,10 +81,10 @@ def save_images(img_hist_list, filename, img_path, store_path=store_path_histogr
         # plt.axis('off')
         item+=2   
     
-    plt.annotate(f'Img: {img_path}',
-                    xy = (1.0, -0.1), xycoords='axes fraction',
-                    ha='right', va="center", fontsize=14,
-                    color='black', alpha=0.2)
+    # plt.annotate(f'Img: {img_path}',
+    #                 xy = (1.0, -0.1), xycoords='axes fraction',
+    #                 ha='right', va="center", fontsize=14,
+    #                 color='black', alpha=0.2)
     
     plt.tight_layout()
     plt.savefig(os.path.join(store_path,'histogram_pdf',f'{filename}.pdf'))
@@ -118,7 +118,7 @@ def gethistExpLinear(img):
     expanded_hist = cv.calcHist([cdf[img]], [0], None, [256], [0, 256])
     return cdf[img], expanded_hist # Apply transformation to original image
 
-def extract_hist(img_path, histogram_channel_config, plot = False):
+def extract_hist(img_path, histogram_channel_config, extract_lwir = False, plot = False):
     ch0, ch1, ch2, lwir = [], [], [], []
     eq_ch0, eq_ch1, eq_ch2, eq_lwir = [], [], [], []
 
@@ -156,26 +156,31 @@ def extract_hist(img_path, histogram_channel_config, plot = False):
 
     ## not elegant at all... :) sorryn't, for now...
     # only LWIR when processing Kaist dataset
-    if __name__ == '__main__':
+    if extract_lwir:
         # Process LWIR correspondant image
         img_path = img_path.replace(visible_folder_name, lwir_folder_name)
         img = readImage(img_path, cv.IMREAD_GRAYSCALE)
         assert img is not None, "file could not be read, check with os.path.exists()"
         
         lwir = cv.calcHist([img], [0], None, [256], [0, 256])
-        eq_lwir = gethistEqCLAHE(img)[1]
+        _, eq_lwir = gethistEqCLAHE(img)
         
     return [ch0, ch1, ch2, lwir], [eq_ch0, eq_ch1, eq_ch2, eq_lwir]
 
 
 def process_images(args):
-    path, histogram_channel_config = args
+    if len(args) == 2:
+        path, histogram_channel_config = args
+        extract_lwir = True
+    else:
+        path, histogram_channel_config, extract_lwir = args
+        
     hist = []
     eq_hist = []
     for file in os.listdir(path):
         if file.endswith((".jpg", ".jpeg", ".pdf", ".npy", ".npz")):
             img_path = os.path.join(path, file)
-            ret_hist, ret_eq_hist = extract_hist(img_path, histogram_channel_config)
+            ret_hist, ret_eq_hist = extract_hist(img_path, histogram_channel_config, extract_lwir=extract_lwir)
 
             hist.append(ret_hist)
             eq_hist.append(ret_eq_hist)

@@ -22,7 +22,7 @@ import cv2 as cv
 import sys
 sys.path.append('./src')
 from Dataset_review.review_dataset import kaist_dataset_path, visible_folder_name, lwir_folder_name, store_path
-from Dataset_review.review_histograms import readImage
+from src.Dataset_review.review_histograms_kaist import readImage
 
 # Store histograms in a list of [b,g,r,lwir] hists for each image
 set_info = {'day': {'sets': ['set00', 'set01', 'set02', 'set06', 'set07', 'set08'], 'contrast': [], 'sharpness': []},

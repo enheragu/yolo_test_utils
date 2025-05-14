@@ -15,8 +15,6 @@ import concurrent.futures
 from collections import defaultdict
 from p_tqdm import p_map
 
-from utils.log_utils import logTable
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -27,12 +25,14 @@ import numpy as np
 if __name__ == "__main__":
     import sys
     sys.path.append('./src')
-    from Dataset.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
-    from Dataset.static_image_compression import combine_rgbt_v2, combine_vths_v2, combine_vths_v3
-    from Dataset.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch
+    from Dataset.fusion_methods.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
+    from Dataset.fusion_methods.static_image_compression import combine_rgbt_v2, combine_vths_v2, combine_vths_v3
+    from Dataset.fusion_methods.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch
+    from Dataset.fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
     from utils import color_palette_list, parseYaml, dumpYaml
+    from utils.log_utils import logTable
     from utils.color_constants import c_darkgrey,c_grey,c_blue,c_green,c_yellow,c_red,c_purple
-    from Dataset_review.review_dataset import kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
+    from Dataset_review.review_dataset_kaist import kaist_dataset_path, kaist_yolo_dataset_path, labels_folder_name, images_folder_name, visible_folder_name, lwir_folder_name, store_path
 
 
 def manager_dict_to_dict(manager_dict):
@@ -203,12 +203,11 @@ def evaluateFussion(fussion_functions, dataset_whitelist):
     Creates a demo image of the result of applying the fussion functions provided
     to a given image
 """
-def splitSingleImage(fussion_functions):
+def splitSingleImage(fussion_functions, store_path=store_path, 
+                     img_path='/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'):
     if not os.path.exists(os.path.join(store_path, 'split')):
         os.makedirs(os.path.join(store_path, 'split'))
     
-    img_path = '/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'
-
     img_lwir = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
     img_visible = cv.imread(img_path.replace('/lwir/','/visible/'))
 
@@ -239,12 +238,20 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(store_path, 'fussion'))
 
     evaluate_functions = [combine_hsvt, combine_rgbt, combine_vt, combine_vths,
-                          combine_rgbt_v2, combine_vths_v2, combine_vths_v3] #,
-                        #   combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, 
-                        #   combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch]
+                          combine_rgbt_v2, combine_vths_v2, combine_vths_v3,
+                          combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, 
+                        #   combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch,
+                          combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
+                         ]
 
     splitSingleImage(fussion_functions=evaluate_functions)
 
-    print("\nCase 80-20:")
-    white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
-    evaluateFussion(fussion_functions=evaluate_functions,dataset_whitelist=white_list)
+    # print("\nCase 80-20:")
+    # white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
+    # evaluateFussion(fussion_functions=evaluate_functions,dataset_whitelist=white_list)
+
+
+    ## For LLVIP dataset
+    from Dataset_review.review_dataset_llvip import store_path
+    splitSingleImage(fussion_functions=evaluate_functions, store_path=store_path,
+                     img_path='/home/arvc/eeha/LLVIP/visible/test/210263.jpg')

@@ -28,7 +28,7 @@ labeled_images = "./kaist_labeled_images/"
 lwir = "/lwir/"
 visible = "/visible/"
 
-class_color = {  'person': (114,196,83), 'person?': (70,133,46), 'cyclist': (26,209,226), 'people': (229,29,46) }
+class_color = {  'person': (114,196,83), 'unpaired': (70,133,46), 'person?': (70,133,46), 'cyclist': (26,209,226), 'people': (229,29,46) }
 
 """
     Process XML entry as:
@@ -90,6 +90,55 @@ def processXML(xml_path, image_path):
     return None
 
 
+def processTXT(txt_path, image_path):
+
+    annotation = ()
+    image = cv.imread(image_path)
+    if image is None:
+        print(f"[ERROR] Could not open image {image_path}")
+    
+    img_labels = []
+    if not os.path.exists(txt_path):
+        return
+    
+    with open(txt_path) as file:
+        for line in file:
+            line = line.strip()
+            if '% bbGt version=3' in line:
+                continue
+            line_attr = line.split(' ')
+            
+            label = None
+            obj_name = line_attr[0]
+
+            x = float(line_attr[1])
+            y = float(line_attr[2])
+            w = float(line_attr[3])
+            h = float(line_attr[4])
+            
+            start_point = (int(x), int(y))
+            end_point = (int(x) + int(w), int(y) + int(h))
+            
+            cv.rectangle(image, start_point, end_point, color=class_color[obj_name], thickness=1)
+            
+            label_str = f"{obj_name}"
+            
+            # For the text background
+            # Finds space required by the text so that we can put a background with that amount of width.
+            (w, h), _ = cv.getTextSize(label_str, cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+
+            # Prints the text.    
+            img = cv.rectangle(image, (start_point[0], start_point[1]-h-8), (start_point[0]+w+4, start_point[1]), class_color[obj_name], -1)
+            img = cv.putText(image, label_str, (start_point[0]+4, int(start_point[1]-h/2)),
+                                cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+        return image
+    # cv.imshow("img_labeled", image)
+    # cv.waitKey(0)
+    return None
+
+
+
+
 if __name__ == '__main__':
     
     # Iterate XML folder to process it, gets image associated with the file and 
@@ -111,15 +160,18 @@ if __name__ == '__main__':
         if len(files) == 0:
             continue
 
-        test_path = subdir.replace(kaist_annotation_path, "")
-        files_filtered  = list(filter(lambda file: ".xml" in file, files))
-
+        test_path = subdir.replace(kaist_annotation_path, "").replace("/visible", "").replace("/lwir","")
+        files_filtered  = list(filter(lambda file: ".txt" in file, files))
+        
         print(f"Process {test_path} dataset:")
+        # print(f"{files_filtered}")
         # for file in tqdm(files_filtered):
+        
         def processFile(file):   
             try:
                 xml_path = f"{subdir}/{file}"
-                # print(xml_path)
+                if 'lwir' in xml_path:
+                    return
 
                 for img_type in (lwir, visible):
                     img_path = kaist_images_path + "/" + test_path + img_type
@@ -128,7 +180,8 @@ if __name__ == '__main__':
                     Path(output_image_path).mkdir(parents=True, exist_ok=True)
 
                     # print(f"Process:\n\t· IMG: {img_path}\n\t· XML: {xml_path}\n\t· Outpu: {output_image_path}")
-                    image = processXML(xml_path, img_path  + file.replace(".xml",".jpg"))
+                    # image = processXML(xml_path, img_path  + file.replace(".xml",".jpg"))
+                    image = processTXT(xml_path, img_path  + file.replace(".txt",".jpg"))
                     
                     if image is None:
                         # Empty labels
@@ -140,7 +193,7 @@ if __name__ == '__main__':
                     dim = (width, height)
                     resized = cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
-                    cv.imwrite(output_image_path + file.replace(".xml","_labeled.jpg"), resized)
+                    cv.imwrite(output_image_path + file.replace(".txt","_labeled.jpg"), resized)
                     # print(f"Processed {output_image_path}")   
             except Exception as e:
                 print(f"Exception catched processing {xml_path} with message: {e}")

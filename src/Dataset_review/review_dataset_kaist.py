@@ -24,7 +24,7 @@ images_folder_name = "images"
 visible_folder_name = "visible"
 lwir_folder_name = "lwir"
 
-store_path = f"{home}/eeha/dataset_analysis/"
+store_path = f"{home}/eeha/dataset_analysis/kaist"
  
 # Output dataset whitelist (default is original Kaist sets)
 white_list = ['test-all-01','test-day-20','train-all-01','train-all-20','train-day-20','train-night-20',

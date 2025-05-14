@@ -84,15 +84,16 @@ def processFile(file, subdir, test_path):
         label_path = f"{subdir}/{file}"
         for img_type in ('/lwir/', '/visible/'):
             img_path = kaist_yolo_dataset_path + test_path.replace('/lwir/labels', img_type).replace('/visible/labels', img_type) + "/images/"
-            output_image_path = img_path.replace(kaist_yolo_dataset_path, labeled_images).replace("/images/", "")
+            output_image_path = img_path.replace(kaist_yolo_dataset_path, labeled_images).replace("/images", "")
 
             Path(output_image_path).mkdir(parents=True, exist_ok=True)
+            output_image_path = (output_image_path + file.replace(".txt", ".png")).replace("//","/")
 
             image_file = img_path + file.replace(".txt", ".png")
             
             if os.path.islink(image_file):
                 link_target = os.readlink(image_file)
-                labeled_image_link = link_target.replace(kaist_yolo_dataset_path, labeled_images).replace("/images/", "")
+                labeled_image_link = link_target.replace(kaist_yolo_dataset_path, labeled_images).replace("/images", "").replace("//","/")
                 if os.path.exists(output_image_path) and os.path.islink(output_image_path):
                     os.unlink(output_image_path)
                 os.symlink(labeled_image_link, output_image_path)
@@ -110,7 +111,7 @@ def processFile(file, subdir, test_path):
             dim = (width, height)
             resized = cv.resize(image, dim, interpolation=cv.INTER_AREA)
             # Save the resized image
-            cv.imwrite(output_image_path + file.replace(".txt", ".png"), resized)
+            cv.imwrite(output_image_path, resized)
 
     # except Exception as e:
     #     print(f"Error processing file {label_path}: {e}")
