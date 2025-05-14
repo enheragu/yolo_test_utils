@@ -35,7 +35,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def TestTrainYolo(dataset, yolo_model, path_name, opts):
+def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     start_time = datetime.now()
 
 
@@ -87,7 +87,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     args['pretrained'] = opts.pretrained
     args['seed'] = 1
     args['resume'] = opts.resume
-    yaml_data['seed'] = 42
+    yaml_data['seed'] = random.randint(0, 300) #42
     set_seed(yaml_data['seed'])
                 
     yaml_data['pretrained'] = opts.pretrained
@@ -95,6 +95,8 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts):
     yaml_data['thermal_equalization'] = opts.thermal_eq
     yaml_data['rgb_equalization'] = opts.rgb_eq
     yaml_data['resume'] = opts.resume
+
+    yaml_data['output_log_file'] = log_file_path
     
     trainer = yolo_detc.DetectionTrainer(overrides=args)
     try:

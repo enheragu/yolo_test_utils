@@ -14,7 +14,7 @@ from ultralytics import YOLO
 
 from utils import parseYaml, dumpYaml, log, bcolors
 
-def TestValidateYolo(dataset, yolo_model, path_name, opts):
+def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path):
     start_time = datetime.now()
 
     log("-------------------------------------")
@@ -54,6 +54,8 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts):
     args['save_json'] = True
     args['device'] = opts.device
     # args['save_hybrid'] = True -> PROBLEMS WITH TENSOR SIZE
+
+    yaml_data['output_log_file'] = log_file_path
 
     args = get_cfg(cfg=DEFAULT_CFG, overrides=args)
     # opt = yolo_detc.parse_opt()    
