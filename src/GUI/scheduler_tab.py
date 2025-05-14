@@ -48,7 +48,10 @@ def parseTestFile(yaml_path, arg_options = getArgParseOptions()):
     if not data:
         log(f"File seems to be empty, nothing to retrieve in {yaml_path}.", bcolors.WARNING)
         return None, None
-    
+
+    return parseDataMatrix(data, yaml_path)
+
+def parseDataMatrix(data, yaml_path, arg_options = getArgParseOptions()):
     num_rows = len(data)
     num_cols = len(arg_options.keys())
     column_tiles = list(arg_options.keys())

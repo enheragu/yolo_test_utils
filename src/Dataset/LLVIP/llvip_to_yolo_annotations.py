@@ -178,7 +178,7 @@ def processLineImages(data_set_name, rgb_eq, thermal_eq, relabeling, line):
         if 'lwir' in data_type and str(thermal_eq).lower() != 'none':
             img = th_equalization(img, thermal_eq)
             cv.imwrite(new_image_path, img)
-        elif str(rgb_eq).lower() != 'none':
+        elif 'visible' in data_type and str(rgb_eq).lower() != 'none':
             # log(new_image_path)
             # Create or update symlink if already exists
             # updateSymlink(root_image_path, new_image_path)
@@ -253,7 +253,7 @@ def llvipToYolo(dataset_format = 'llvip_coco', rgb_eq = 'none', thermal_eq = 'no
                     images_list_symlink = [image for image in lines_list if image in pre_processed[visible_folder_name]]
 
                     with Pool() as pool:
-                        func = partial(processLineImages, data_set_name, rgb_eq ,thermal_eq, relabeling)
+                        func = partial(processLineImages, data_set_name, rgb_eq, thermal_eq, relabeling)
                         results = pool.map(func, images_list_create)
 
                         for result in results:

@@ -25,7 +25,7 @@ def save_npmat_if_path(func):
         result = func(*args, **kwargs)
         if path is not None and isinstance(result, np.ndarray):
             # np.save(path.replace('.png',''), result)
-            np.savez_compressed(path.replace('.png',''), image = result)    
+            np.savez_compressed(path.replace('.png','').replace('.jpg',''), image = result)    
             return None
         return result
     return wrapper

@@ -20,15 +20,17 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     global condition_list_default, option_list_default
     
     if 'kaist' in dataset_tag:
-        datase_yolo_path = kaist_yolo_dataset_path
+        dataset_yolo_path = kaist_yolo_dataset_path
     elif 'llvip' in dataset_tag:
-        datase_yolo_path = llvip_yolo_dataset_path
+        dataset_yolo_path = llvip_yolo_dataset_path
+    elif 'coco' in dataset_tag:
+        dataset_yolo_path = '' # Does not need to set path or anything
     else:
         log("[ERROR] [ConfigUtils::generateCFGFiles] Unknown dataset tag provided ({dataset_tag})", bcolors.ERROR)
     
     condition_list = condition_list_in if condition_list_in is not None else condition_list_default
     option_list = option_list_in if option_list_in is not None else option_list_default
-    data_path = data_path_in if data_path_in is not None else datase_yolo_path
+    data_path = data_path_in if data_path_in is not None else dataset_yolo_path
     
     cfg_generated_files = []
     

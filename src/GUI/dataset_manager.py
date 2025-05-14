@@ -27,7 +27,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
     
-from argument_parser import yolo_output_path
+from argument_parser import yolo_output_path, yolo_output_path_2
 from GUI.compute_plot_data import compute_plot_data
 from utils import parseYaml, dumpYaml
 from utils import log, bcolors
@@ -37,6 +37,7 @@ ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
 test_key_clean = [r'_4090[0-9]{0,2}', r'_3090[0-9]{0,2}', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
+
 
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
@@ -115,36 +116,38 @@ def background_load_data(dataset_key_tuple):
     :param: ignored ignore or not the folders with ignore files. False to process all
         even with ignore file
 """
-def find_results_file(search_path = yolo_output_path, file_name = data_file_name, ignored = True):
+def find_results_file(search_path_list = [yolo_output_path], file_name = data_file_name, ignored = True):
     global test_key_clean
-    log(f"Search all {file_name} files in {search_path}")
 
     dataset_info = {}
-    for root, dirs, files in os.walk(search_path):
+    for search_path in search_path_list:
+        log(f"Search all {file_name} files in {search_path}")
+        for root, dirs, files in os.walk(search_path):
 
-        if ignore_file_name in files and ignored:
-            log(f"Path with {ignore_file_name} file is set to be ignored: {root}.", bcolors.WARNING)
-            dirs[:] = [] # Clear subdir list to avoid getting into them
-            continue
-
-        if file_name in files:
-            abs_path = os.path.join(root, file_name)
-            if "validate" in abs_path: # Avoid validation tests, only training
-                log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
+            if ignore_file_name in files and ignored:
+                log(f"Path with {ignore_file_name} file is set to be ignored: {root}.", bcolors.WARNING)
+                dirs[:] = [] # Clear subdir list to avoid getting into them
                 continue
-            name = abs_path.split("/")[-2]
-            title = abs_path.split("/")[-2]
-            model = abs_path.split("/")[-3]
-            for clear_pattern in test_key_clean:
-                # model = model.replace(clear_tag, "")
-                model = re.sub(clear_pattern, "", model)
-                title = re.sub(clear_pattern, "", title)
-            key = f"{model}/{name}"
-            info = title.split('_')
-            print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
-            # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
-            ax_label = f"{info[0].title()} {info[1].upper()}" + f" ({model.replace('_sameseed','')})"
-            dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
+
+            if file_name in files:
+                abs_path = os.path.join(root, file_name)
+                if "validate" in abs_path: # Avoid validation tests, only training
+                    log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
+                    continue
+                name = abs_path.split("/")[-2]
+                title = abs_path.split("/")[-2]
+                model = abs_path.split("/")[-3]
+                for clear_pattern in test_key_clean:
+                    # model = model.replace(clear_tag, "")
+                    model = re.sub(clear_pattern, "", model)
+                    title = re.sub(clear_pattern, "", title)
+                key = f"{model}/{name}"
+                info = title.split('_')
+                print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
+                # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
+                print(f"[find_results_file] {info = }; {abs_path = }")
+                ax_label = f"{info[0].title()} {info[1].upper()}" + f" ({model.replace('_sameseed','')})"
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
 
     ## Order dataset by name
     myKeys = list(dataset_info.keys())
@@ -182,10 +185,10 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
     return dataset_info
 
 class DataSetHandler:
-    def __init__(self, update_cache = True, search_path = yolo_output_path):
-        self.new(update_cache, search_path)
+    def __init__(self, update_cache = True, search_path_list = [yolo_output_path,yolo_output_path_2]):
+        self.new(update_cache, search_path_list)
 
-    def new(self, update_cache = True, search_path = yolo_output_path, load_from_cache = False):
+    def new(self, update_cache = True, search_path_list = [yolo_output_path], load_from_cache = False):
         global cache_path
         self.update_cache = update_cache
         self.load_from_cache = load_from_cache
@@ -194,10 +197,10 @@ class DataSetHandler:
             self.dataset_info = find_cache_file()
         else:
             # Prepares different cache path for Dataset Handler from different location than default
-            if search_path != yolo_output_path:
-                cache_path = cache_path + "_extra"
-                log(f"Loading data from different directory: {search_path}")
-                log(f"Redirecting cache to {cache_path}")
+            # if search_path != yolo_output_path:
+            #     cache_path = cache_path + "_extra"
+            #     log(f"Loading data from different directory: {search_path}")
+            #     log(f"Redirecting cache to {cache_path}")
 
             if update_cache and os.path.exists(cache_path):
                 shutil.rmtree(cache_path)
@@ -205,7 +208,7 @@ class DataSetHandler:
             # Ensure cache dir exists if cleared or firs execution in machine or...
             os.makedirs(cache_path, exist_ok=True)
 
-            self.dataset_info = find_results_file(search_path)
+            self.dataset_info = find_results_file(search_path_list)
 
         self.parsed_data = {}
         self.incomplete_dataset = {}
