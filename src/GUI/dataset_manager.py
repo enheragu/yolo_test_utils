@@ -36,7 +36,7 @@ data_file_name = "results.yaml"
 ignore_file_name = "EEHA_GUI_IGNORE" # If a file is found in path with this name the folder would be ignored
 cache_path = f"{os.getenv('HOME')}/.cache/eeha_gui_cache"
 cache_extension = '.yaml.cache'
-test_key_clean = [r'_4090[0-9]{0,2}', r'_3090[0-9]{0,2}', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
+test_key_clean = [r'_4090[0-9]{0,2}', r'_3090[0-9]{0,2}', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_[0-9]{6}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 
 def parseCSV(file_path):
@@ -146,7 +146,7 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                 print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
                 # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
                 print(f"[find_results_file] {info = }; {abs_path = }")
-                ax_label = f"{info[0].title()} {info[1].upper()}" + f" ({model.replace('_sameseed','')})"
+                ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
                 dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
 
     ## Order dataset by name

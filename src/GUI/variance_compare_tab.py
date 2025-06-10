@@ -144,6 +144,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # ylabel = "Probability"
                 
                 bin_size = 9
+                y_max_values = []
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
                     keys = [key for key in self.dataset_handler.keys() if group in key]
                     data_y = np.array([])
@@ -214,6 +215,25 @@ class VarianceComparePlotter(BaseClassPlotter):
                             ax.vlines(x=pos, ymin=0, ymax=norm.pdf(pos, mean, std), colors=next_color, linewidth=1, linestyles='solid')
                     else:
                         log(f"[{self.__class__.__name__}] STD of data is <0 ({std = }) for {canvas_key} plot with n={len(data_y)} for {group}", bcolors.ERROR)
+
+
+                    # Accumulate max_y for setting the y limit; no variance or just one Bin results in a really high
+                    # bar that prevents to see the rest of the data, just limit that to the maximum y value
+                    threshold=1e-4
+                    if  np.ptp(data_y) > threshold:
+                        counts, bins = np.histogram(data_y, bins=bin_size, density=True)
+                        max_height = counts.max()
+                        y_max_values.append(max_height)
+                        # print(f"[{canvas_key}::{group}] Data variance = {np.ptp(data_y)};\n{counts = }\n{bins = }\n{max_height = }\n")
+                    # else:
+                        # log(f"[{canvas_key}::{group}]  Data variance = {np.ptp(data_y)}; No variance; plot with n={len(data_y)}. Not setting y max.", bcolors.WARNING)
+                        
+                
+                if y_max_values:
+                    # print(f"[{self.__class__.__name__}] {canvas_key} plot: {y_max_values =}")
+                    global_y_max = max(y_max_values) * 1.1  # Add some extra to see the top
+                    ax.set_ylim(top=global_y_max)
+                    # print(f"[{self.__class__.__name__}] Setting global y max to {global_y_max} for {canvas_key} plot")
 
                 ax.annotate(f'Note: Each set of {canvas_key} data is discretized into {bin_size} bins.',
                                 xy = (0.995, 0.015), xycoords='axes fraction',
