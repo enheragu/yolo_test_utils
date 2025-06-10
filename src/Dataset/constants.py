@@ -4,6 +4,7 @@ from .fusion_methods.static_image_compression import combine_hsvt, combine_rgbt,
 from .fusion_methods.static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
 from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch
 from .fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
+from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
 from pathlib import Path
 
 home = Path.home()
@@ -52,20 +53,26 @@ dataset_options = {
                     'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' }
                   }
 
-fa_pca_options = {'pca_rgbt_npy' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
-                  'fa_rgbt_npy' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
-                  'pca_rgbt_1ch_npy' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
-                  'fa_rgbt_1ch_npy' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' },
+fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
+                  'fa' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
+                  'pca_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
+                  'fa_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' },
                   # Full takes decomposition of all images and then applies transform to each image
-                  'pca_full_npy' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
-                  'fa_full_npy' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
+                  'pca_full' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
+                  'fa_full' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
                   }
 
 wavelets_options = {
-                    'wavelet_hsvt_npy' : {'merge': combine_hsvt_wavelet, 'extension': '.npz'},
-                    'wavelet_rgbt_npy' : {'merge': combine_rgb_wavelet, 'extension': '.npz'},
-                    'curvelet_hsvt_npy' : {'merge': combine_hsv_curvelet, 'extension': '.npz'},
-                    'curvelet_rgbt_npy' : {'merge': combine_rgb_curvelet, 'extension': '.npz'}
+                    # 'wavelet_hsvt' : {'merge': combine_hsvt_wavelet, 'extension': '.npz'},
+                    'wavelet' : {'merge': combine_rgb_wavelet, 'extension': '.npz'},
+                    # 'curvelet_hsvt' : {'merge': combine_hsv_curvelet, 'extension': '.npz'},
+                    'curvelet' : {'merge': combine_rgb_curvelet, 'extension': '.npz'}
+                  }
+
+local_filter_options = {
+                    'ssim' : {'merge': combine_rgbt_ssim, 'extension': '.png'},
+                    'superpixel' : {'merge': combine_rgbt_superpixel, 'extension': '.png'},
+                    'sobel_weighted' : {'merge': combine_rgbt_sobel_weighted, 'extension': '.png'}
                   }
          # Modified YOLO dataloader so it only loads needed stuff
          #   'pca_rgbt_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npy' },
@@ -78,6 +85,7 @@ wavelets_options = {
 
 dataset_options.update(fa_pca_options)
 dataset_options.update(wavelets_options)
+dataset_options.update(local_filter_options)
 dataset_options_keys = ['visible', 'lwir'] + list(dataset_options.keys())
 
 # Dataset class to take into account when generating YOLO style dataset

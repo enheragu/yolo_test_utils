@@ -23,10 +23,13 @@ def save_npmat_if_path(func):
     @wraps(func)
     def wrapper(*args, path=None, **kwargs):
         result = func(*args, **kwargs)
-        if path is not None and isinstance(result, np.ndarray):
-            # np.save(path.replace('.png',''), result)
-            np.savez_compressed(path.replace('.png','').replace('.jpg',''), image = result)    
-            return None
+        if path is not None:
+            if isinstance(result, np.ndarray):
+                # np.save(path.replace('.png',''), result)
+                np.savez_compressed(path.replace('.png','').replace('.jpg',''), image = result)    
+                return None
+            else:
+                raise ValueError("[Decorators] Result is not a numpy array, cannot save as npz.")
         return result
     return wrapper
 

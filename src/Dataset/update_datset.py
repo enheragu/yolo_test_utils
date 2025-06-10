@@ -91,7 +91,8 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct
     data['last_update'] = getTimetagNow()
     data['distortion_correct'] = distortion_correct
     data['relabeling'] = relabeling
-
+    data['options'] = list(set(data['options']))
+    
     dumpYaml(dataset_generated_cache, data, mode = "w+")
 
 def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none',
