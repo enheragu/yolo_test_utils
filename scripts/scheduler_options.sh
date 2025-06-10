@@ -163,7 +163,7 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o '4ch' -m 'yoloCh4x.yaml' --path-name "variance_day_4ch_kaist_trained" --cache "disk" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'night' -o 'rgbt' -m 'yoloCh3x.yaml' --path-name "variance_night_rgbt_kaist_trained" --iterations 5
 # EXEC # eeha_schedule_new_test -c 'day' -o 'rgbt' -m 'yoloCh3x.yaml' --path-name "variance_day_rgbt_kaist_trained" --iterations 5
-# EXEC # eeha_schedule_new_test -c 'night' -o 'pca_rgbt_npy' -m 'yoloCh3x.yaml' --path-name "variance_night_pca_kaist_trained" --cache "disk" --iterations 5
+# EXEC # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3x.yaml' --path-name "variance_night_pca_kaist_trained" --cache "disk" --iterations 5
 
 ### HIPERPARAM TESTS
 # EXEC # eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3x.yaml' --batch 5 --path-name "variance_day_visible_b5_kaist_trained" --iterations 10
@@ -300,27 +300,56 @@ function rsync_cache() {
 # eeha_schedule_new_test -c 'day' -o 'hsvt' --test-name 'day_hsvt_corrected' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization_labels_paired"
 # eeha_schedule_new_test -c 'day' -o '4ch' -m 'yoloCh4m.yaml' --test-name "day_yoloCh4m" --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_labels_paired"
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4m.yaml' --test-name "night_yoloCh4m" --dataset-format "kaist_80_20" --cache "disk" --path-name "no_equalization_labels_paired"
+
 ###################################
 ##       NON-STATIC PAPER        ##
 ###################################
 
+
+# LLVIP
+# VARIANCE SHORT STUDY
+# (4ch late fusion)
+# eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_v1m.yaml' --test-name "Ch4_late_v1" --dataset-format "llvip_80_20" --path-name "variance_llvip_Ch4_late_v1" --iterations 1 --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_visible" --iterations 3
+# eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_lwir" --iterations 3
+# eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_pca" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_fa" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'ssim' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_ssim" --iterations 2
+# eeha_schedule_new_test -c 'night' -o 'superpixel' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_superpixel" --iterations 3
+# eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_sobel_weighted" --iterations 3
+
+# NEED CACHED DISK # eeha_schedule_new_test -c 'night' -o 'pca' 'fa' 'wavelet' 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_no_equalization"  --cache "disk"
+# NO NEED CACHED   # eeha_schedule_new_test -c 'night' -o 'ssim' 'superpixel' 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_no_equalization"
+
+# (both eq)
+# NEED CACHED DISK # eeha_schedule_new_test -c 'night' -o 'pca' 'fa' 'wavelet' 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'  --cache "disk"
+# NO NEED CACHED   # eeha_schedule_new_test -c 'night' -o 'ssim' 'superpixel' 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'  --cache "disk"
+# (rgb_eq)
+# NEED CACHED DISK # eeha_schedule_new_test -c 'night' -o 'pca' 'fa' 'wavelet' 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_rgb_equalization" --rgb_equalization 'clahe'  --cache "disk"
+# NO NEED CACHED   # eeha_schedule_new_test -c 'night' -o 'ssim' 'superpixel' 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_rgb_equalization" --rgb_equalization 'clahe'  --cache "disk"
+# (th_eq)
+# NEED CACHED DISK # eeha_schedule_new_test -c 'night' -o 'pca' 'fa' 'wavelet' 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_th_equalization" --th_equalization 'clahe'  --cache "disk"
+# NO NEED CACHED   # eeha_schedule_new_test -c 'night' -o 'ssim' 'superpixel' 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "llvip_static_v2_th_equalization" --th_equalization 'clahe'  --cache "disk"
+
+
 ## First channel is the only one with information :(
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' 'fa_rgbt_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_no_equalization"
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' 'fa_rgbt_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_th_equalization" --th_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' 'fa_rgbt_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_npy' 'fa_rgbt_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca' 'fa' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_no_equalization"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca' 'fa' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_th_equalization" --th_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca' 'fa' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca' 'fa' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'
 
 ## Triplicates first component to work with one channel but with normal model
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_no_equalization"
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_th_equalization" --th_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
-# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch_npy' 'fa_rgbt_1ch_npy' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_no_equalization"
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_th_equalization" --th_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "rgb_equalization_sameseed" --rgb_equalization 'clahe'
+# EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'pca_rgbt_1ch' 'fa_rgbt_1ch' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --cache "disk" --path-name "nonstatic_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe'
 
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'lwir_1ch' -m 'yoloCh1x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o 'vt_2ch' -m 'yoloCh2x.yaml' --dataset-format "kaist_full" --cache "disk"
 # EXEC # eeha_schedule_new_test -c 'day' 'night' -o '4ch' -m 'yoloCh4x.yaml' --dataset-format "kaist_full" --cache "disk"
  
-
 
 #####################
 ##  DEBUG TEST :)  ##
@@ -340,4 +369,5 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'day' -o 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_day_rgbt" --iterations 10
 ## Variance VT (th eq) with LLVIP
 # EXEC # eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_night_vt" --th_equalization 'clahe' --iterations 10
-
+# EXEC # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_v3m.yaml' --dataset-format "llvip_80_20"  --test-name "yoloCh4v3" --cache "disk" --path-name "variance_llvip_night_yoloCh4v3" --iterations 10
+# EXEC # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_night_lwir" --iterations 10
