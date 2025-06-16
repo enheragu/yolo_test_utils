@@ -310,9 +310,14 @@ function rsync_cache() {
 # VARIANCE SHORT STUDY
 # (4ch late fusion)
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_v1m.yaml' --test-name "Ch4_late_v1" --dataset-format "llvip_80_20" --path-name "variance_llvip_Ch4_late_v1" --iterations 1 --cache "disk"
+# (4ch split late fusion)
+# eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_split_v1m.yaml' --test-name "Ch4_late_split_v1" --dataset-format "llvip_4ch_latesplit_80_20" --path-name "variance_llvip_Ch4_late_split_v1" --iterations 1 --cache "disk"
+# TEST # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_split_v1m.yaml' --test-name "Ch4_late_split_v1" --dataset-format "llvip_4ch_latesplit_80_20" --path-name "0_tmp_late_split_test" --iterations 1 --cache "disk"
+
 # eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_visible" --iterations 3
 # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_lwir" --iterations 3
 # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_pca" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'alpha_pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_pca" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_fa" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet" --iterations 3  --cache "disk"

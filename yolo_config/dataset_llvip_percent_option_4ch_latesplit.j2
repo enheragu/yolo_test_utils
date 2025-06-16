@@ -1,3 +1,5 @@
+## File to test architecture with late fusion with branch enable/disable based on image
+
 names:
   0: person
 # 1: cyclist
@@ -10,7 +12,9 @@ test:
   # Test data is optional
 train: 
   {% if condition == "night" -%}
-  - train-night-{{percent}}/{{option}}/
+  - train-night-half1-{{percent}}/{{option}}/
+  - train-night-half2-{{percent}}/{{option}}_visible/
+  - train-night-half2-{{percent}}/{{option}}_lwir/
   {% endif %}
 val: 
   {% if condition == "night" -%}
