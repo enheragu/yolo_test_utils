@@ -5,6 +5,7 @@
     Encapsulates YOLO training funtionality with custom dataset and logging handling
 """
 import os
+import re
 
 import random
 from pathlib import Path
@@ -18,6 +19,8 @@ from ultralytics import YOLO
 
 
 from utils import parseYaml, dumpYaml, log, bcolors
+from utils.plot_backpropagation import generateBackpropagationGraph
+
 from Dataset import dataset_config_path
 
 from compress_label_folder import compress_output_labels
@@ -107,7 +110,13 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
         log(f'Exception caught: {e}')
         raise e
     
-    
+    try:
+        model_filtered_path = re.sub(r'(\d+)([nslmx])(.+)?$', r'\1\3', str(f"{dataset_config_path}/{yolo_model}"))  # i.e. yolov8x.yaml -> yolov8.yaml
+        generateBackpropagationGraph(trainer.save_dir/'gradients/raw_data', model_filtered_path)
+    except Exception as e:
+        log(f'Exception caught while generating backpropagation graph: {e}', bcolors.ERROR)
+        log(f'Check if the model {yolo_model} is compatible with backpropagation graph generation', bcolors.ERROR)
+
     log(f"Training and validation of model for {dataset} took {datetime.now() - start_time} (h/min/s)")
     compress_output_labels(trainer.save_dir)
     log("-------------------------------------")
