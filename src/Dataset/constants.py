@@ -1,8 +1,9 @@
 
 
 from .fusion_methods.static_image_compression import combine_hsvt, combine_rgbt, combine_4ch, combine_vths, combine_vt, combine_lwir_npy, combine_vt_2ch, combine_rgbtalpha
+from .fusion_methods.static_image_compression import combine_4ch_visible, combine_4ch_lwir
 from .fusion_methods.static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
-from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch
+from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch, combine_rgbt_alpha_pca_to3ch
 from .fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
 from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
 from pathlib import Path
@@ -50,10 +51,14 @@ dataset_options = {
 
                     'rgbt_v2' : {'merge': combine_rgbt_v2, 'extension': '.png' },
                     'vths_v2' : {'merge': combine_vths_v2, 'extension': '.png' },
-                    'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' }
+                    'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' },
+
+                    '4ch_visible': {'merge': combine_4ch_visible, 'extension': '.npz' },
+                    '4ch_lwir': {'merge': combine_4ch_lwir, 'extension': '.npz' }
                   }
 
 fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
+                  'alpha_pca': {'merge': combine_rgbt_alpha_pca_to3ch, 'extension': '.npz'},
                   'fa' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
                   'pca_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
                   'fa_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' },
@@ -98,7 +103,8 @@ class_data = {'coco': {  'person': 0,  'bicycle': 1,  'car': 2,  'motorcycle': 3
               'kaist_80_20': default_kaist,
               'kaist_70_30': default_kaist,
               'kaist_debug': default_kaist,
-              'llvip_80_20': default_kaist
+              'llvip_80_20': default_kaist,
+              'llvip_4ch_latesplit_80_20': default_kaist
              }
 
 ## Templates for TMP YOLO dataset configuration
@@ -113,7 +119,8 @@ templates_cfg = {'coco': {'template': f"{dataset_config_path}/coco.yaml"},
                  'kaist_80_20': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '80_20'}}, # Extra arguments that can be provided to the template
                  'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}}, # Extra arguments that can be provided to the template
                  'kaist_debug': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': 'debug'}}, # Extra arguments that can be provided to the template. Just for debugging training/val process
-                 'llvip_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option.j2", 'extra': {'percent': '80_20'}}
+                 'llvip_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option.j2", 'extra': {'percent': '80_20'}},
+                 'llvip_4ch_latesplit_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option_4ch_latesplit.j2", 'extra': {'percent': '80_20'}}
                  }
 
 dataset_keys = list(class_data.keys())

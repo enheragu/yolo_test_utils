@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
 from utils import log, bcolors, updateSymlink
 # from .check_dataset import checkImageLabelPairs
-from Dataset.constants import dataset_options, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
+from Dataset.constants import dataset_options, dataset_keys, kaist_yolo_dataset_path, images_folder_name, labels_folder_name ,lwir_folder_name, visible_folder_name
 from Dataset.th_equalization import th_equalization, rgb_equalization
 
 
@@ -134,12 +134,15 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     option_list_default = dataset_options.keys()
+    option_list_default = dataset_options.keys()
     arg_dict = {}
     parser = ArgumentParser(description="Dataset generation with fussed images between visual and thermal.")
     parser.add_argument('-o', '--option', action='store', dest='olist', metavar='OPTION',
                         type=str, nargs='*', default=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -o item1 item2, -o item3")
-    
+    parser.add_argument('-f', '--dataset_format', action='store', dest='dataset_format', metavar='FORMAT',
+                        type=str, default='kaist_coco',
+                        help=f"Format of the dataset to be generated. Default is 'kaist_coco'. Available options are {dataset_keys}.")
     opts = parser.parse_args()
 
     dataset_generate = list(opts.olist)  # dataset_options.keys()
@@ -149,4 +152,8 @@ if __name__ == '__main__':
         log(f"Only computes subtest of {test} images for each dataset as test mode is enabled.")
     
     for option in dataset_generate:
-        make_dataset(option)
+        make_dataset(option, 
+                     dataset_format=opts.dataset_format, 
+                     rgb_eq='none', 
+                     thermal_eq='none', 
+                     yolo_version_dataset_path=kaist_yolo_dataset_path)

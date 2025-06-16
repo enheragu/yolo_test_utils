@@ -14,6 +14,7 @@ import cv2 as cv
 import numpy as np
 import pywt
 
+from sklearn.decomposition import PCA
 from curvelets.numpy import SimpleUDCT
 
 # Small hack so packages can be found
@@ -56,24 +57,32 @@ def combine_hsvt_wavelet(visible_image, thermal_image):
 def combine_rgb_wavelet(visible_image, thermal_image):
     rgbt = np.dstack((visible_image, thermal_image))
 
+    # Wavelet decoposition in approximation sub-bands (low freq.) and detail sub-bands (high freq.).
     # Apply Discret Wavelet Transform to each channel
     coeffs = [pywt.dwt2(rgbt[:,:,i], 'haar') for i in range(4)]
+    cAprox = [c[0] for c in coeffs]
+    cDetail = [c[1] for c in coeffs]
 
     # Fuse coefficients
-    fused_coeffs = []
+    # Detail sub-bads capture mostly: bordes, texturas y cambios locales
+    cDetail_fused = []
     for i in range(3):  # Fuse for 3 output channels
-        cA = (coeffs[i][0] + coeffs[3][0]) / 2          # Averaged with thermal channel
-        cH = (coeffs[i][1][0] + coeffs[3][1][0]) / 2
-        cV = (coeffs[i][1][1] + coeffs[3][1][1]) / 2
-        cD = (coeffs[i][1][2] + coeffs[3][1][2]) / 2
-        fused_coeffs.append((cA, (cH, cV, cD)))
+        # Averaged with thermal channel coeffs? Max?
+        cH = (cDetail[i][0] + cDetail[3][0]) / 2
+        cV = (cDetail[i][1] + cDetail[3][1]) / 2
+        cD = (cDetail[i][2] + cDetail[3][2]) / 2
+        cDetail_fused.append((cH, cV, cD))
 
-    # Inverse transform
-    fused_channels = [pywt.idwt2(coeff, 'haar') for coeff in fused_coeffs]
+    ## Aproximation sub-bands contain most of the information. Thats why a better fusion is applied
+    #  Las bandas de aproximación contienen la mayor parte de la información estructural y espectral relevante de la imagen.
+    pca = PCA(n_components=3)
+    cAaprox_fused = pca.fit_transform(cAprox.reshape(-1, 4)).reshape(cAprox[0].shape + (3,))
 
-    fused_image = np.stack(fused_channels, axis=-1)
-    fused_image = np.clip(fused_image, 0, 255).astype(np.uint8)
-    # fused_image = cv.cvtColor(fused_image, cv.COLOR_RGB2BGR)
+    fused_image = []
+    for i in range(3):
+        coeffs = (cAaprox_fused[..., i], cDetail_fused[i])
+        fused_image.append(pywt.idwt2(coeffs, 'haar'))
+    fused_image = np.stack(fused_image, axis=-1) 
 
     return fused_image
 

@@ -145,6 +145,31 @@ def combine_4ch(visible_image, thermal_image):
     return ch4_image
 
 
+"""
+    Creates 4ch structure with just visible image
+"""
+@save_npmat_if_path
+def combine_4ch_visible(visible_image, thermal_image):
+    b,g,r = cv.split(visible_image)
+    th_channel = np.zeros_like(thermal_image)
+
+    ch4_image = cv.merge([b,g,r,th_channel])
+
+    return ch4_image
+
+"""
+    Creates 4ch structure with just thermal image
+"""
+@save_npmat_if_path
+def combine_4ch_lwir(visible_image, thermal_image):
+    b,g,r = cv.split(np.zeros_like(visible_image))
+    th_channel = thermal_image
+
+    ch4_image = cv.merge([b,g,r,th_channel])
+
+    return ch4_image
+
+
 @save_npmat_if_path
 def combine_lwir_npy(visible_image, thermal_image):
     th_channel = thermal_image

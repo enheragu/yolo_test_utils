@@ -16,14 +16,18 @@ from tqdm import tqdm
 from clint.textui import progress
 import shutil
 
-from utils import FileLock
+if __name__ == "__main__":
+    import sys
+    sys.path.append('./src')
+    sys.path.append('./src/Dataset')
 
+from utils import FileLock
 from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow
-from .constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path, llvip_yolo_dataset_path, llvip_path, repo_path
-from .constants import dataset_options, dataset_generated_cache
-from .KAIST.kaist_to_yolo_annotations import kaistToYolo
-from .LLVIP.llvip_to_yolo_annotations import llvipToYolo
-from .rgb_thermal_mix import make_dataset
+from Dataset.constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path, llvip_yolo_dataset_path, llvip_path, repo_path
+from Dataset.constants import dataset_options, dataset_generated_cache
+from Dataset.KAIST.kaist_to_yolo_annotations import kaistToYolo
+from Dataset.LLVIP.llvip_to_yolo_annotations import llvipToYolo
+from Dataset.rgb_thermal_mix import make_dataset
 
 def getKaistData():
     filename="kaist-cvpr15.tar.gz"
@@ -201,3 +205,5 @@ if __name__ == '__main__':
     
     if answer == "y":
         checkDataset(option_list_default, dataset_format) # 'rgbt', 'hsvt' ... see rgb_thermal_mix.py for more info
+
+

@@ -12,7 +12,7 @@ import cv2 as cv
 
 import scipy.stats
 import pickle
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, FactorAnalysis
 
 from utils import log, bcolors
 from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
@@ -72,7 +72,6 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     if standarice:
         transformed_data = transformed_data * std[:k] + mean[:k]
     
-
     ## Store eigenvalue and vectors to file to later study
     # autov_path = path.split("/")[:-1]
     # autov_path = "/".join(autov_path) + "/00_eigenvalue_vector.yaml"
@@ -94,7 +93,7 @@ def MatrixAnalisis(data_vector, mat, img_shape, components, standarice = True):
     # total_explained_variance = sum(explained_variance[:k])
     # log(f"[RGBThermalMix::combine_pca] Explained variance for {path} with {k} principal components is: {total_explained_variance}")
     # print(f"{sorted_eigenvectors[:,:k] = }")
-
+    
 
     image_vector = [transformed_data[:, i].reshape(img_shape) for i in range(components)]
     image = cv.merge(image_vector)
@@ -162,15 +161,53 @@ def combine_rgbt_fa_toXch(visible_image, thermal_image, output_channels = 3):
 
 @save_npmat_if_path
 def combine_rgbt_pca_to3ch(visible_image, thermal_image):
-    image = combine_rgbt_pca_toXch(visible_image, thermal_image, 3)
-    return image
+    # EEHA - PRevious version
+    # image = combine_rgbt_pca_toXch(visible_image, thermal_image, 3)
+    # return image
+
+    b,g,r = cv.split(visible_image)
+    th = thermal_image
+
+    img = cv.merge([b,g,r,th])
+    h, w, ch = img.shape
+
+    # Need 2d Array
+    img_reshaped = img.reshape(-1, 4)
+
+    pca = PCA(n_components=3)
+    img_pca = pca.fit_transform(img_reshaped)
+
+    img_compressed = img_pca.reshape(h, w, 3)
+
+    img_compressed = (img_compressed - img_compressed.min()) / (img_compressed.max() - img_compressed.min())
+    img_compressed = (img_compressed * 255).astype(np.uint8)
+
+    return img_compressed
 
 
 @save_npmat_if_path
 def combine_rgbt_fa_to3ch(visible_image, thermal_image):
-    image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
-    return image   
+    # EEHA - Older version
+    # image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
+    # return image   
 
+    b,g,r = cv.split(visible_image)
+    th = thermal_image
+
+    img = cv.merge([b,g,r,th])
+    h, w, ch = img.shape
+
+    img_reshaped = img.reshape(-1, 4)
+
+    fa = FactorAnalysis(n_components=3)
+    img_fa = fa.fit_transform(img_reshaped)
+
+    img_compressed = img_fa.reshape(h, w, 3)
+
+    img_compressed = (img_compressed - img_compressed.min()) / (img_compressed.max() - img_compressed.min())
+    img_compressed = (img_compressed * 255).astype(np.uint8)
+
+    return img_compressed
 
 @save_npmat_if_path
 def combine_rgbt_pca_to1ch(visible_image, thermal_image):
@@ -185,6 +222,44 @@ def combine_rgbt_fa_to1ch(visible_image, thermal_image):
     image = cv.merge([image,image,image])
     return image    
  
+
+# From https://ieeexplore.ieee.org/document/10095874
+# Alpha version:  Ifus=αPCA⋅I1+(1−αPCA)⋅I2
+@save_npmat_if_path
+def combine_rgbt_alpha_pca_to3ch(visible_image, thermal_image):
+    img_rgb = visible_image
+    img_th = thermal_image.astype(np.float32)
+    img_rgb_gray = cv.cvtColor(visible_image, cv.COLOR_BGR2GRAY).astype(np.float32)
+
+    V1 = np.var(img_th)
+    V2 = np.var(img_rgb_gray)
+    cov_mat = np.cov(img_th.flatten(), img_rgb_gray.flatten())[0, 1]
+
+    discriminant = np.sqrt((V1 - V2)**2 + 4*cov_mat**2)
+    lambda1 = (V1 + V2 + discriminant) / 2
+    lambda2 = (V1 + V2 - discriminant) / 2
+
+    if cov_mat != 0:
+        eigen_vec_v1 = 1
+        eigen_vec_v2 = (lambda1 - V1) / cov_mat
+    else:  # Si C=0, eigen vectors
+        eigen_vec_v1 = 1
+        eigen_vec_v2 = 0
+    eigen_vec = np.array([eigen_vec_v1, eigen_vec_v2])
+
+    norm = np.sqrt(eigen_vec_v1**2 + eigen_vec_v2**2)
+    alpha = 1 / norm
+
+    fused_gray = alpha * img_th + (1-alpha) * img_rgb_gray
+    epsilon = 1e-6 # Avoid zero division
+    ratio = fused_gray/(img_rgb_gray + epsilon)
+    ratio_3ch = np.repeat(ratio[:, :, np.newaxis], 3, axis=2)
+    F_color = ratio_3ch * img_rgb
+    fused_rgb = np.clip(F_color, 0, 255).astype(np.uint8)
+    
+    return fused_rgb
+
+
 
 
 

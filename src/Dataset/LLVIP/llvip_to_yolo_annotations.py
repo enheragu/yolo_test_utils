@@ -221,6 +221,9 @@ def llvipToYolo(dataset_format = 'llvip_coco', rgb_eq = 'none', thermal_eq = 'no
         for file in os.listdir(llvip_sets_path):
             file_path = os.path.join(llvip_sets_path, file)
             if os.path.isfile(file_path):
+                if not file.endswith(".txt"):
+                    log(f"\t· File {file} is not a .txt file. Not processed", bcolors.WARNING)
+                    continue
                 data_set_name = file.replace(".txt", "")
 
                 # Check that is not empty
