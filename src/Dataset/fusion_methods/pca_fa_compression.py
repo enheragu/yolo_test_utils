@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA, FactorAnalysis
 
 from utils import log, bcolors
 from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
+from Dataset.fusion_methods.normalization import normalize
 
 
 def draw_text(img, text,
@@ -178,12 +179,41 @@ def combine_rgbt_pca_to3ch(visible_image, thermal_image):
     img_pca = pca.fit_transform(img_reshaped)
 
     img_compressed = img_pca.reshape(h, w, 3)
-
-    img_compressed = (img_compressed - img_compressed.min()) / (img_compressed.max() - img_compressed.min())
-    img_compressed = (img_compressed * 255).astype(np.uint8)
-
+    img_compressed = normalize(img_compressed)
     return img_compressed
 
+
+
+def factor_analysis_patch(img_patch, n_components=3):
+    h, w, ch = img_patch.shape
+    reshaped = img_patch.reshape(-1, ch)
+    fa = FactorAnalysis(n_components=n_components)
+    transformed = fa.fit_transform(reshaped)
+    
+    ## Patch normalization can cause diferences between patches
+    # transformed = (transformed - transformed.min()) / (transformed.max() - transformed.min())
+    # transformed = (transformed * 255).astype(np.uint8)
+    return transformed.reshape(h, w, n_components)
+
+def process_image_in_patches(visible_image, thermal_image, patch_size=128, n_components=3):
+    b, g, r = cv.split(visible_image)
+    th = thermal_image
+    img = cv.merge([b, g, r, th])
+    h, w, ch = img.shape
+
+    output = np.zeros((h, w, n_components), dtype=np.float32)
+
+    for y in range(0, h, patch_size):
+        for x in range(0, w, patch_size):
+            y_end = min(y + patch_size, h)
+            x_end = min(x + patch_size, w)
+            patch = img[y:y_end, x:x_end, :]
+            out_patch = factor_analysis_patch(patch, n_components)
+            output[y:y_end, x:x_end, :] = out_patch
+
+    # Global image normalization
+    output = normalize(output)
+    return output
 
 @save_npmat_if_path
 def combine_rgbt_fa_to3ch(visible_image, thermal_image):
@@ -191,6 +221,7 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image):
     # image = combine_rgbt_fa_toXch(visible_image, thermal_image, 3)
     # return image   
 
+    ## EEHA - Interesting but slow! (with patches in single thread is even slower...)
     b,g,r = cv.split(visible_image)
     th = thermal_image
 
@@ -203,10 +234,9 @@ def combine_rgbt_fa_to3ch(visible_image, thermal_image):
     img_fa = fa.fit_transform(img_reshaped)
 
     img_compressed = img_fa.reshape(h, w, 3)
-
-    img_compressed = (img_compressed - img_compressed.min()) / (img_compressed.max() - img_compressed.min())
-    img_compressed = (img_compressed * 255).astype(np.uint8)
-
+    img_compressed = normalize(img_compressed)
+    
+    # img_compressed = process_image_in_patches(visible_image, thermal_image)
     return img_compressed
 
 @save_npmat_if_path

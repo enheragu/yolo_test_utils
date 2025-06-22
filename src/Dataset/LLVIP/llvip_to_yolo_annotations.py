@@ -142,8 +142,8 @@ def processXML(xml_path, output_paths, dataset_format, relabeling):
                 
                 updateSymlink(output_paths[0], output_paths[1])
 
-                check_txt(output_paths[0])
-                check_txt(output_paths[1])
+                # check_txt(output_paths[0])
+                # check_txt(output_paths[1])
 
 # Process line from dataset file so to paralelice process
 ## IMPORTANT -> line has to be the last argument
@@ -203,11 +203,13 @@ def upateProcessedSymlinks(pre_processed, data_set_name, line):
         img_new_path = img_root_path.replace(img_root_path.split("/")[-4], data_set_name)
         updateSymlink(img_root_path, img_new_path)
 
-        label_root_path = pre_processed[data_type][line].replace(images_folder_name, labels_folder_name).replace('.png', '.txt')
+        label_root_path = pre_processed[data_type][line].replace(images_folder_name, labels_folder_name).replace('.jpg', '.txt')
         label_new_path = label_root_path.replace(label_root_path.split("/")[-4], data_set_name)
         # Check if there is labels root path or is just a background image
         if os.path.exists(label_root_path):
             updateSymlink(label_root_path, label_new_path)
+        # else:
+            # log(f"[llvipToYolo:updateProcessedSymlinks] Could not find {label_root_path} to make link to {label_new_path}", bcolors.ERROR)
     
 # Distortion correct added just for compatibility
 def llvipToYolo(dataset_format = 'llvip_coco', rgb_eq = 'none', thermal_eq = 'none', distortion_correct = None, relabeling = True):

@@ -9,6 +9,7 @@ import time
 
 from statistics import mean, stdev
 
+from p_tqdm import p_map
 from multiprocessing.pool import Pool
 from functools import partial
 
@@ -29,7 +30,7 @@ from Dataset.th_equalization import th_equalization, rgb_equalization
 test = None
 test_plot = False
 
-def process_image(yolo_dataset_path, folder, combine_method, option_path, dataset_format, rgb_eq, thermal_eq, image):
+def process_image(yolo_dataset_path, folder, combine_method, option_path, dataset_format, rgb_eq, thermal_eq, extension, image):
     # log(f"Processing image {image} from {folder} dataset")
 
     thermal_image_path = os.path.join(yolo_dataset_path,folder,lwir_folder_name,images_folder_name,image)
@@ -38,13 +39,15 @@ def process_image(yolo_dataset_path, folder, combine_method, option_path, datase
     rgb_img = cv.imread(rgb_image_path)
     th_img = cv.imread(thermal_image_path, cv.IMREAD_GRAYSCALE) # It is enconded as BGR so still needs merging to Gray
 
-
     start_time = time.perf_counter()
     
     th_img = th_equalization(th_img, thermal_eq)
     rgb_img = rgb_equalization(rgb_img, rgb_eq)
 
-    image_combined = combine_method(rgb_img, th_img, path = f"{option_path}/{image}")
+
+    base, _ = os.path.splitext(f"{option_path}/{image}")
+    new_img_path = base + extension
+    image_combined = combine_method(rgb_img, th_img, path = new_img_path)
 
     end_time = time.perf_counter()
     total_time = end_time - start_time
@@ -84,7 +87,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             images_list_create = images_list_create[:test]
             for image in images_list_create[:test]:
                 # Creating visualization windows
-                process_image(yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, image)
+                process_image(yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, dataset_options[option]['extension'], image)
                 if test_plot:
                     fused_image = cv.imread(option_path + image)
                     cv.namedWindow("Image fussion", cv.WINDOW_AUTOSIZE)
@@ -99,8 +102,9 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             # Iterate images multiprocessing
             # with Pool(processes = 5) as pool:
             with Pool() as pool:    
-                func = partial(process_image, yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq)
-                results = pool.map(func, images_list_create)
+                func = partial(process_image, yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, dataset_options[option]['extension'])
+                # results = pool.map(func, images_list_create)
+                results = p_map(func, images_list_create, desc="                          [RGBThermalMix::make_dataset] Fusion: ")
 
                 execution_times = [result[1] for result in results]
                 execution_time_all.extend(execution_times)
@@ -108,8 +112,9 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
         # Symlink
         for image in images_list_symlink:
             symlink_created +=1
-            current_image = processed_images[image].replace('.png', dataset_options[option]['extension'])
-            img_path = os.path.join(option_path,image).replace('.png', dataset_options[option]['extension'])
+            for replace_ext in ['.png', '.jpg']:
+                current_image = processed_images[image].replace(replace_ext, dataset_options[option]['extension'])
+                img_path = os.path.join(option_path,image).replace(replace_ext, dataset_options[option]['extension'])
             updateSymlink(current_image, img_path)
         log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
 
@@ -123,7 +128,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
 
         # checkImageLabelPairs(os.path.join(yolo_version_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
-    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {stdev(execution_time_all)}) on each image.")
+    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {stdev(execution_time_all)}) on each image (for {dataset_format}).")
 
 
 if __name__ == '__main__':

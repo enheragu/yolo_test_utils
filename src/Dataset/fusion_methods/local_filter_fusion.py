@@ -19,9 +19,19 @@ from scipy.special import expit
 
 from utils import log, bcolors
 from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
+from Dataset.fusion_methods.normalization import normalize
 
+
+def ssim_map_smooth_norm(ssim_map):
+    ssim_map_smooth = gaussian_filter(ssim_map, sigma=2)
+    ssim_map_norm = (ssim_map_smooth - ssim_map_smooth.min()) / (ssim_map_smooth.max() - ssim_map_smooth.min() + 1e-8)
+    return ssim_map_norm
+
+""" When SSIM is high (similarity between each channel and thermal) thermal information is
+    preferred. If SSIM is low, RGB data is preferred.
+"""
 @save_image_if_path
-def combine_rgbt_ssim(visible, thermal, win_size=11, block_size=32):
+def combine_rgbt_ssim(visible, thermal, win_size=11):
     # Extracts SSMI (Structural Similarity Index) for each channel of the visible image 
     # with respect to the thermal image
     ssim_r, ssim_r_map = ssim(visible[..., 0], thermal, full=True, win_size=win_size)
@@ -29,24 +39,34 @@ def combine_rgbt_ssim(visible, thermal, win_size=11, block_size=32):
     ssim_b, ssim_b_map = ssim(visible[..., 2], thermal, full=True, win_size=win_size)
 
     fused = np.empty_like(visible, dtype=float)
-    h, w = visible.shape[:2]
-
-    def ssim_map_smooth_norm(ssim_map):
-        ssim_map_smooth = gaussian_filter(ssim_map, sigma=2)
-        ssim_map_norm = (ssim_map_smooth - ssim_map_smooth.min()) / (ssim_map_smooth.max() - ssim_map_smooth.min() + 1e-8)
-        return ssim_map_norm
-
-    ssim_r_map = ssim_map_smooth_norm(ssim_r_map)
-    ssim_g_map = ssim_map_smooth_norm(ssim_r_map)
-    ssim_b_map = ssim_map_smooth_norm(ssim_r_map)
-
     # Adaptative fusion based on SSIM
     # Fuse for each pixel based on the SSIM map value
-    fused[..., 0] = (1 - ssim_r_map) * visible[..., 0] + ssim_r_map * thermal
-    fused[..., 1] = (1 - ssim_g_map) * visible[..., 1] + ssim_g_map * thermal
-    fused[..., 2] = (1 - ssim_b_map) * visible[..., 2] + ssim_b_map * thermal
+    ssim_maps = [ssim_map_smooth_norm(m) for m in [ssim_r_map, ssim_g_map, ssim_b_map]]
+    for i in range(3):
+        fused[..., i] = (1 - ssim_maps[i]) * visible[..., i] + ssim_maps[i] * thermal
 
-    fused = np.clip(fused, 0, 255).astype(np.uint8)
+    fused = normalize(fused)
+    return fused
+
+""" When SSIM is low (low similarity between each channel and thermal) thermal information is
+    preferred. If SSIM is high, RGB data is preferred.
+"""
+@save_image_if_path
+def combine_rgbt_ssim_v2(visible, thermal, win_size=11):
+    # Extracts SSMI (Structural Similarity Index) for each channel of the visible image 
+    # with respect to the thermal image
+    ssim_r, ssim_r_map = ssim(visible[..., 0], thermal, full=True, win_size=win_size)
+    ssim_g, ssim_g_map = ssim(visible[..., 1], thermal, full=True, win_size=win_size)
+    ssim_b, ssim_b_map = ssim(visible[..., 2], thermal, full=True, win_size=win_size)
+
+    fused = np.empty_like(visible, dtype=float)
+    # Adaptative fusion based on SSIM
+    # Fuse for each pixel based on the SSIM map value
+    ssim_maps = [ssim_map_smooth_norm(m) for m in [ssim_r_map, ssim_g_map, ssim_b_map]]
+    for i in range(3):
+        fused[..., i] = ssim_maps[i] * visible[..., i] + (1-ssim_maps[i]) * thermal
+
+    fused = normalize(fused)
     return fused
 
 @save_image_if_path
@@ -59,14 +79,14 @@ def combine_rgbt_sobel_weighted(visible, thermal, alpha=0.5):
     for c in range(3):
         fused[..., c] = (1 - alpha * grad_thermal_norm) * visible[..., c] + (alpha * grad_thermal_norm) * thermal
 
-    fused = np.clip(fused, 0, 255).astype(np.uint8)
+    fused = normalize(fused)
     return fused
 
 
 # ReviewED FROM https://ieeexplore.ieee.org/document/10095874
 @save_image_if_path
 def combine_rgbt_superpixel(visible, thermal):
-    n_segments=200
+    n_segments=300
     sigma=2.0
 
     # 1. Superpixel segmentation based on averaged RGB image 
@@ -99,5 +119,5 @@ def combine_rgbt_superpixel(visible, thermal):
     for c in range(visible.shape[2]):
         fused[..., c] = mask * visible[..., c] + (1 - mask) * thermal
 
-    fused = np.clip(fused, 0, 255).astype(visible.dtype)
+    fused = normalize(fused)
     return fused

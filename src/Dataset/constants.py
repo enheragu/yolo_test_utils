@@ -5,7 +5,7 @@ from .fusion_methods.static_image_compression import combine_4ch_visible, combin
 from .fusion_methods.static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
 from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch, combine_rgbt_alpha_pca_to3ch
 from .fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
-from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
+from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_ssim_v2, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
 from pathlib import Path
 
 home = Path.home()
@@ -76,6 +76,7 @@ wavelets_options = {
 
 local_filter_options = {
                     'ssim' : {'merge': combine_rgbt_ssim, 'extension': '.png'},
+                    'ssim_v2' : {'merge': combine_rgbt_ssim_v2, 'extension': '.png'},
                     'superpixel' : {'merge': combine_rgbt_superpixel, 'extension': '.png'},
                     'sobel_weighted' : {'merge': combine_rgbt_sobel_weighted, 'extension': '.png'}
                   }

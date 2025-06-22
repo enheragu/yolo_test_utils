@@ -22,9 +22,10 @@ if __name__ == "__main__":
     import sys
     sys.path.append('./src')
 
+
 from utils import log, bcolors
 from Dataset.decorators import time_execution_measure, save_image_if_path, save_npmat_if_path
-
+from Dataset.fusion_methods.normalization import normalize
 
 @save_npmat_if_path
 def combine_hsvt_wavelet(visible_image, thermal_image):
@@ -68,22 +69,34 @@ def combine_rgb_wavelet(visible_image, thermal_image):
     cDetail_fused = []
     for i in range(3):  # Fuse for 3 output channels
         # Averaged with thermal channel coeffs? Max?
-        cH = (cDetail[i][0] + cDetail[3][0]) / 2
-        cV = (cDetail[i][1] + cDetail[3][1]) / 2
-        cD = (cDetail[i][2] + cDetail[3][2]) / 2
+        # Average tends to lose texture and borders, abs max better preserve these features
+        cH = np.where(np.abs(cDetail[i][0]) > np.abs(cDetail[3][0]), cDetail[i][0], cDetail[3][0])
+        cV = np.where(np.abs(cDetail[i][1]) > np.abs(cDetail[3][1]), cDetail[i][1], cDetail[3][1])
+        cD = np.where(np.abs(cDetail[i][2]) > np.abs(cDetail[3][2]), cDetail[i][2], cDetail[3][2])
         cDetail_fused.append((cH, cV, cD))
 
     ## Aproximation sub-bands contain most of the information. Thats why a better fusion is applied
-    #  Las bandas de aproximación contienen la mayor parte de la información estructural y espectral relevante de la imagen.
-    pca = PCA(n_components=3)
-    cAaprox_fused = pca.fit_transform(cAprox.reshape(-1, 4)).reshape(cAprox[0].shape + (3,))
+    # Las bandas de aproximación contienen la mayor parte de la información estructural y espectral 
+    # relevante de la imagen.
+    
+    # For aproximation coef if pixel in thermal image is high, more weight to thermal coeff
+    weights = thermal_image / (thermal_image.max() + 1e-8)
+    weights_resized = cv.resize(weights, (cAprox[3].shape[1], cAprox[3].shape[0]), interpolation=cv.INTER_LINEAR)
+    cA_fused = []
+    for i in range(3):
+        cA_fused.append(weights_resized * cAprox[3] + (1 - weights_resized) * cAprox[i])
 
     fused_image = []
     for i in range(3):
-        coeffs = (cAaprox_fused[..., i], cDetail_fused[i])
-        fused_image.append(pywt.idwt2(coeffs, 'haar'))
+        coeffs = (cA_fused[i], cDetail_fused[i])
+        fused_channel = pywt.idwt2(coeffs, 'haar')
+        fused_channel = fused_channel[:visible_image.shape[0], :visible_image.shape[1]] # Ensure original shape
+        fused_image.append(fused_channel)
+        
     fused_image = np.stack(fused_image, axis=-1) 
-
+    
+    # Ensure range 0-255 and uint8 encoding
+    fused_image = normalize(fused_image)
     return fused_image
 
 
@@ -134,22 +147,29 @@ def combine_rgb_curvelet(visible_image, thermal_image):
     curvelet_transform = SimpleUDCT(
         shape=thermal_image.shape, nscales=4, nbands_per_direction=4, alpha=0.3, winthresh=winthresh
     )
+    # Image is decomposed in nscales levels
     coeffs = [curvelet_transform.forward(rgbt[:, :, i]) for i in range(4)]
     
     # Fuse coefficients
     fused_coeffs = []
     for i in range(3):  # 3 output channels
         c_fused = []
-        for j in range(len(coeffs[i])):  # Iterate levels
-            nivel_fused = []
+        for j in range(len(coeffs[i])):  # Iterate levels (nscales)
+            scale_fused = []
             for k in range(len(coeffs[i][j])):  # Iterate coefficients in each level
                 coeff_v = np.array(coeffs[i][j][k])  # Ensure numpy array
                 coeff_th = np.array(coeffs[3][j][k])  # Thermal channel as numpy array
                 
-                # Average the coefficients
-                fused_coeff = (coeff_v + coeff_th) / 2
-                nivel_fused.append(fused_coeff)
-            c_fused.append(nivel_fused)
+                if j == 0:
+                    # Aproximation (low freq.)
+                    fused_coeff = (coeff_v + coeff_th) / 2
+                else:
+                    # Detail (high freq.)
+                    mask = np.abs(coeff_v) >= np.abs(coeff_th)
+                    fused_coeff = np.where(mask, coeff_v, coeff_th)
+
+                scale_fused.append(fused_coeff)
+            c_fused.append(scale_fused)
         fused_coeffs.append(c_fused)
     
     # Reconstruct fused channels
@@ -157,7 +177,7 @@ def combine_rgb_curvelet(visible_image, thermal_image):
     
     # Stack channels and normalize
     fused_image = np.stack(fused_channels, axis=-1)
-    fused_image = np.clip(fused_image, 0, 255).astype(np.uint8)
+    fused_image = normalize(fused_image)
     #fused_image = cv.cvtColor(fused_image, cv.COLOR_RGB2BGR)
     
     return fused_image 
