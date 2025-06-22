@@ -105,7 +105,7 @@ head:
 #   ·  [-1, 1, Conv, [64, 3, 2]]: This part describes the layer itself. It starts with a negative value -1, which means that this layer takes its input from the previous layer. The 1 means that it is the first layer in the backbone. Conv indicates that it is a convolutional layer, and [64, 3, 2] specifies the configuration of this layer (specifically, it has 64 filters, a kernel size of 3x3, and a stride of 2).
 #   ·  # 0-P1/2: This comment provides additional information about this layer. The 0 indicates that this layer's output index is 0, and P1/2 suggests that the output is passed to the first detection layer which has a stride of 2.
 
-
+# EEHA - Just for plotting graph
 subgraph_config:
   Backbone_Visible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
   Backbone_Thermal: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]

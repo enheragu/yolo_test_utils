@@ -1,3 +1,5 @@
+## USED WHEN NO PRE-TRAIN IS WANTED
+
 # Ultralytics YOLO 🚀, AGPL-3.0 license
 # YOLOv8 object detection model with P3-P5 outputs. For Usage examples see https://docs.ultralytics.com/tasks/detect
 
@@ -6,7 +8,7 @@
 
 # Parameters
 nc: 80  # number of classes
-ch: 2
+ch: 4
 
 scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call yolov8.yaml with scale 'n'
   # [depth, width, max_channels]
@@ -17,39 +19,59 @@ scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call 
   x: [1.00, 1.25, 512]   # YOLOv8x summary: 365 layers, 68229648 parameters, 68229632 gradients, 258.5 GFLOPs
 
 # YOLOv8.0n backbone
+# Modifications of YAML file inspired by https://github.com/wandahangFY/YOLOv11-RGBT/issues/2
 backbone:
   # [from, repeats, module, args]
-  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
-  - [-1, 1, Conv, [128, 3, 2]]  # 1-P2/4
+  - [-1, 1, nn.Identity, []]  # 0  just a placeholder (nn.Identity)
+  # Visible backbone layers
+  - [0, 1, FilterInput, [0,1,2]]  # 1-P1/2       # Keeps configured channels discarding the rest
+  - [-1, 1, Conv, [64, 3, 2]]  # 2-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]  # 3-P2/4
   - [-1, 3, C2f, [128, True]]
-  - [-1, 1, Conv, [256, 3, 2]]  # 3-P3/8
+  - [-1, 1, Conv, [256, 3, 2]]  # 5-P3/8
   - [-1, 6, C2f, [256, True]]
-  - [-1, 1, Conv, [512, 3, 2]]  # 5-P4/16
+  - [-1, 1, Conv, [512, 3, 2]]  # 7-P4/16
   - [-1, 6, C2f, [512, True]]
-  - [-1, 1, Conv, [1024, 3, 2]]  # 7-P5/32
+  - [-1, 1, Conv, [1024, 3, 2]]  # 9-P5/32
   - [-1, 3, C2f, [1024, True]]
-  - [-1, 1, SPPF, [1024, 5]]  # 9
+  - [-1, 1, SPPF, [1024, 5]]  # 11
+
+  # Thermal backbone layers
+  - [ 0, 1, FilterInput, [3] ]  # 12-P1/2        # Keeps configured channels discarding the rest
+  - [-1, 1, Conv, [64, 3, 2]]  # 13-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]  # 14-P2/4
+  - [-1, 3, C2f, [128, True]]
+  - [-1, 1, Conv, [256, 3, 2]]  # 16-P3/8
+  - [-1, 6, C2f, [256, True]]
+  - [-1, 1, Conv, [512, 3, 2]]  # 18-P4/16
+  - [-1, 6, C2f, [512, True]]
+  - [-1, 1, Conv, [1024, 3, 2]]  # 20-P5/32
+  - [-1, 3, C2f, [1024, True]]
+  - [-1, 1, SPPF, [1024, 5]]  # 22
+
+
+  - [[-1, 11], 1, Concat, [1]]  # Cat both backbones (thermal + visible)
 
 # YOLOv8.0n head
 head:
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 6], 1, Concat, [1]]  # cat backbone P4
-  - [-1, 3, C2f, [512]]  # 12
+  # Merged head layers
+  - [11, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 8, 19], 1, Concat, [1]]  # cat backbone P4
+  - [-1, 3, C2f, [512]]  # 26
 
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 4], 1, Concat, [1]]  # cat backbone P3
-  - [-1, 3, C2f, [256]]  # 15 (P3/8-small)
+  - [[-1, 6, 17], 1, Concat, [1]]  # cat backbone P3
+  - [-1, 3, C2f, [256]]  # 29 (P3/8-small)
 
   - [-1, 1, Conv, [256, 3, 2]]
-  - [[-1, 12], 1, Concat, [1]]  # cat head P4
-  - [-1, 3, C2f, [512]]  # 18 (P4/16-medium)
+  - [[-1, 26], 1, Concat, [1]]  # cat head P4
+  - [-1, 3, C2f, [512]]  # 32 (P4/16-medium)
 
   - [-1, 1, Conv, [512, 3, 2]]
-  - [[-1, 9], 1, Concat, [1]]  # cat head P5
-  - [-1, 3, C2f, [1024]]  # 21 (P5/32-large)
+  - [[-1, 11, 22], 1, Concat, [1]]  # cat head P5
+  - [-1, 3, C2f, [1024]]  # 35 (P5/32-large)
 
-  - [[15, 18, 21], 1, Detect, [nc]]  # Detect(P3, P4, P5)
-
+  - [[29, 32, 35], 1, Detect, [nc]] # Detect(P3, P4, P5)
 
 # From https://github.com/ultralytics/ultralytics/issues/3194#issuecomment-1596150935:
 # The line you mentioned - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2 in the model.yaml file represents one layer in the backbone configuration. Let's break it down:
@@ -58,10 +80,11 @@ head:
 
 # EEHA - Just for plotting graph
 subgraph_config:
-  Backbone: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  Backbone_Visible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  Backbone_Thermal: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
   Head:
-    HV: [10, 11, 12]
-    Head_1: [13,14,15]
-    Head_2: [16,17,18]
-    Head_3: [19,20,21]
-  Detection: [22]
+    HV: [24, 25, 26]
+    Head_1: [27, 28, 29]
+    Head_2: [30, 31, 32]
+    Head_3: [33, 34, 35]
+  Detection: [36]

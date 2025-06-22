@@ -96,6 +96,7 @@ nbs: 64  # nominal batch size
 hsv_h: 0.015  # image HSV-Hue augmentation (fraction)
 hsv_s: 0.7  # image HSV-Saturation augmentation (fraction)
 hsv_v: 0.4  # image HSV-Value augmentation (fraction)
+hsv_t: 0.010 # EEHA fourth channel augmentation, works as a intensity
 degrees: 0.0  # image rotation (+/- deg)
 translate: 0.1  # image translation (+/- fraction)
 scale: 0.5  # image scale (+/- gain)

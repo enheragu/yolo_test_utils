@@ -6,7 +6,7 @@
 
 # Parameters
 nc: 80  # number of classes
-ch: 2
+ch: 4
 
 scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call yolov8.yaml with scale 'n'
   # [depth, width, max_channels]
@@ -19,34 +19,34 @@ scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call 
 # YOLOv8.0n backbone
 backbone:
   # [from, repeats, module, args]
-  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
-  - [-1, 1, Conv, [128, 3, 2]]  # 1-P2/4
-  - [-1, 3, C2f, [128, True]]
-  - [-1, 1, Conv, [256, 3, 2]]  # 3-P3/8
-  - [-1, 6, C2f, [256, True]]
-  - [-1, 1, Conv, [512, 3, 2]]  # 5-P4/16
-  - [-1, 6, C2f, [512, True]]
-  - [-1, 1, Conv, [1024, 3, 2]]  # 7-P5/32
-  - [-1, 3, C2f, [1024, True]]
-  - [-1, 1, SPPF, [1024, 5]]  # 9
+  - [-1, 1, Conv, [86, 3, 2]]  # 0-P1/2
+  - [-1, 1, Conv, [170, 3, 2]]  # 1-P2/4
+  - [-1, 3, C2f, [170, True]]
+  - [-1, 1, Conv, [342, 3, 2]]  # 3-P3/8
+  - [-1, 6, C2f, [342, True]]
+  - [-1, 1, Conv, [684, 3, 2]]  # 5-P4/16
+  - [-1, 6, C2f, [684, True]]
+  - [-1, 1, Conv, [1366, 3, 2]]  # 7-P5/32
+  - [-1, 3, C2f, [1366, True]]
+  - [-1, 1, SPPF, [1366, 5]]  # 9
 
 # YOLOv8.0n head
 head:
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
   - [[-1, 6], 1, Concat, [1]]  # cat backbone P4
-  - [-1, 3, C2f, [512]]  # 12
+  - [-1, 3, C2f, [684]]  # 12
 
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
   - [[-1, 4], 1, Concat, [1]]  # cat backbone P3
-  - [-1, 3, C2f, [256]]  # 15 (P3/8-small)
+  - [-1, 3, C2f, [342]]  # 15 (P3/8-small)
 
-  - [-1, 1, Conv, [256, 3, 2]]
+  - [-1, 1, Conv, [342, 3, 2]]
   - [[-1, 12], 1, Concat, [1]]  # cat head P4
-  - [-1, 3, C2f, [512]]  # 18 (P4/16-medium)
+  - [-1, 3, C2f, [684]]  # 18 (P4/16-medium)
 
-  - [-1, 1, Conv, [512, 3, 2]]
+  - [-1, 1, Conv, [684, 3, 2]]
   - [[-1, 9], 1, Concat, [1]]  # cat head P5
-  - [-1, 3, C2f, [1024]]  # 21 (P5/32-large)
+  - [-1, 3, C2f, [1366]]  # 21 (P5/32-large)
 
   - [[15, 18, 21], 1, Detect, [nc]]  # Detect(P3, P4, P5)
 
@@ -55,13 +55,3 @@ head:
 # The line you mentioned - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2 in the model.yaml file represents one layer in the backbone configuration. Let's break it down:
 #   ·  [-1, 1, Conv, [64, 3, 2]]: This part describes the layer itself. It starts with a negative value -1, which means that this layer takes its input from the previous layer. The 1 means that it is the first layer in the backbone. Conv indicates that it is a convolutional layer, and [64, 3, 2] specifies the configuration of this layer (specifically, it has 64 filters, a kernel size of 3x3, and a stride of 2).
 #   ·  # 0-P1/2: This comment provides additional information about this layer. The 0 indicates that this layer's output index is 0, and P1/2 suggests that the output is passed to the first detection layer which has a stride of 2.
-
-# EEHA - Just for plotting graph
-subgraph_config:
-  Backbone: [1, 2, 3, 4, 5, 6, 7, 8, 9]
-  Head:
-    HV: [10, 11, 12]
-    Head_1: [13,14,15]
-    Head_2: [16,17,18]
-    Head_3: [19,20,21]
-  Detection: [22]
