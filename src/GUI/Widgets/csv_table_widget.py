@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QWidget, QScrollArea, QSizePolicy, QVBoxLayout, QTab
 from utils import log, bcolors
 from utils.log_utils import logTable
 from utils.log_utils import printDictKeys
-from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget
+from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget, BestGroupCheckBoxWidget
 
 TABLE_DECIMAL_PRECISION="{:.3f}"
 
@@ -84,6 +84,8 @@ class TrainCSVDataTable(QWidget):
         data = []
         for checkbox_list in self.dataset_checkboxes:
             if isinstance(checkbox_list, DatasetCheckBoxWidget):
+                pass
+            elif isinstance(checkbox_list, BestGroupCheckBoxWidget):
                 pass
             elif isinstance(checkbox_list, GroupCheckBoxWidget):
                 data += checkbox_list.getChecked()  

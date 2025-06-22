@@ -24,10 +24,11 @@ import seaborn as sns
 from utils import parseYaml
 from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox
+from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox, BestGroupCheckBoxWidget
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 'MRFPPI Curve',
-            'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', 'MissRate', 'FPPI', 'LAMR']
+tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', #'MR Curve', 'MRFPPI Curve',
+            'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', #'MissRate', 'FPPI', 'LAMR'
+           ]
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -40,6 +41,32 @@ class TrainComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
         super().__init__(dataset_handler, tab_keys)
 
+        ## CLASS selector
+        combobox_layout = QHBoxLayout()
+        label = QLabel("Class:")
+        
+        det_classes = set([str('all')])
+        for key in self.dataset_handler.keys():
+            if 'validation_best' in self.dataset_handler[key]:
+                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
+                    det_classes.add(class_key)
+        # Sorted with 'all' at the beginning
+        det_classes = sorted(det_classes)
+        if 'all' in det_classes:
+            det_classes.remove('all')
+            det_classes.insert(0, 'all')
+        
+        self.plot_all_checkbox = QCheckBox("Plot All")
+        
+        self.plot_classes_list = det_classes
+        self.combobox = QComboBox()
+        self.combobox.addItems(list(det_classes))
+        self.combobox.setCurrentIndex(0)
+
+        combobox_layout.addWidget(label)
+        combobox_layout.addWidget(self.plot_all_checkbox)
+        combobox_layout.addWidget(self.combobox)
+
         # Needs to overload buttons widget with Grid layout for this specific view
         self.options_layout.removeWidget(self.buttons_widget)
         self.buttons_widget = QWidget(self.options_widget)
@@ -48,6 +75,9 @@ class TrainComparePlotter(BaseClassPlotter):
 
         self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
+
+        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector = self.combobox)
+        self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
         ## Create a button to select all checkboxes from a given condition
         self.select_all_day_button = QPushButton(" Select 'day' ", self)
@@ -78,31 +108,6 @@ class TrainComparePlotter(BaseClassPlotter):
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
         
-        combobox_layout = QHBoxLayout()
-        label = QLabel("Class:")
-        
-        det_classes = set([str('all')])
-        for key in self.dataset_handler.keys():
-            if 'validation_best' in self.dataset_handler[key]:
-                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
-                    det_classes.add(class_key)
-        # Sorted with 'all' at the beginning
-        det_classes = sorted(det_classes)
-        if 'all' in det_classes:
-            det_classes.remove('all')
-            det_classes.insert(0, 'all')
-        
-        self.plot_all_checkbox = QCheckBox("Plot All")
-        
-        self.plot_classes_list = det_classes
-        self.combobox = QComboBox()
-        self.combobox.addItems(list(det_classes))
-        self.combobox.setCurrentIndex(0)
-
-        combobox_layout.addWidget(label)
-        combobox_layout.addWidget(self.plot_all_checkbox)
-        combobox_layout.addWidget(self.combobox)
-
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot_button.clicked.connect(self.render_data)
@@ -122,7 +127,7 @@ class TrainComparePlotter(BaseClassPlotter):
         # self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
                
         # Tab for CSV data
-        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra])
+        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra, self.dataset_variance_checkboxes])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
     
 
@@ -139,6 +144,7 @@ class TrainComparePlotter(BaseClassPlotter):
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
         self.dataset_checkboxes_extra.update_checkboxes()
+        self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -150,7 +156,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
     def render_data(self):
 
-        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked()
+        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked() + self.dataset_variance_checkboxes.getChecked()
         self.plot_p_r_f1_data(checked)
         self.csv_tab.load_table_data()
         log(f"[{self.__class__.__name__}] Plot and table updated")

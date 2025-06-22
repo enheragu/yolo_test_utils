@@ -193,3 +193,34 @@ class GroupCheckBoxWidget(QScrollArea):
         for checkbox in self.check_box_dict.values():
             checkbox.setChecked(False)
 
+class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
+    """
+        Makes use fo mAP50 by default to filter for best trial
+    """
+    def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes, title_filter = [], class_selector = None):
+        super().__init__(widget, dataset_handler, include, exclude, title, max_rows, title_filter)
+
+        self.class_selector = class_selector
+
+    def getChecked(self):
+        best_item_group = {}
+        best_metric_group = {}
+        for group, checkbox in self.check_box_dict.items():
+            if checkbox.isChecked():
+                keys = [key for key in self.dataset_handler.keys() if group in key]
+                for key in keys:
+                    data = self.dataset_handler[key]
+
+                    print(data.keys())
+                    if self.class_selector:
+                        plot_class = self.class_selector.currentText() if  self.class_selector.currentText() in data['validation_best']['data'] else 'all'
+                    else:
+                        plot_class = 'all'
+
+                    map_value = data['validation_best']['data'][plot_class]['mAP50']
+                         
+                    if not group in best_item_group or map_value > best_metric_group[group]:
+                        best_item_group[group] = key
+                        best_metric_group[group] = map_value
+        
+        return list(best_item_group.values())

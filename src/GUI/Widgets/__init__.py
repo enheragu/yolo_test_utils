@@ -1,6 +1,6 @@
 
 from .checable_combobox import CheckableComboBox
-from .check_box_widget import GroupCheckBoxWidget, DatasetCheckBoxWidget
+from .check_box_widget import GroupCheckBoxWidget, DatasetCheckBoxWidget, BestGroupCheckBoxWidget
 from .csv_table_widget import TrainCSVDataTable
 from .figure_tab_widget import PlotTabWidget
 from .numeric_slider_input_widget import NumericSliderInputWidget
