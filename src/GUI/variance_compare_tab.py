@@ -23,7 +23,7 @@ from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
 tab_keys = [#'PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 
-            'mAP50', 'mAP50-95', 'P', 'R', 'MR','FPPI','LAMR'
+            'mAP50', 'mAP50-95', 'P', 'R', #'MR','FPPI','LAMR'
            ]
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',

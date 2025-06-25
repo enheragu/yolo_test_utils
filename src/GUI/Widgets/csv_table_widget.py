@@ -22,7 +22,7 @@ from utils.log_utils import logTable
 from utils.log_utils import printDictKeys
 from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget, BestGroupCheckBoxWidget
 
-TABLE_DECIMAL_PRECISION="{:.3f}"
+TABLE_DECIMAL_PRECISION="{:.5f}"
 
 class TrainCSVDataTable(QWidget):
     """

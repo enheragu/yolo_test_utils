@@ -325,7 +325,7 @@ class TrainComparePlotter(BaseClassPlotter):
                         log(f"[{self.__class__.__name__}] Key error problem generating curve for {key}. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                         self.dataset_handler.markAsIncomplete(key)
                     except TypeError as e:
-                        log(f"[{self.__class__.__name__}] Key error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
+                        log(f"[{self.__class__.__name__}] Type error problem generating curve for {key} for {py_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                      
                 ax.set_xlim(0, 1)
                 ax.set_ylim(0, 1)

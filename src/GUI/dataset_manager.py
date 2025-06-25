@@ -177,7 +177,9 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
                 key = f"{model}/{name}"
-                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}"}
+                info = title.split('_')
+                ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
 
     myKeys = list(dataset_info.keys())
     myKeys.sort()
@@ -305,8 +307,8 @@ class DataSetHandler:
 """
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="GUI to review training results.")
-    parser.add_argument('--update_cache', action='store_true', help='Actualizar archivos de caché si es verdadero')
+    parser = argparse.ArgumentParser(description="Run dataset manager to gather all data from yaml.")
+    parser.add_argument('--update_cache', action='store_true', help='If true all cache data is updated from scratch.')
 
     # Parsear los argumentos de la línea de comandos
     args = parser.parse_args()
