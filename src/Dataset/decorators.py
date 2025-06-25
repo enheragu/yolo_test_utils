@@ -2,7 +2,6 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
-
 from functools import wraps
 import time
 
@@ -23,10 +22,21 @@ def save_npmat_if_path(func):
     @wraps(func)
     def wrapper(*args, path=None, **kwargs):
         result = func(*args, **kwargs)
+        curvelet_max = None
+        if isinstance(result, tuple):
+            curvelet_max = result[1]
+            name_search = result[2]
+            name_replace = result[3]
+            result = result[0]
         if path is not None:
             if isinstance(result, np.ndarray):
                 # np.save(path.replace('.png',''), result)
                 np.savez_compressed(path.replace('.png','').replace('.jpg',''), image = result)    
+                if curvelet_max is not None:
+                    curvelet_max_path = path.replace('.png','').replace('.jpg','').replace(name_search, name_replace)
+                    from pathlib import Path
+                    Path(curvelet_max_path).parent.mkdir(parents=True, exist_ok=True)
+                    np.savez_compressed(curvelet_max_path, image = curvelet_max)    
                 return None
             else:
                 raise ValueError("[Decorators] Result is not a numpy array, cannot save as npz.")

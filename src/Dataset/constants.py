@@ -4,7 +4,7 @@ from .fusion_methods.static_image_compression import combine_hsvt, combine_rgbt,
 from .fusion_methods.static_image_compression import combine_4ch_visible, combine_4ch_lwir
 from .fusion_methods.static_image_compression import   combine_vths_v2, combine_vths_v3, combine_rgbt_v2
 from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch, combine_rgbt_alpha_pca_to3ch
-from .fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
+from .fusion_methods.wavelets_mdmr_compression import combine_rgbt_wavelet_max, combine_rgbt_wavelet, combine_rgbt_curvelet_max, combine_rgbt_curvelet
 from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_ssim_v2, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
 from pathlib import Path
 
@@ -68,10 +68,10 @@ fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' 
                   }
 
 wavelets_options = {
-                    # 'wavelet_hsvt' : {'merge': combine_hsvt_wavelet, 'extension': '.npz'},
-                    'wavelet' : {'merge': combine_rgb_wavelet, 'extension': '.npz'},
-                    # 'curvelet_hsvt' : {'merge': combine_hsv_curvelet, 'extension': '.npz'},
-                    'curvelet' : {'merge': combine_rgb_curvelet, 'extension': '.npz'}
+                    'wavelet_max' : {'merge': combine_rgbt_wavelet_max, 'extension': '.npz'},
+                    'wavelet' : {'merge': combine_rgbt_wavelet, 'extension': '.npz'},
+                    'curvelet_max' : {'merge': combine_rgbt_curvelet_max, 'extension': '.npz'},
+                    'curvelet' : {'merge': combine_rgbt_curvelet, 'extension': '.npz'}
                   }
 
 local_filter_options = {

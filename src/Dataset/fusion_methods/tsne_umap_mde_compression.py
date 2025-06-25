@@ -149,7 +149,8 @@ if __name__ == '__main__':
     print(f"Configuration: {test_umap = }; {test_tsne = }; {test_mds = }")
 
     # example_image
-    lwir_image_path = "/home/arvc/eeha/kaist-yolo-annotated/train-day-80_20/lwir/images/set00_V001_I00103.png"
+    # lwir_image_path = "/home/arvc/eeha/kaist-yolo-annotated/train-day-80_20/lwir/images/set00_V001_I00103.png"
+    lwir_image_path = "/home/arvc/eeha/kaist-cvpr15/images/set00/V001/lwir/I00103.jpg"
     visible_image_path = lwir_image_path.replace('/lwir/', '/visible/')
     visible_image = cv.imread(visible_image_path)
     lwir_image = cv.imread(lwir_image_path, cv.IMREAD_GRAYSCALE)    

@@ -3,7 +3,7 @@
 # encoding: utf-8
 
 """
-    Script to evaluate dataset image fussion techniques. Time consumption and resulting image :)
+    Script to evaluate dataset image fusion techniques. Time consumption and resulting image :)
 """
 
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     from Dataset.fusion_methods.static_image_compression import combine_hsvt, combine_rgbt, combine_vt, combine_vths
     from Dataset.fusion_methods.static_image_compression import combine_rgbt_v2, combine_vths_v2, combine_vths_v3
     from Dataset.fusion_methods.pca_fa_compression import combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch
-    from Dataset.fusion_methods.wavelets_mdmr_compression import combine_hsvt_wavelet, combine_rgb_wavelet, combine_hsv_curvelet, combine_rgb_curvelet
+    from Dataset.fusion_methods.wavelets_mdmr_compression import combine_rgbt_wavelet_max, combine_rgbt_wavelet, combine_rgbt_curvelet_max, combine_rgbt_curvelet
     from Dataset.fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
     from utils import color_palette_list, parseYaml, dumpYaml
     from utils.log_utils import logTable
@@ -75,26 +75,26 @@ def process_dir(args):
         print(f"Ignoring directory '{directory}' as it doesn't match the expected format.")
         
 
-def process__fussion_image(args):
-    rgb_img_path, th_img_path, fussion_function = args
+def process__fusion_image(args):
+    rgb_img_path, th_img_path, fusion_function = args
     rgb_img = cv.imread(rgb_img_path)
     th_img = cv.imread(th_img_path, cv.IMREAD_GRAYSCALE)
 
     start_time = time.perf_counter()
-    fussion_function(rgb_img, th_img)
+    fusion_function(rgb_img, th_img)
     end_time = time.perf_counter()
 
     return end_time - start_time
 
-def process_fussion_dir(directory, values, fussion_function):
+def process_fusion_dir(directory, values, fusion_function):
     visible_path = os.path.join(values['path'], images_folder_name)
     results = [(os.path.join(visible_path, img),
                 os.path.join(visible_path.replace(visible_folder_name, lwir_folder_name), img),
-                fussion_function)
+                fusion_function)
                for img in values['img']]
 
     # Procesar imágenes en paralelo usando p_map
-    times = p_map(process__fussion_image, results, desc="Processing images", leave=False)
+    times = p_map(process__fusion_image, results, desc="Processing images", leave=False, ncols=170)
 
     return times
 
@@ -122,11 +122,11 @@ def plot_distribution(data, mean, std_dev, title="Data Distribution", path = "./
 
     
 """
-    Computes the whole dataset with each fussion function getting the time spent
+    Computes the whole dataset with each fusion function getting the time spent
     on each method for each image
 """
-def evaluateFussion(fussion_functions, dataset_whitelist, root = kaist_yolo_dataset_path, store_path = store_path):
-    file_log_path = os.path.join(store_path, 'fussion_data.yaml')
+def evaluateFussion(fusion_functions, dataset_whitelist, root = kaist_yolo_dataset_path, store_path = store_path):
+    file_log_path = os.path.join(store_path, 'fusion_data.yaml')
     
     if not os.path.exists(file_log_path):
         manager = Manager()
@@ -161,17 +161,17 @@ def evaluateFussion(fussion_functions, dataset_whitelist, root = kaist_yolo_data
         print(f"[{index+1}/{len(images_dict.items())}] Processing directory: {directory}")
 
         # Aplicar cada función de fusión en paralelo para cada directorio
-        for index, fussion_function in enumerate(fussion_functions):
+        for index, fusion_function in enumerate(fusion_functions):
             
-            if fussion_function.__name__ in values:
-                print(f"\t[{index+1}/{len(fussion_functions)}] {fussion_function.__name__} loaded from YAML")
+            if fusion_function.__name__ in values:
+                print(f"\t[{index+1}/{len(fusion_functions)}] {fusion_function.__name__} loaded from YAML")
                 continue
             
-            print(f"\t[{index+1}/{len(fussion_functions)}] Applying fusion function: {fussion_function.__name__}")
+            print(f"\t[{index+1}/{len(fusion_functions)}] Applying fusion function: {fusion_function.__name__}")
 
             # Procesar el directorio con la función de fusión actual
-            times = process_fussion_dir(directory, values, fussion_function)
-            values[f'{fussion_function.__name__}'] = times
+            times = process_fusion_dir(directory, values, fusion_function)
+            values[f'{fusion_function.__name__}'] = times
 
             # Volcar los resultados a un archivo YAML
             dumpYaml(file_path=file_log_path, data=images_dict)
@@ -183,28 +183,36 @@ def evaluateFussion(fussion_functions, dataset_whitelist, root = kaist_yolo_data
 
     table_headers = ["Fussion Function", "Mean (s)", "Std (s)"]
     table_data = []
-    for index, fussion_function in enumerate(fussion_functions):
+    for index, fusion_function in enumerate(fusion_functions):
         data = []
         for index, (directory, values) in enumerate(images_dict.items()):
-            if fussion_function.__name__ in values:
-                data.extend(values[f'{fussion_function.__name__}'])
+            if fusion_function.__name__ in values:
+                data.extend(values[f'{fusion_function.__name__}'])
 
-        data = values[f'{fussion_function.__name__}']
+        data = values[f'{fusion_function.__name__}']
         mean = np.mean(data)
         std_dev = np.std(data)
-        path = os.path.join(images_store_path, f'{fussion_function.__name__}.png')
-        plot_distribution(data, mean, std_dev, title=f"{fussion_function.__name__} for {directory}", path = path)
+        path = os.path.join(images_store_path, f'{fusion_function.__name__}.png')
+        plot_distribution(data, mean, std_dev, title=f"{fusion_function.__name__} for {directory}", path = path)
         
-        row = [f"{fussion_function.__name__.title()}", f"{mean:.5f}", f"{std_dev:.5f}"]
+        row = [f"{fusion_function.__name__.title()}", f"{mean:.5f}", f"{std_dev:.5f}"]
         table_data.append(row)
     
-    logTable(table_data, store_path, 'fussion_table')
+    logTable(table_data, store_path, 'fusion_table')
+
+
+
+def process__fusion_method(args):
+    fusion, img_visible, img_lwir, store_path = args
+    path = os.path.join(store_path,'split',f'{fusion.__name__}.png')
+    image = fusion(img_visible, img_lwir)
+    cv.imwrite(path, image)
 
 """
-    Creates a demo image of the result of applying the fussion functions provided
+    Creates a demo image of the result of applying the fusion functions provided
     to a given image
 """
-def splitSingleImage(fussion_functions, store_path=store_path, 
+def splitSingleImage(fusion_functions, store_path=store_path, 
                      img_path='/home/arvc/eeha/kaist-cvpr15/images/set00/V000/lwir/I01689.jpg'):
     if not os.path.exists(os.path.join(store_path, 'split')):
         os.makedirs(os.path.join(store_path, 'split'))
@@ -229,16 +237,14 @@ def splitSingleImage(fussion_functions, store_path=store_path,
     cv.imwrite(os.path.join(store_path,'split','V_channel.png'), v_channel)
     cv.imwrite(os.path.join(store_path,'split','LWIR_channel.png'), cv.applyColorMap(img_lwir, cv.COLORMAP_JET))
 
-    for fussion in fussion_functions:
-        path = os.path.join(store_path,'split',f'{fussion.__name__}.png')
-        image = fussion(img_visible, img_lwir)
-        cv.imwrite(path, image)
-
-    print(f"Stored fussion data in {os.path.join(store_path)}")
+    args = [(fusion, img_visible, img_lwir, store_path) for fusion in fusion_functions]
+    p_map(process__fusion_method, args, desc="Processing fusion algorithm", leave=False, ncols=170)
+    
+    print(f"Stored fusion data in {os.path.join(store_path)}")
 
 if __name__ == '__main__':
 
-    kaist_store_path = os.path.join(store_path, 'fussion')
+    kaist_store_path = os.path.join(store_path, 'fusion')
     if not os.path.exists(kaist_store_path):
         os.makedirs(kaist_store_path)
 
@@ -246,27 +252,27 @@ if __name__ == '__main__':
                           combine_rgbt_v2, combine_vths_v2, combine_vths_v3,
                           combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, 
                         #   combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch,
-                          combine_rgb_wavelet, combine_rgb_curvelet, #combine_hsvt_wavelet, combine_hsv_curvelet, 
+                          combine_rgbt_wavelet, combine_rgbt_curvelet, combine_rgbt_wavelet_max, combine_rgbt_curvelet_max,
                           combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
                          ]
 
-    # splitSingleImage(fussion_functions=evaluate_functions, store_path=kaist_store_path)
+    # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path)
 
     # print("\nCase 80-20:")
     # white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
-    # evaluateFussion(fussion_functions=evaluate_functions,dataset_whitelist=white_list, store_path=kaist_store_path)
+    # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, store_path=kaist_store_path)
 
 
     ## For LLVIP dataset
     from Dataset_review.review_dataset_llvip import store_path
     
-    llvip_store_path = os.path.join(store_path, 'fussion')
+    llvip_store_path = os.path.join(store_path, 'fusion')
     if not os.path.exists(llvip_store_path):
         os.makedirs(llvip_store_path)
 
-    splitSingleImage(fussion_functions=evaluate_functions, store_path=llvip_store_path,
-                     img_path='/home/arvc/eeha/LLVIP/visible/test/210263.jpg')
+    splitSingleImage(fusion_functions=evaluate_functions, store_path=llvip_store_path,
+                     img_path='/home/arvc/eeha/LLVIP/lwir/test/210263.jpg')
 
     # print("\nCase 80-20:")
     # white_list=['test-night-80_20','train-night-80_20']
-    # evaluateFussion(fussion_functions=evaluate_functions,dataset_whitelist=white_list, root=llvip_yolo_dataset_path, store_path=llvip_store_path)
+    # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, root=llvip_yolo_dataset_path, store_path=llvip_store_path)
