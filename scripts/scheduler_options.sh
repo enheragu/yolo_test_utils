@@ -321,11 +321,16 @@ function rsync_cache() {
 
 # eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_visible" --iterations 3
 # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_lwir" --iterations 3
+
+## TO ICINCO
 # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_pca" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'alpha_pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_alpha_pca" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_fa_patches" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet_max" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet_max" --iterations 3  --cache "disk"
+# eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet_max" --iterations 3  --cache "disk"
+
+# eeha_schedule_new_test -c 'night' -o 'alpha_pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_alpha_pca" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'ssim' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_ssim" --iterations 2
 # eeha_schedule_new_test -c 'night' -o 'ssim_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_ssim_v2" --iterations 2
 # eeha_schedule_new_test -c 'night' -o 'superpixel' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_superpixel" --iterations 3

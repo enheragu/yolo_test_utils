@@ -26,7 +26,7 @@ def create_tar(dict_info, check_path):
     members = [os.path.join(label_path, file) for file in os.listdir(label_path)]
     
     with tarfile.open(output_path, mode="w:gz") as tar:
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(output_path).replace(str(check_path), "")) as pbar:
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(output_path).replace(str(check_path), ""), ncols=170) as pbar:
             processed_files = 0
             for member in members:
                 arcname = 'labels/' + os.path.basename(member)

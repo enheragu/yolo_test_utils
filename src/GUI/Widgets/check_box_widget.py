@@ -211,7 +211,9 @@ class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
                 for key in keys:
                     data = self.dataset_handler[key]
 
-                    print(data.keys())
+                    if not 'validation_best' in data:
+                        continue
+                    # print(data.keys())
                     if self.class_selector:
                         plot_class = self.class_selector.currentText() if  self.class_selector.currentText() in data['validation_best']['data'] else 'all'
                     else:
