@@ -241,7 +241,7 @@ def generateBackpropagationGraph(graphs_dir, model_yaml):
 
         with open(file_path, "w") as file:
             file.write(diagram)
-        log(f"Generated Mermaid diagram: {file_path}")
+        # log(f"Generated Mermaid diagram: {file_path}")
 
     legend_path = graphs_dir.parent / 'colormap_legend.png'
     export_colormap_legend(cmap_name='turbo', vmin=0, vmax=1, filename=legend_path)

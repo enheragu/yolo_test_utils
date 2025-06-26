@@ -102,7 +102,7 @@ class TrainComparePlotter(BaseClassPlotter):
 
         self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all(), self.dataset_variance_checkboxes.select_all())
+        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all(), self.dataset_variance_checkboxes.select_all()))
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
