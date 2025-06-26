@@ -102,11 +102,11 @@ class TrainComparePlotter(BaseClassPlotter):
 
         self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_all_button.clicked.connect(self.dataset_checkboxes.select_all)
+        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all(), self.dataset_variance_checkboxes.select_all())
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
+        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
         
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -164,7 +164,7 @@ class TrainComparePlotter(BaseClassPlotter):
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self, checked_list):
         # PY is an interpolated versino to plot it with a consistent px value<
-        plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision at mAP@0.5'},
+        plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'}, # at mAP@0.5'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
                      'R Curve': {'py': 'r', 'xlabel': "Confidence", "ylabel": 'Recall'},
                      'F1 Curve': {'py': 'f1', 'xlabel': "Confidence", "ylabel": 'F1'},

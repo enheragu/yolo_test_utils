@@ -11,7 +11,7 @@ import seaborn as sns
 
 from utils import log, bcolors
 from GUI.base_tab import BaseClassPlotter
-from GUI.Widgets import DatasetCheckBoxWidget, DialogWithCheckbox
+from GUI.Widgets import DatasetCheckBoxWidget, DialogWithCheckbox, BestGroupCheckBoxWidget
 
 tab_keys = ['Train Loss Ev.', 'Val Loss Ev.', 'PR Evolution', 'mAP Evolution' ]
 
@@ -30,16 +30,19 @@ class TrainEvalPlotter(BaseClassPlotter):
         # self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
         # self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
+        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector = self.combobox)
+        self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
+
         # self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
         ## ---
 
         self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all()))
+        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all(), self.dataset_variance_checkboxes.select_all()))
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all()))
+        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
 
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -71,6 +74,7 @@ class TrainEvalPlotter(BaseClassPlotter):
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
         self.dataset_checkboxes_extra.update_checkboxes()
+        self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
         # Open a file dialog to select the saving location
@@ -80,7 +84,7 @@ class TrainEvalPlotter(BaseClassPlotter):
             self.figure_tab_widget.saveFigures(file_name)
 
     def render_data(self):
-        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked()
+        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked() + self.dataset_variance_checkboxes.getChecked()
         self.plot_loss_metrics_data(checked)
         log(f"[{self.__class__.__name__}] Plot updated")
 
