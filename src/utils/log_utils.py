@@ -161,11 +161,12 @@ def printDictKeys(diccionario, nivel=0):
             printDictKeys(value, nivel + 1)
 
 
-def logTable(row_data, output_path, filename, colalign = None):
+def logTable(row_data, output_path, filename, colalign = None, screen=True, showindex=False):
 
-    table_str = tabulate.tabulate(row_data, headers="firstrow", tablefmt="fancy_grid", colalign = colalign)
-    table_latex = tabulate.tabulate(row_data, headers="firstrow", tablefmt="latex", colalign = colalign)
-    log(f"\n{table_str}")
+    table_str = tabulate.tabulate(row_data, headers="firstrow", tablefmt="fancy_grid", colalign = colalign, showindex=showindex)
+    table_latex = tabulate.tabulate(row_data, headers="firstrow", tablefmt="latex", colalign = colalign, showindex=showindex)
+    if screen:
+        log(f"\n{table_str}")
     file_name = os.path.join(output_path, filename.lower().replace(' ','_'))
     log(f"Stored data in {file_name}")
     with open(f"{file_name}.txt", 'w') as file:
@@ -182,3 +183,49 @@ def logTable(row_data, output_path, filename, colalign = None):
 
     with open(f"{file_name}.tex", 'w') as file:
         file.write(table_latex_with_caption)
+
+    table_to_html(row_data[1:], row_data[0], output_path, filename, showindex)
+
+def table_to_html(table, headers, output_path, filename, showindex=False):
+
+    file_name = os.path.join(output_path, filename.lower().replace(' ','_'))
+    ansi_to_html = {
+        "\033[92m": '<span class="green">',
+        "\033[91m": '<span class="red">',
+        "\033[9202m": '<span class="orange">',
+        "\033[0m": '</span>'
+    }
+
+    def reemplazar_ansi(texto):
+        for ansi, html in ansi_to_html.items():
+            texto = texto.replace(ansi, html)
+        return texto
+
+    table_html = [
+        [reemplazar_ansi(str(cell)) for cell in row]
+        for row in table
+    ]
+
+    html_table = tabulate.tabulate(table_html, headers=headers, tablefmt="unsafehtml", showindex=showindex)
+    # Find header row
+    start = html_table.find("<tr>")
+    end = html_table.find("</tr>", start) + len("</tr>")
+    header_row = html_table[start:end]
+
+    # Insert header row also at the end as a footer :)
+    html_table_with_footer = html_table.replace("</table>", f"{header_row}\n</table>")
+
+    css = """
+    <style>
+    .green { color: #28a745; font-weight: bold; }
+    .red { color: #dc3545; font-weight: bold; }
+    .orange { color: orange; font-weight: bold; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    </style>
+    """
+
+    with open(f"{file_name}.html", "w", encoding="utf-8") as f:
+        f.write(f"<!DOCTYPE html>\n<html>\n<head>{css}</head>\n<body>\n{html_table_with_footer}\n</body>\n</html>")
+    

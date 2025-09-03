@@ -26,7 +26,7 @@ if __name__ == "__main__":
     from Dataset_review.review_histograms_kaist import process_images, computeChannelMetrics, plot_histograms, isPathCondition #, histogram_channel_cfg_list
 
 histogram_channel_cfg_list = [{'tag': 'BGR', 'conversion': None, 
-                               'channel_names': ['B', 'G', 'R'], 'y_limit': [8,5,8,15]}, 
+                               'channel_names': ['B', 'G', 'R'], 'y_limit': [19,12,19,10]}, 
                               {'tag': 'HSV', 'conversion': cv.COLOR_BGR2HSV_FULL, 
                                'channel_names': ['H', 'S', 'V'], 'y_limit': [None,None,None,None]}]
 

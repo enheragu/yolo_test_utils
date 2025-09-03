@@ -49,6 +49,7 @@ function eeha_stop_device1_scheduler() {
 
 function eeha_keep_scheduler_running()
 {
+    source $EEHA_SCHEDULER_SCRIPT_PATH/update_fusion.sh
     export PENDING_TESTS="/home/arvc/.cache/eeha_yolo_test/pending.yaml"
     export SCHEDULER_CMD="python3 ./src/run_scheduled_test.py"
 
@@ -316,19 +317,54 @@ function rsync_cache() {
 # (4ch late fusion)
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_v1m.yaml' --test-name "Ch4_late_v1" --dataset-format "llvip_80_20" --path-name "variance_llvip_Ch4_late_v1" --iterations 3 --cache "disk"
 # (4ch split late fusion)
+# Need dataset update -> python src/Dataset/update_datset.py -df llvip_80_20 -o 4ch_visible 4ch_lwir
 # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_split_v1m.yaml' --test-name "Ch4_late_split_v1" --dataset-format "llvip_4ch_latesplit_80_20" --path-name "variance_llvip_Ch4_late_split_v1" --iterations 3 --cache "disk"
+# eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_split_v1m.yaml' --test-name "tmp_late_split" --dataset-format "llvip_4ch_latesplit_80_20" --path-name "tmp_split_test" --iterations 1 --cache "disk"
 # TEST # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_late_split_v1m.yaml' --test-name "Ch4_late_split_v1" --dataset-format "llvip_4ch_latesplit_80_20" --path-name "0_tmp_late_split_test" --iterations 1 --cache "disk"
 
 # eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_visible" --iterations 3
 # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_lwir" --iterations 3
 
 ## TO ICINCO
-# eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_pca" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_fa_patches" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_wavelet_max" --iterations 3  --cache "disk"
-# eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_curvelet_max" --iterations 3  --cache "disk"
+## NO EQUALIZATION
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_pca" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_fa_patches" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_wavelet" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_curvelet" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_wavelet_max" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_curvelet_max" --iterations 5  --cache "disk"
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_sobel_weighted" --iterations 5
+
+## TH EQUALIZATION
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_pca" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_fa_patches" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_wavelet" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_curvelet" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_wavelet_max" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_curvelet_max" --iterations 5  --cache "disk" --th_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "th_equalization/variance_llvip_sobel_weighted" --iterations 5 --th_equalization 'clahe'
+
+## TH AND RGB EQUALIZATION
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_pca" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_fa_patches" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_wavelet" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_curvelet" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_wavelet_max" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_curvelet_max" --iterations 5  --cache "disk" --th_equalization 'clahe'  --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_th_equalization/variance_llvip_sobel_weighted" --iterations 5 --th_equalization 'clahe'  --rgb_equalization 'clahe'
+
+## RGB EQUALIZATION
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_pca" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'fa' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_fa_patches" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_wavelet" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_curvelet" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_wavelet_max" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_curvelet_max" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
+# EXECUTED # eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_sobel_weighted" --iterations 5 --rgb_equalization 'clahe'
+
+
+
+
 
 # eeha_schedule_new_test -c 'night' -o 'alpha_pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_alpha_pca" --iterations 3  --cache "disk"
 # eeha_schedule_new_test -c 'night' -o 'ssim' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_ssim" --iterations 2
@@ -387,3 +423,9 @@ function rsync_cache() {
 # EXEC # eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_night_vt" --th_equalization 'clahe' --iterations 10
 # EXEC # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_v3m.yaml' --dataset-format "llvip_80_20"  --test-name "yoloCh4v3" --cache "disk" --path-name "variance_llvip_night_yoloCh4v3" --iterations 10
 # EXEC # eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_night_lwir" --iterations 10
+
+
+# eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_no_equalization" --iterations 10
+# eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe' --iterations 10
+# eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_rgb_equalization" --rgb_equalization 'clahe' --iterations 10
+# eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_th_equalization" --th_equalization 'clahe' --iterations 10

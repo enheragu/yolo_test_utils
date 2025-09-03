@@ -249,7 +249,7 @@ def generateBackpropagationGraph(graphs_dir, model_yaml):
 if __name__ == "__main__":
     from pathlib import Path
 
-    base_dir = Path('/home/arvc/eeha/kaist-cvpr15/runs/detect/variance_llvip_Ch4_late_split_v1')
+    base_dir = Path('/home/arvc/eeha/kaist-cvpr15/runs/detect/tmp_split_test/')
     latest = sorted([d for d in base_dir.iterdir() if d.is_dir()])[-1]
     graphs_dir = latest / 'gradients' / 'raw_data'
     model_yaml = '/home/arvc/eeha/yolo_test_utils/yolo_config/yoloCh4_late_split_v1.yaml' 

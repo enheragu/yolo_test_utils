@@ -104,7 +104,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
             with Pool() as pool:    
                 func = partial(process_image, yolo_version_dataset_path, folder, dataset_options[option]['merge'], option_path, dataset_format, rgb_eq, thermal_eq, dataset_options[option]['extension'])
                 # results = pool.map(func, images_list_create)
-                results = p_map(func, images_list_create, ncols=170, desc="                          [RGBThermalMix::make_dataset] Fusion: ")
+                results = p_map(func, images_list_create, ncols=170, desc=f"                          {option.title()} fusion: ")
 
                 execution_times = [result[1] for result in results]
                 execution_time_all.extend(execution_times)
