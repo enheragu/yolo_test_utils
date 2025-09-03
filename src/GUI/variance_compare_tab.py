@@ -60,9 +60,11 @@ class VarianceComparePlotter(BaseClassPlotter):
         
         det_classes = set([str('all')])
         for key in self.dataset_handler.keys():
-            if 'validation_best' in self.dataset_handler[key]:
+            if self.dataset_handler[key] is not None and  'validation_best' in self.dataset_handler[key]:
                 for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
                     det_classes.add(class_key)
+            elif self.dataset_handler[key] is None:
+                log(f"[{self.__class__.__name__}] dataset_handler[{key}] is None :(", bcolors.WARNING)
         # Sorted with 'all' at the beginning
         det_classes = sorted(det_classes)
         if 'all' in det_classes:

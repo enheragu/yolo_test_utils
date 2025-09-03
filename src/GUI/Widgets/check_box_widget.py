@@ -5,8 +5,9 @@
     Creates a widget with slide view that contains all checkboxes with dataset parsed
 """
 
+from copy import copy, deepcopy
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QDialog
+from PyQt6.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QDialog
 
 max_rows_checkboxes = 4
 
@@ -42,6 +43,9 @@ class DatasetCheckBoxWidget(QScrollArea):
         self.check_box_dict = {}
         self.update_checkboxes()
 
+        if not self.check_box_dict:
+            self.hide()
+            
     def update_checkboxes(self):
         while self.scroll_layout.count():
             child = self.scroll_layout.takeAt(0)
@@ -136,6 +140,9 @@ class GroupCheckBoxWidget(QScrollArea):
 
         self.update_checkboxes()
 
+        if not self.check_box_dict:
+            self.hide()
+
     def update_checkboxes(self):
         while self.scroll_layout.count():
             child = self.scroll_layout.takeAt(0)
@@ -143,34 +150,91 @@ class GroupCheckBoxWidget(QScrollArea):
                 child.widget().deleteLater()
             
         self.check_box_dict = {}
-
-        iter = 0
-        LabelGroup = QGroupBox(self.title)
-        LabelGroup.setLayout(QGridLayout())
-        LabelGroup.setStyleSheet("font-weight: bold;")
-        self.scroll_layout.addWidget(LabelGroup)
         
-        for key, dataset_info in self.dataset_handler.getInfo().items():
-            group_name = dataset_info['model']
-            if not group_name in self.check_box_dict:
-                if (self.include and self.include not in group_name) or \
-                (self.exclude and self.exclude in group_name): 
-                    continue
-                    
-                title = group_name
-                for filter in self.title_filter:
-                    title = title.replace(filter, "")
-                checkbox = QCheckBox(title)
-                checkbox.setToolTip('/'.join(dataset_info['path'].split('/')[:-2])) # remove /test_name_blabla/results.yaml from path to show group path
-                checkbox.setStyleSheet("font-weight: normal;") # Undo the bold text from parent 
-                self.check_box_dict[group_name] = checkbox
-                row = iter % self.max_rows
-                col = iter // self.max_rows
-                LabelGroup.layout().addWidget(checkbox, row, col)
-                
-                iter += 1
+        mainLabelGroup = QGroupBox(self.title)
+        mainLabelGroup.setLayout(QHBoxLayout())
+        mainLabelGroup.setStyleSheet("font-weight: bold;")
+        self.scroll_layout.addWidget(mainLabelGroup)
 
-                
+        # orphanMainLabelGroup = QGroupBox('Extra')
+        # orphanMainLabelGroup.setLayout(QGridLayout())
+        # mainLabelGroup.layout().addWidget(orphanMainLabelGroup)
+
+        groups = {'': {'parent': None, 'group': mainLabelGroup, 'extra': None, 'iter': 0}}
+
+        visible_groups = set()
+        for key, dataset_info in self.dataset_handler.getInfo().items():
+            group_name = '/'.join(dataset_info['group_path'])
+            check_exclusions = f"{group_name}/{dataset_info['model']}"
+            if ((self.include and self.include not in check_exclusions) or
+                (self.exclude and self.exclude in check_exclusions)):
+                print(f"Skipping {group_name = } as it does not match include ({self.include}) or exclude ({self.exclude}) tags")
+                continue
+            visible_groups.add(group_name)
+
+        print(f"{visible_groups = }")
+
+        for group_name in visible_groups:
+            parts = group_name.split('/')
+            current_path = ''
+            parent = mainLabelGroup
+            for part in parts[:-1]:
+                current_path += '/' + part if current_path else part
+                if current_path not in groups:
+                    label_group = QGroupBox(part)
+                    label_group.setLayout(QHBoxLayout())
+                    label_group.setStyleSheet("font-weight: bold;")
+                    parent.layout().addWidget(label_group)
+                    groups[current_path] = {'parent': parent, 'group': label_group, 'extra': None, 'iter': 0}
+                else:
+                    label_group = groups[current_path]['group']
+                parent = label_group
+            
+            # In the last level adds QGridLayout
+            checboxLabelGroup = QGroupBox(parts[-1])
+            checboxLabelGroup.setLayout(QGridLayout())
+            parent.layout().addWidget(checboxLabelGroup)
+            groups[group_name] = {'parent': parent, 'group': checboxLabelGroup, 'extra': None, 'iter': 0}
+
+        for key, dataset_info in self.dataset_handler.getInfo().items():
+            group_name = '/'.join(dataset_info['group_path'])
+            item_name = f"{group_name}/{dataset_info['model']}"
+            if group_name not in visible_groups:
+                print(f"Skipping {group_name = } as its not in visible groups set ({visible_groups})")
+                continue
+            if not item_name in self.check_box_dict:
+                # if (self.include and self.include not in group_name) or \
+                # (self.exclude and self.exclude in group_name): 
+                #     print(f"Skipping {group_name = } as it does not match include ({self.include}) or exclude ({self.exclude}) tags")
+                #     continue
+
+                title = dataset_info['model']
+                for f in self.title_filter:
+                    title = title.replace(f, "")
+                checkbox = QCheckBox(title)
+                checkbox.setToolTip('/'.join(dataset_info['path'].split('/')[:-2]))
+                checkbox.setStyleSheet("font-weight: normal;")
+                self.check_box_dict[item_name] = checkbox
+                row = groups[group_name]['iter'] % self.max_rows
+                col = groups[group_name]['iter'] // self.max_rows
+                if isinstance(groups[group_name]['group'].layout(), QGridLayout):
+                    groups[group_name]['group'].layout().addWidget(checkbox, row, col)
+                else:
+                    groups[group_name]['extra'].layout().addWidget(checkbox, row, col)
+                groups[group_name]['iter'] += 1
+        
+        print(f"{groups = }")
+        print(f"{self.check_box_dict = }")
+        # Clear empty layouts
+        for group_name, group_info in groups.items():
+            group_box = group_info['group']
+            layout = group_box.layout()
+            if layout and layout.count() == 0:
+                parent = group_info['parent']
+                if parent and parent.layout():
+                    parent.layout().removeWidget(group_box)
+                    group_box.deleteLater()
+        
     def getChecked(self):
         return [key for key, checkbox in self.check_box_dict.items() if checkbox.isChecked()]
         
@@ -210,7 +274,6 @@ class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
                 keys = [key for key in self.dataset_handler.keys() if group in key]
                 for key in keys:
                     data = self.dataset_handler[key]
-
                     if not 'validation_best' in data:
                         continue
                     # print(data.keys())
@@ -224,5 +287,8 @@ class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
                     if not group in best_item_group or map_value > best_metric_group[group]:
                         best_item_group[group] = key
                         best_metric_group[group] = map_value
-        
+            
+            if group in best_item_group:
+                print(f"[BestGroupCheckBoxWidget::getChecked] Best items selected: {best_item_group[group]} with metric {best_metric_group[group]}")
+        # print(f"[BestGroupCheckBoxWidget::getChecked] Final best items selected: {best_item_group}")
         return list(best_item_group.values())

@@ -106,7 +106,7 @@ def background_load_data(dataset_key_tuple):
 
     # log(f"\t· Parsed {dataset['key']} data")
     ## Update cache data from data currently parsed
-    cache_key_path = f'{cache_path}/{key.split("/")[0]}'
+    cache_key_path = f'{cache_path}/{"/".join(key.split("/")[:-1])}'
     os.makedirs(cache_key_path, exist_ok=True)
     dumpYaml(filename, data)
     
@@ -125,29 +125,31 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
         for root, dirs, files in os.walk(search_path):
 
             if ignore_file_name in files and ignored:
-                log(f"Path with {ignore_file_name} file is set to be ignored: {root}.", bcolors.WARNING)
+                log(f"[find_results_file] Path with {ignore_file_name} file is set to be ignored: {root}.", bcolors.WARNING)
                 dirs[:] = [] # Clear subdir list to avoid getting into them
                 continue
 
             if file_name in files:
                 abs_path = os.path.join(root, file_name)
                 if "validate" in abs_path: # Avoid validation tests, only training
-                    log(f"Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
+                    log(f"[find_results_file] Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
                     continue
+                group_path = root.replace(search_path,'').strip('/').split("/")[:-2]
                 name = abs_path.split("/")[-2]
                 title = abs_path.split("/")[-2]
                 model = abs_path.split("/")[-3]
+                
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
-                key = f"{model}/{name}"
+                key = f"{'/'.join(group_path)}/{model}/{name}".replace('//','/')
                 info = title.split('_')
-                print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
+                # print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
                 # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
-                print(f"[find_results_file] {info = }; {abs_path = }")
+                print(f"[find_results_file] {info = }; {key = };\n\t{abs_path = };\n\t{group_path = };\n\t{name = }; {title = }; {model = };")
                 ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
-                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
 
     ## Order dataset by name
     myKeys = list(dataset_info.keys())
@@ -164,22 +166,22 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
 
     dataset_info = {}
     for root, dirs, files in os.walk(search_path):
-        
         for file in files:
             if file_name in file:
                 abs_path = os.path.join(root, file)
-                key_name = abs_path.replace(file_name, "")
+                key_name = abs_path.replace(file_name, "").replace(search_path, "")
                 name = key_name.split("/")[-1]
                 title = key_name.split("/")[-1]
                 model = key_name.split("/")[-2]
+                group_path = "" if len(key_name.split("/")) < 3 else key_name.split("/")[:-3]
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
-                key = f"{model}/{name}"
+                key = f"{'/'.join(group_path)}/{model}/{name}".replace('//','/')
                 info = title.split('_')
                 ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
-                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}'}
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
 
     myKeys = list(dataset_info.keys())
     myKeys.sort()
