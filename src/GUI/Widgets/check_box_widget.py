@@ -168,7 +168,7 @@ class GroupCheckBoxWidget(QScrollArea):
             check_exclusions = f"{group_name}/{dataset_info['model']}"
             if ((self.include and self.include not in check_exclusions) or
                 (self.exclude and self.exclude in check_exclusions)):
-                print(f"Skipping {group_name = } as it does not match include ({self.include}) or exclude ({self.exclude}) tags")
+                # print(f"Skipping {group_name = } as it does not match include ({self.include}) or exclude ({self.exclude}) tags")
                 continue
             visible_groups.add(group_name)
 
@@ -200,7 +200,7 @@ class GroupCheckBoxWidget(QScrollArea):
             group_name = '/'.join(dataset_info['group_path'])
             item_name = f"{group_name}/{dataset_info['model']}"
             if group_name not in visible_groups:
-                print(f"Skipping {group_name = } as its not in visible groups set ({visible_groups})")
+                # print(f"Skipping {group_name = } as its not in visible groups set ({visible_groups})")
                 continue
             if not item_name in self.check_box_dict:
                 # if (self.include and self.include not in group_name) or \
@@ -288,7 +288,7 @@ class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
                         best_item_group[group] = key
                         best_metric_group[group] = map_value
             
-            if group in best_item_group:
-                print(f"[BestGroupCheckBoxWidget::getChecked] Best items selected: {best_item_group[group]} with metric {best_metric_group[group]}")
+            # if group in best_item_group:
+            #     print(f"[BestGroupCheckBoxWidget::getChecked] Best items selected: {best_item_group[group]} with metric {best_metric_group[group]}")
         # print(f"[BestGroupCheckBoxWidget::getChecked] Final best items selected: {best_item_group}")
         return list(best_item_group.values())

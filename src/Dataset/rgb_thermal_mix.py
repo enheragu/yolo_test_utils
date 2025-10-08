@@ -44,7 +44,6 @@ def process_image(yolo_dataset_path, folder, combine_method, option_path, datase
     th_img = th_equalization(th_img, thermal_eq)
     rgb_img = rgb_equalization(rgb_img, rgb_eq)
 
-
     base, _ = os.path.splitext(f"{option_path}/{image}")
     new_img_path = base + extension
     image_combined = combine_method(rgb_img, th_img, path = new_img_path)
@@ -63,7 +62,7 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
     dataset_processed = 0
     execution_time_all = []
     # Iterate each of the datasets
-    log(f"[RGBThermalMix::make_dataset] Process {option} option dataset:")
+    log(f"[RGBThermalMix::make_dataset] Process {option} option dataset (ext {dataset_options[option]['extension']}):")
     for folder in os.listdir(yolo_version_dataset_path):
         if not os.path.isdir(os.path.join(yolo_version_dataset_path,folder)):
              continue
@@ -112,9 +111,12 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
         # Symlink
         for image in images_list_symlink:
             symlink_created +=1
+            current_image = processed_images[image]
+            img_path = os.path.join(option_path,image)
             for replace_ext in ['.png', '.jpg']:
-                current_image = processed_images[image].replace(replace_ext, dataset_options[option]['extension'])
-                img_path = os.path.join(option_path,image).replace(replace_ext, dataset_options[option]['extension'])
+                current_image = current_image.replace(replace_ext, dataset_options[option]['extension'])
+                img_path = img_path.replace(replace_ext, dataset_options[option]['extension'])
+            # log(f"\t · Creating symlink for {image} from {current_image} to {img_path}")
             updateSymlink(current_image, img_path)
         log(f"\t· [{dataset_processed}] Processed {folder} dataset ({len(images_list_create)} images; {len(images_list_symlink)} symlink), output images were stored in {option_path}")
 

@@ -38,6 +38,8 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+    return seed
+
 def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     start_time = datetime.now()
 
@@ -88,10 +90,9 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     args['device'] = opts.device
     args['cache'] = opts.cache
     args['pretrained'] = opts.pretrained
-    args['seed'] = 1
     args['resume'] = opts.resume
     yaml_data['seed'] = random.randint(0, 300) #42
-    set_seed(yaml_data['seed'])
+    args['seed'] = set_seed(yaml_data['seed'])
                 
     yaml_data['pretrained'] = opts.pretrained
     yaml_data['dataset_tag'] = opts.dformat

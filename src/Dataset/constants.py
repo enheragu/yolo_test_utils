@@ -13,7 +13,7 @@ repo_path = f"{home}/eeha/yolo_test_utils"
 
 # Path setup for dataset parsing and generation
 kaist_path = f"{home}/eeha/kaist-cvpr15"
-kaist_sets_paths = [f"{repo_path}/ImageSets/kaist_imageSets", f"{kaist_path}/imageSets"]
+kaist_sets_paths = [f"{repo_path}/ImageSets/kaist_imageSets"] #, f"{kaist_path}/imageSets"]
 kaist_annotation_path = f"{kaist_path}/annotations-xml-new"
 # kaist_annotation_path = f"{kaist_path}/annotations-kaist-paired" # KAIST-Paired from https://openaccess.thecvf.com/content_ICCV_2019/papers/Zhang_Weakly_Aligned_Cross-Modal_Learning_for_Multispectral_Pedestrian_Detection_ICCV_2019_paper.pdf
 kaist_images_path = f"{kaist_path}/images"

@@ -178,7 +178,9 @@ if __name__ == '__main__':
                             break
 
                         log(f"Options executed (iteration: {index+1}/{opts.iterations}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
-                        raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: {dataset = }; {model_list = }; run mode = {opts.run_mode}"
+                        theq_msg = f"; with thermal_eq" if opts.thermal_eq else ""
+                        rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq else ""
+                        raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: dataset = {opts.dformat}; {os.path.basename(dataset)}; {model_list = }{theq_msg}{rgbeq_msg}."
                         log_ntfy(raw_msg, success=True)
             monitor_threads_and_processes(terminate_process=True)
             logCoolMessage(f"CLEAN FINISH TEST EXECUTION")
@@ -194,7 +196,9 @@ if __name__ == '__main__':
             
             logCoolMessage(f"EXCEPTION. FAILED TEST EXECUTION", bcolors.ERROR)
 
-            raw_msg = f"Options failed (at index {index}/{opts.iterations}) in {getGPUTestIDTag()}  were: {dataset = }; {model_list = }; run mode = {opts.run_mode}\n"
+            theq_msg = f"; with thermal_eq" if opts.thermal_eq else ""
+            rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq else ""
+            raw_msg = f"Options failed (at index {index}/{opts.iterations}) in {getGPUTestIDTag()} were: dataset = {opts.dformat}; {os.path.basename(dataset)}; {model_list = }{theq_msg}{rgbeq_msg}."
             raw_msg += f"Catched exception: {e}"
             log_ntfy(raw_msg, success=False)
             test_queue.finished_test(False)

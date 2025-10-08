@@ -54,14 +54,6 @@ function eeha_keep_scheduler_running()
     export SCHEDULER_CMD="python3 ./src/run_scheduled_test.py"
 
     while true; do
-        # Check if the process is running
-        if pgrep -f "$SCHEDULER_CMD" > /dev/null; then
-            echo "Scheduler process is still running :) just do nothing, checking again in 30 min."
-            sleep 900  # sleep for 30 minutes
-        else
-            eeha_run_scheduler
-        fi
-
         # Check if the YAML file exists and has relevant content
         if [ -f "$PENDING_TESTS" ]; then
             if grep -q '^[^#[:space:]]' "$PENDING_TESTS" && ! grep -q '^\[\]$' "$PENDING_TESTS"; then
@@ -74,6 +66,14 @@ function eeha_keep_scheduler_running()
             echo "YAML file ($PENDING_TESTS) does not exist, exiting."
             break
         fi
+
+        # Check if the process is running
+        if pgrep -f "$SCHEDULER_CMD" > /dev/null; then
+            echo "Scheduler process is still running :) just do nothing, checking again in 30 min."
+            sleep 900  # sleep for 30 minutes
+        else
+            eeha_run_scheduler
+        fi  
     done
 }
 
@@ -407,7 +407,6 @@ function rsync_cache() {
 ##  DEBUG TEST :)  ##
 #####################
 # DEBUG #eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_debug" --path-name "tmp_debug_to_delete"
-
 
 
 #######################################
