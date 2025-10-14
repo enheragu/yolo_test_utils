@@ -65,18 +65,21 @@ def resetDatset(options, dataset_format, rgb_eq, thermal_eq, distortion_correct 
 
     if os.path.exists(dataset_generated_cache):
         data = parseYaml(dataset_generated_cache)
-
+        log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}.")
+        log(f"Current  dataset requested as: format {dataset_format}; rgb_eq: {rgb_eq}; thermal_eq: {thermal_eq}; distortion_correct: {distortion_correct}; relabeling: {relabeling}.")
+            
         # Dataset format does not affect -> all formats are generated
         #if 'dataset_format'in data and data['dataset_format'] == dataset_format and \
         if  'rgb_eq' in data and data['rgb_eq'] == rgb_eq and \
             'thermal_eq' in data and data['thermal_eq'] == thermal_eq and \
             'distortion_correct' in data and data['distortion_correct'] == distortion_correct and\
             'relabeling' in data and data['relabeling'] == relabeling:
-            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}. No reset needed.")
+            log(f"No dataset reset is needed.")
             return False
         # Just for logging
-        elif 'dataset_format' in data and 'rgb_eq' in data and 'thermal_eq' in data:
-            log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}")
+        # elif 'dataset_format' in data and 'rgb_eq' in data and 'thermal_eq' in data:
+        #     log(f"Previous dataset generated as: format {data['dataset_format']}; rgb_eq: {data['rgb_eq']}; thermal_eq: {data['thermal_eq']}; distortion_correct: {data['distortion_correct']}; relabeling: {data['relabeling']}")
+        #     log(f"Current  dataset requested as: format {dataset_format}; rgb_eq: {rgb_eq}; thermal_eq: {thermal_eq}; distortion_correct: {distortion_correct}; relabeling: {relabeling}.")
 
     return True
     
@@ -139,7 +142,7 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
         
         # make sure that kaist-yolo path exists
 
-        if os.path.exists(dataset_yolo_path) and resetDatset(options, dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling):
+        if os.path.exists(dataset_yolo_path) and resetDatset(options=options, dataset_format=dataset_format, rgb_eq=rgb_eq, thermal_eq=thermal_eq, distortion_correct=distortion_correct, relabeling=relabeling):
             log(f'[UpdateDataset::checkDataset] Deleting previous dataset generated as options does not match current request.', bcolors.WARNING)
             shutil.rmtree(dataset_yolo_path)
 

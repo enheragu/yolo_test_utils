@@ -88,8 +88,10 @@ if __name__ == '__main__':
             condition_list, option_list, model_list, opts = handleArguments(next_test)
 
             if not opts.dataset:
-                checkDataset(option_list, opts.dformat, opts.thermal_eq, opts.rgb_eq,
-                                  opts.distortion_correct, opts.relabeling)
+                checkDataset(options=option_list, dataset_format=opts.dformat, 
+                             rgb_eq=opts.rgb_eq, thermal_eq=opts.thermal_eq, 
+                             distortion_correct=opts.distortion_correct, 
+                             relabeling=opts.relabeling)
                 
                 dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
             else:
@@ -178,8 +180,8 @@ if __name__ == '__main__':
                             break
 
                         log(f"Options executed (iteration: {index+1}/{opts.iterations}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
-                        theq_msg = f"; with thermal_eq" if opts.thermal_eq else ""
-                        rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq else ""
+                        theq_msg = f"; with thermal_eq" if opts.thermal_eq != 'none' else ""
+                        rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq != 'none' else ""
                         raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: dataset = {opts.dformat}; {os.path.basename(dataset)}; {model_list = }{theq_msg}{rgbeq_msg}."
                         log_ntfy(raw_msg, success=True)
             monitor_threads_and_processes(terminate_process=True)
@@ -196,8 +198,8 @@ if __name__ == '__main__':
             
             logCoolMessage(f"EXCEPTION. FAILED TEST EXECUTION", bcolors.ERROR)
 
-            theq_msg = f"; with thermal_eq" if opts.thermal_eq else ""
-            rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq else ""
+            theq_msg = f"; with thermal_eq" if opts.thermal_eq != 'none' else ""
+            rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq != 'none' else ""
             raw_msg = f"Options failed (at index {index}/{opts.iterations}) in {getGPUTestIDTag()} were: dataset = {opts.dformat}; {os.path.basename(dataset)}; {model_list = }{theq_msg}{rgbeq_msg}."
             raw_msg += f"Catched exception: {e}"
             log_ntfy(raw_msg, success=False)

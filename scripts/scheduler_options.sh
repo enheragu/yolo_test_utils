@@ -49,11 +49,12 @@ function eeha_stop_device1_scheduler() {
 
 function eeha_keep_scheduler_running()
 {
-    source $EEHA_SCHEDULER_SCRIPT_PATH/update_fusion.sh
     export PENDING_TESTS="/home/arvc/.cache/eeha_yolo_test/pending.yaml"
     export SCHEDULER_CMD="python3 ./src/run_scheduled_test.py"
 
     while true; do
+        source $EEHA_SCHEDULER_SCRIPT_PATH/update_fusion.sh
+
         # Check if the YAML file exists and has relevant content
         if [ -f "$PENDING_TESTS" ]; then
             if grep -q '^[^#[:space:]]' "$PENDING_TESTS" && ! grep -q '^\[\]$' "$PENDING_TESTS"; then
@@ -361,9 +362,6 @@ function rsync_cache() {
 # EXECUTED # eeha_schedule_new_test -c 'night' -o 'wavelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_wavelet_max" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
 # EXECUTED # eeha_schedule_new_test -c 'night' -o 'curvelet_max' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_curvelet_max" --iterations 5  --cache "disk" --rgb_equalization 'clahe'
 # EXECUTED # eeha_schedule_new_test -c 'night' -o 'sobel_weighted' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "rgb_equalization/variance_llvip_sobel_weighted" --iterations 5 --rgb_equalization 'clahe'
-
-
-
 
 
 # eeha_schedule_new_test -c 'night' -o 'alpha_pca' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_alpha_pca" --iterations 3  --cache "disk"
