@@ -23,7 +23,7 @@ from utils import FileLock
 import time
 from datetime import datetime, timedelta
 
-from utils import log, bcolors, getGPUTestID
+from utils import log, getTimetagNow, bcolors, getGPUTestID
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -193,7 +193,7 @@ class TestQueue:
             if success:
                 self._updateFile(self.finished_file_ok, self.executing_test)
             else:
-                self._updateFile(self.finished_file_failed, self.executing_test)
+                self._updateFile(self.finished_file_failed, [getTimetagNow(), self.executing_test])
         
         with FileLock(f'{self.executing_file}.lock') as lock1:
             self._save_file(self.executing_file, {})

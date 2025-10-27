@@ -14,7 +14,7 @@ from utils.yaml_utils import parseYaml
 from test_scheduler import pending_file_default, pending_stopped_default, executing_file_default, finished_file_ok_default, finished_file_failed_default
 
 
-def filterOutputMatrix(matrix, black_list=['Pretrained', 'Test-Name', 'Dataset', 'Deterministic', 'Run-Mode']):
+def filterOutputMatrix(matrix, black_list=['Pretrained', 'Test-Name', 'Dataset', 'Deterministic', 'Run-Mode', 'Batch']):
     header = matrix[0]
     indexes = [i for i, title in enumerate(header) if title not in black_list]
     filtered_mat = [[row[i] for i in indexes] for row in matrix]
