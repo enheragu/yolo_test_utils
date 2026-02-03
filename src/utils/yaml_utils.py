@@ -4,16 +4,30 @@
 
 import yaml
 from yaml.loader import SafeLoader
+from argparse import Namespace
 
 ################################
 #      YAML parsing stuff      #
 ################################
 
+def ns_constructor(loader, node):
+    data = loader.construct_mapping(node)
+    return Namespace(**data)
+
+yaml.add_constructor(
+    u'tag:yaml.org,2002:python/object:argparse.Namespace',
+    ns_constructor,
+    Loader=yaml.SafeLoader
+)
+
 def parseYaml(file_path):
 
     try:
         with open(file_path) as file:
-            return yaml.load(file, Loader=SafeLoader)
+            data = yaml.load(file, Loader=SafeLoader)
+            if isinstance(data, Namespace):
+                data = vars(data)
+            return data
     except yaml.YAMLError as exc:
         print(f"Error in YAML file: {exc}")
         

@@ -27,16 +27,30 @@ def ssim_map_smooth_norm(ssim_map):
     ssim_map_norm = (ssim_map_smooth - ssim_map_smooth.min()) / (ssim_map_smooth.max() - ssim_map_smooth.min() + 1e-8)
     return ssim_map_norm
 
+
+def _sanitize_ssim_win_size(win_size: int, height: int, width: int) -> int:
+    win_size = int(win_size)
+    win_size = min(win_size, height, width)
+    if win_size % 2 == 0:
+        win_size -= 1
+    return max(win_size, 3)
+
 """ When SSIM is high (similarity between each channel and thermal) thermal information is
     preferred. If SSIM is low, RGB data is preferred.
 """
 @save_image_if_path
 def combine_rgbt_ssim(visible, thermal, win_size=11):
-    # Extracts SSMI (Structural Similarity Index) for each channel of the visible image 
-    # with respect to the thermal image
-    ssim_r, ssim_r_map = ssim(visible[..., 0], thermal, full=True, win_size=win_size)
-    ssim_g, ssim_g_map = ssim(visible[..., 1], thermal, full=True, win_size=win_size)
-    ssim_b, ssim_b_map = ssim(visible[..., 2], thermal, full=True, win_size=win_size)
+    # Extracts SSMI (Structural Similarity Index) for each channel of the visible image
+    # with respect to the thermal image.
+    # For uint8-like data in [0,255], casting + data_range makes SSIM numerically stable.
+    thermal_f = thermal.astype(np.float32)
+    visible_f = visible.astype(np.float32)
+    height, width = thermal_f.shape[:2]
+    win_size = _sanitize_ssim_win_size(win_size, height, width)
+
+    ssim_r, ssim_r_map = ssim(visible_f[..., 0], thermal_f, full=True, win_size=win_size, data_range=255)
+    ssim_g, ssim_g_map = ssim(visible_f[..., 1], thermal_f, full=True, win_size=win_size, data_range=255)
+    ssim_b, ssim_b_map = ssim(visible_f[..., 2], thermal_f, full=True, win_size=win_size, data_range=255)
 
     fused = np.empty_like(visible, dtype=float)
     # Adaptative fusion based on SSIM
@@ -53,11 +67,16 @@ def combine_rgbt_ssim(visible, thermal, win_size=11):
 """
 @save_image_if_path
 def combine_rgbt_ssim_v2(visible, thermal, win_size=11):
-    # Extracts SSMI (Structural Similarity Index) for each channel of the visible image 
-    # with respect to the thermal image
-    ssim_r, ssim_r_map = ssim(visible[..., 0], thermal, full=True, win_size=win_size)
-    ssim_g, ssim_g_map = ssim(visible[..., 1], thermal, full=True, win_size=win_size)
-    ssim_b, ssim_b_map = ssim(visible[..., 2], thermal, full=True, win_size=win_size)
+    # Extracts SSMI (Structural Similarity Index) for each channel of the visible image
+    # with respect to the thermal image.
+    thermal_f = thermal.astype(np.float32)
+    visible_f = visible.astype(np.float32)
+    height, width = thermal_f.shape[:2]
+    win_size = _sanitize_ssim_win_size(win_size, height, width)
+
+    ssim_r, ssim_r_map = ssim(visible_f[..., 0], thermal_f, full=True, win_size=win_size, data_range=255)
+    ssim_g, ssim_g_map = ssim(visible_f[..., 1], thermal_f, full=True, win_size=win_size, data_range=255)
+    ssim_b, ssim_b_map = ssim(visible_f[..., 2], thermal_f, full=True, win_size=win_size, data_range=255)
 
     fused = np.empty_like(visible, dtype=float)
     # Adaptative fusion based on SSIM
@@ -94,9 +113,13 @@ def combine_rgbt_superpixel(visible, thermal):
     base_for_slic = (gray_visible.astype(float) + thermal.astype(float)) / 2
     
     r,g,b = cv.split(visible)
-    base_for_slic = cv.merge([r,g,b,thermal])
+    base_for_slic = np.dstack([
+        visible.astype(np.float32) / 255.0,
+        thermal.astype(np.float32) / 255.0
+    ])
     # SLIC (Simple Linear Iterative Clustering) segmentation (clusters close pixels based on similarity)
-    segments = slic(base_for_slic, n_segments=n_segments, compactness=10) 
+    segments = slic(base_for_slic, n_segments=n_segments, compactness=10, channel_axis=-1)
+
     mask = np.zeros(visible.shape[:2], dtype=float)
 
     # 2. Compute deviation per superpixel for each image

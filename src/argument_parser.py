@@ -14,6 +14,7 @@ from argparse import ArgumentParser, ArgumentTypeError
 
 from utils import log, bcolors
 from Dataset import dataset_tags_default, option_list_default, model_list_default, condition_list_default
+from Dataset.constants import dataset_options
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -101,6 +102,16 @@ def handleArguments(argument_list = sys.argv[1:]):
     option_list = None if opts.olist is None else list(opts.olist)
     model_list = None if opts.mlist is None else list(opts.mlist)
     run_modes = None if opts.run_mode is None else list(opts.run_mode)
+
+    # Auto-configure cache to 'disk' if any selected option uses .npz or .npy extension
+    if option_list and opts.cache == 'ram':
+        for opt in option_list:
+            if opt in dataset_options:
+                ext = dataset_options[opt].get('extension', '')
+                if ext in ['.npz', '.npy']:
+                    log(f"Option '{opt}' uses extension '{ext}', switching cache from 'ram' to 'disk'.")
+                    opts.cache = 'disk'
+                    break
 
     if not opts.dataset:
         if opts.dformat not in dataset_tags_default:

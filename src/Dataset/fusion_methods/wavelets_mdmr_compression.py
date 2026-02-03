@@ -74,7 +74,7 @@ def combine_rgbt_wavelet_max(visible_image, thermal_image):
     # Apply Discret Wavelet Transform to each channel
     coeffs = [pywt.dwt2(rgbt[:,:,i], 'haar') for i in range(4)]
 
-    fused_image = processWaveletCoeffsMax(thermal_image, coeffs)
+    fused_image = processWaveletCoeffsMax(visible_image, thermal_image, coeffs)
     return fused_image
 
 

@@ -65,6 +65,7 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path):
     validator(model=args.model)
 
     dumpYaml(Path(validator.save_dir) / f'results.yaml', yaml_data, 'a')
+    dumpYaml(Path(validator.save_dir) / f'run_opts.yaml', opts, 'a')
 
     log(f"[{yolo_model}] - Dataset processing took {datetime.now() - start_time} (h/min/s)")
     log("-------------------------------------")

@@ -106,6 +106,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     try:
         trainer.train()
         dumpYaml(Path(trainer.save_dir) / f'results.yaml', yaml_data, 'a')
+        dumpYaml(Path(trainer.save_dir) / f'run_opts.yaml', opts, 'a')
 
     except Exception as e:
         log(f'Exception caught: {e}')

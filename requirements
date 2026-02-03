@@ -18,3 +18,4 @@ p-tqdm
 PyWavelets
 umap-learn
 psutil
+threadedprocess

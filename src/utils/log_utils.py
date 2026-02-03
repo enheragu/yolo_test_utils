@@ -4,6 +4,7 @@
 import sys
 import os
 
+from tqdm import tqdm
 import tabulate
 
 from datetime import datetime
@@ -127,7 +128,7 @@ def getTimetagNow():
 
 def log(msg = "", color = bcolors.OKCYAN):
     timetag = getTimetagNow()
-    print(f"{color}[{timetag}] {msg}{bcolors.ENDC}")
+    tqdm.write(f"{color}[{timetag}] {msg}{bcolors.ENDC}")
 
     
 def log_ntfy(msg, success = True, title = None, tags = None):
