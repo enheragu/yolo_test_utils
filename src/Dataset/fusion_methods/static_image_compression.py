@@ -53,9 +53,11 @@ def combine_rgbt(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
     th_channel = thermal_image
     th_channel = th_channel.astype(np.float64)
-    
-    for ch in (b,g,r):
-        ch = channelAverage(ch, th_channel)
+
+    # Apply fusion per channel and keep the transformed outputs.
+    b = channelAverage(b, th_channel)
+    g = channelAverage(g, th_channel)
+    r = channelAverage(r, th_channel)
 
     rgbt_image = cv.merge([b,g,r])
     
@@ -66,32 +68,50 @@ def combine_rgbt_v2(visible_image, thermal_image):
     b,g,r = cv.split(visible_image)
     th_channel = thermal_image
     th_channel = th_channel.astype(np.float64)
-    
-    for ch in (b,g,r):
-        ch = channelProduct(ch, th_channel)
+
+    # Apply multiplicative fusion per channel and keep the transformed outputs.
+    b = channelProduct(b, th_channel)
+    g = channelProduct(g, th_channel)
+    r = channelProduct(r, th_channel)
 
     rgbt_image = cv.merge([b,g,r])
     
     return rgbt_image
 
 @save_image_if_path
-def combine_rgbtalpha(visible_image, thermal_image):
-    b,g,r = cv.split(visible_image)
-    th_channel = thermal_image
-    
-    rgbt_image = cv.merge([b,g,r,th_channel])
-    rgbtalpha_image = cv.cvtColor(rgbt_image, cv.COLOR_BGRA2BGR)
-    
-    return rgbtalpha_image
+def combine_rgbtalpha(visible_image, thermal_image, alpha_min=0.10, alpha_max=0.7, gamma=1.4):
+    """Thermal-guided alpha blending.
+
+    The thermal image is converted into a per-pixel alpha map in [alpha_min, alpha_max],
+    then used to blend visible (BGR) with thermal replicated to 3 channels.
+    """
+    visible_f = visible_image.astype(np.float32)
+    thermal_f = thermal_image.astype(np.float32)
+
+    thermal_norm = np.clip(thermal_f / 255.0, 0.0, 1.0)
+    alpha_map = np.power(thermal_norm, max(float(gamma), 1e-6))
+
+    alpha_min = float(np.clip(alpha_min, 0.0, 1.0))
+    alpha_max = float(np.clip(alpha_max, 0.0, 1.0))
+    if alpha_max < alpha_min:
+        alpha_min, alpha_max = alpha_max, alpha_min
+    alpha_map = alpha_min + (alpha_max - alpha_min) * alpha_map
+
+    alpha_3ch = alpha_map[..., None]
+    thermal_3ch = np.repeat(thermal_f[..., None], 3, axis=2)
+    fused = (1.0 - alpha_3ch) * visible_f + alpha_3ch * thermal_3ch
+
+    return np.clip(fused, 0, 255).astype(np.uint8)
 
 @save_image_if_path
 def combine_vths(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV))
     th_channel = thermal_image
-         
-    h_shifted = h >> 4
-    s_shifted = s >> 4
-    hs = h_shifted & (s_shifted << 4)
+
+    # Pack 4 MSBs from H and 4 MSBs from S into one byte: HHHHSSSS.
+    h_nibble = (h >> 4).astype(np.uint8)
+    s_nibble = (s >> 4).astype(np.uint8)
+    hs = ((h_nibble << 4) | s_nibble).astype(np.uint8)
 
     vths_image = cv.merge([v,th_channel,hs])
     
@@ -102,10 +122,11 @@ def combine_vths(visible_image, thermal_image):
 def combine_vths_v2(visible_image, thermal_image):
     h,s,v = cv.split(cv.cvtColor(visible_image, cv.COLOR_BGR2HSV_FULL))
     th_channel = thermal_image
-         
-    h_shifted = (h // 16) * 16 # Reduce to only 16 values (4 bits) 
-    s_shifted = (s // 16) * 16
-    hs = h_shifted & (s_shifted << 4)
+
+    # Quantize H and S to 4 bits and pack as HHHHSSSS.
+    h_nibble = (h // 16).astype(np.uint8)
+    s_nibble = (s // 16).astype(np.uint8)
+    hs = ((h_nibble << 4) | s_nibble).astype(np.uint8)
 
     vths_image = cv.merge([v,th_channel,hs])
     

@@ -6,7 +6,64 @@ from .fusion_methods.static_image_compression import   combine_vths_v2, combine_
 from .fusion_methods.pca_fa_compression import combine_rgbt_pca_to3ch, combine_rgbt_fa_to3ch, combine_rgbt_pca_full, combine_rgbt_fa_full, preprocess_rgbt_pca_full, preprocess_rgbt_fa_full, combine_rgbt_pca_to1ch, combine_rgbt_fa_to1ch, combine_rgbt_alpha_pca_to3ch
 from .fusion_methods.wavelets_mdmr_compression import combine_rgbt_wavelet_max, combine_rgbt_wavelet, combine_rgbt_curvelet_max, combine_rgbt_curvelet
 from .fusion_methods.local_filter_fusion import combine_rgbt_ssim, combine_rgbt_ssim_v2, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
+import hashlib
+import inspect
 from pathlib import Path
+
+
+def _fusion_method_fingerprint(function_ref):
+  """Build a stable fingerprint from callable identity and source code."""
+  module_name = getattr(function_ref, '__module__', 'unknown_module')
+  qualname = getattr(function_ref, '__qualname__', getattr(function_ref, '__name__', 'unknown_symbol'))
+  try:
+    source = inspect.getsource(function_ref)
+  except Exception:
+    source = ''
+
+  raw = f"{module_name}|{qualname}|{source}"
+  return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:12]
+
+
+def _attach_fusion_versions(options_dict):
+  """Attach computed version tags to fusion method option entries."""
+  for method_name, config in options_dict.items():
+    merge_fn = config.get('merge')
+    if callable(merge_fn):
+      config['version'] = _fusion_method_fingerprint(merge_fn)
+      config['merge_symbol'] = getattr(merge_fn, '__qualname__', method_name)
+      config['merge_module'] = getattr(merge_fn, '__module__', 'unknown_module')
+    else:
+      config['version'] = 'unknown'
+      config['merge_symbol'] = str(method_name)
+      config['merge_module'] = 'unknown_module'
+
+
+def get_fusion_method_metadata(method_name):
+  """Return metadata for one fusion method, including auto version tag."""
+  method_key = str(method_name or '')
+  if method_key in dataset_options:
+    config = dataset_options[method_key]
+    return {
+      'method': method_key,
+      'version': config.get('version', 'unknown'),
+      'merge_symbol': config.get('merge_symbol', method_key),
+      'merge_module': config.get('merge_module', 'unknown_module'),
+    }
+
+  if method_key in ('visible', 'lwir'):
+    return {
+      'method': method_key,
+      'version': 'builtin_identity_v1',
+      'merge_symbol': method_key,
+      'merge_module': 'builtin',
+    }
+
+  return {
+    'method': method_key or 'unknown_option',
+    'version': 'unknown',
+    'merge_symbol': method_key or 'unknown_option',
+    'merge_module': 'unknown_module',
+  }
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -42,7 +99,7 @@ dataset_whitelist = [] #['train-day-04', 'train-day-20', 'test-day-01', 'test-da
 dataset_options = {
                     'hsvt': {'merge': combine_hsvt, 'extension': '.png' },
                     'rgbt': {'merge': combine_rgbt, 'extension': '.png' },
-                    'alphat_rgbt' : {'merge': combine_rgbtalpha, 'extension': '.png' },
+                    # 'alphat_rgbt' : {'merge': combine_rgbtalpha, 'extension': '.png' },
                     '4ch': {'merge': combine_4ch, 'extension': '.npz' },
                     'vths' : {'merge': combine_vths, 'extension': '.png' },
                     'vt' : {'merge': combine_vt, 'extension': '.png' },
@@ -58,13 +115,13 @@ dataset_options = {
                   }
 
 fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
-                  'alpha_pca': {'merge': combine_rgbt_alpha_pca_to3ch, 'extension': '.npz'},
+                  # 'alpha_pca': {'merge': combine_rgbt_alpha_pca_to3ch, 'extension': '.npz'},
                   'fa' : {'merge': combine_rgbt_fa_to3ch, 'extension': '.npz' },
-                  'pca_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
-                  'fa_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' },
+                  # 'pca_1ch' : {'merge': combine_rgbt_pca_to1ch, 'extension': '.npz' },
+                  # 'fa_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npz' },
                   # Full takes decomposition of all images and then applies transform to each image
-                  'pca_full' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
-                  'fa_full' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
+                  # 'pca_full' : {'merge': combine_rgbt_pca_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_pca_full },
+                  # 'fa_full' : {'merge': combine_rgbt_fa_full, 'extension': '.npz', 'preprocess': preprocess_rgbt_fa_full }
                   }
 
 wavelets_options = {
@@ -88,6 +145,11 @@ local_filter_options = {
          #   'fa_rgbt_1ch' : {'merge': combine_rgbt_fa_to1ch, 'extension': '.npy' }
           
 
+
+_attach_fusion_versions(dataset_options)
+_attach_fusion_versions(fa_pca_options)
+_attach_fusion_versions(wavelets_options)
+_attach_fusion_versions(local_filter_options)
 
 dataset_options.update(fa_pca_options)
 dataset_options.update(wavelets_options)
