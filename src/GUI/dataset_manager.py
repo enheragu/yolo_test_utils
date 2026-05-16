@@ -147,7 +147,7 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                 info = title.split('_')
                 # print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
                 # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
-                print(f"[find_results_file] {info = }; {key = };\n\t{abs_path = };\n\t{group_path = };\n\t{name = }; {title = }; {model = };")
+                # print(f"[find_results_file] {info = }; {key = };\n\t{abs_path = };\n\t{group_path = };\n\t{name = }; {title = }; {model = };")
                 ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
                 dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
 
@@ -302,6 +302,35 @@ class DataSetHandler:
             # Apagar el pool de procesos
             self.executor.shutdown()
 
+    def get_training_data_summary(self):
+        summary = "Training Data Summary:\n\n"
+        for key in self.dataset_info.keys():
+            data = self.__getitem__(key)
+            print(f"[get_training_data_summary] Processing {key = }: {data = }")
+            if data is None:
+                summary += f"· {key}: Incomplete dataset, data could not be loaded.\n"
+                continue
+
+            summary += f"· {key}:\n"
+            try:
+                batch = data.get('batch', 'N/A')
+                deterministic = data.get('deterministic', 'N/A')
+                summary += f"    - Batch size: {batch}\n"
+                summary += f"    - Deterministic: {deterministic}\n"
+                
+                if 'results' in data:
+                    results = data['results']
+                    for metric, values in results.items():
+                        if isinstance(values, list) and values:
+                            final_value = values[-1]
+                            summary += f"    - Final {metric}: {final_value}\n"
+                        else:
+                            summary += f"    - {metric}: No data available\n"
+                else:
+                    summary += "    - No results data available\n"
+            except Exception as e:
+                summary += f"    - Error retrieving data: {e}\n"
+        return summary
 
 
 """

@@ -1,5 +1,6 @@
 
 from .dataset_manager import DataSetHandler
+from .train_data_summary_tab import TrainDataSummary
 from .train_compare_tab import TrainComparePlotter
 from .train_eval_tab import TrainEvalPlotter
 from .variance_compare_tab import VarianceComparePlotter

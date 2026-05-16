@@ -223,8 +223,8 @@ class GroupCheckBoxWidget(QScrollArea):
                     groups[group_name]['extra'].layout().addWidget(checkbox, row, col)
                 groups[group_name]['iter'] += 1
         
-        print(f"{groups = }")
-        print(f"{self.check_box_dict = }")
+        # print(f"{groups = }")
+        # print(f"{self.check_box_dict = }")
         # Clear empty layouts
         for group_name, group_info in groups.items():
             group_box = group_info['group']
