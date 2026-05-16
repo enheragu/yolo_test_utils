@@ -1,683 +1,782 @@
 ReviewContribution
 ==================
 
-This directory encapsulates the RGB/LWIR contribution analysis pipeline and keeps
-the original entrypoint compatible.
+RGB/LWIR contribution analysis pipeline. Places each fused method on a latent
+axis of visible vs thermal information content.
 
-Objective & Scope
------------------
-
-Goal: place each fused method on a latent axis of **visible information vs thermal
-information** contained in the fused output.
-
-- Primary score: `latent_z` in `[0,1]`. `0` means visible-endpoint behavior and `1` means LWIR-endpoint behavior.
-- Diagnostic scores: `cont_vis` (weighted), `cont_vis_raw` (plain mean), and proxy columns (`reg`, `mi`, `ssim`, `grad`, `spectral`, `freq`) explain *why* a method lands at a given `latent_z`.
-- Scope: this is an information-content attribution metric, not a direct detector
-	quality metric (mAP/recall may differ).
-- Practical caveat: gradient proxy is structural; it can favor visible in
-	scenes with richer fine texture, even when LWIR is semantically stronger for
-	hot-target detection. Frequency and spectral proxies complement it.
+- Primary score: `latent_z` ∈ `[0, 1]` (`0` = visible endpoint, `1` = thermal
+  endpoint).
+- Diagnostic scores: `cont_vis` (weighted), `cont_vis_raw` (plain mean), and
+  six proxies (`reg`, `mi`, `ssim`, `grad`, `spectral`, `freq`) explain *why*
+  a method lands at a given `latent_z`.
+- Scope: this is an information-content attribution metric, not a detector
+  quality metric (mAP/recall may differ).
+- Practical caveat: the gradient proxy is structural and can favor visible in
+  scenes with richer fine texture even when LWIR is semantically stronger
+  (hot-target detection). Frequency and spectral proxies complement it.
 
 Structure
 ---------
 
-- `pipeline.py`: CLI entrypoint and runtime orchestration (preset selection, cache paths, report output).
-- `contribution.py`: Dataset traversal, method execution, parallelization, and per-method aggregation.
-- `calibration.py`: Synthetic-mixture calibration building and calibration-sample caching.
-- `evaluation.py`: Core contribution metrics, gradient proxies, and calibration mapping utilities.
-- `settings.py`: Centralized advanced knobs and presets (`test`, `fast`, `balanced`, `quality`).
+- `pipeline.py`: CLI entrypoint, orchestration, report output.
+- `contribution.py`: Dataset traversal, method execution, parallelization.
+- `calibration.py`: Synthetic-mixture calibration and sample caching.
+- `evaluation.py`: Core metrics, gradient proxies, calibration mapping.
+- `settings.py`: Presets (`test`, `fast`, `balanced`, `quality`) and advanced
+  knobs.  The `ENABLED_PROXIES` tuple controls which proxies enter
+  calibration / IVW / best-fit selection — comment out a line to drop a
+  proxy from the aggregate (the per-image cache stays full so re-enabling
+  is free).  The active subset is hashed into the calibration cache key, so
+  toggling auto-invalidates only what depends on the proxy set.
+- `analysis_pca.py`: PCA over the 6 raw proxies (asks how many real dimensions).
+- `analysis_regression.py`: PC scores → training mAP regression.
+- `analysis_latent2d.py`: Cross-dataset `latent_z × channel_redundancy` map.
 - `__init__.py`: Package entrypoint helper.
 
 Quick Launch
 ------------
 
-Run a fast smoke test with the full method list:
-
 ```bash
 cd /home/arvc/eeha/yolo_test_utils
 PYTHONPATH=src python3 -m Dataset_review.review_contribution.pipeline \
-	--dataset llvip \
-	--condition night \
-	--preset test \
-	--methods wavelet wavelet_max pca curvelet_max curvelet vt fa sobel_weighted superpixel vths_v2 ssim_v2 visible lwir hsvt rgbt_v2
+    --dataset llvip --condition night --preset test \
+    --methods wavelet wavelet_max pca curvelet_max curvelet vt fa \
+              sobel_weighted superpixel vths_v2 ssim_v2 visible lwir hsvt rgbt_v2
 ```
 
-This keeps the run short (`preset test`) while validating all requested methods.
+The CLI is intentionally minimal (dataset / condition / preset / methods / cache).
+Advanced tuning (workers, split, alpha steps, equalization variants, chunk
+size, `max_images`, `subsample_ratio`) lives in `settings.py`. Sample selection
+is deterministic and stratified across top-level dataset folders, seeded by
+`split_seed`.
 
-CLI Philosophy
---------------
+### Presets
 
-The CLI is intentionally short to reduce confusion. Only operational options are
-kept as arguments (dataset/condition/preset/methods/cache). Advanced tuning
-parameters (workers, split ratio, alpha steps, chunk size, `max_images`, and
-equalization variants) live in `settings.py`.
-
-There are only two ways to set the sample size:
-
-- `max_images`: absolute image budget.
-- `subsample_ratio`: relative fraction of the available images.
-
-The selection policy is always the same in both cases: deterministic and
-stratified across the top-level dataset folders, using `split_seed` for
-reproducibility.
-
-If `max_images` is set, it takes precedence. If it is `None`, the pipeline uses
-`subsample_ratio`.
-
-### Runtime Presets & Automatic Calibration Variants
-
-Each preset bundles subsample ratio, calibration strategy, and parallelization tuning.
-More importantly, **balanced and quality presets automatically generate 4
-calibration/evaluation variants** (one per equalization regime), while test/fast
-generate only 1.
-
-| Preset | Subsample | Alpha Steps | Variants | Use Case |
+| Preset | Subsample | Alpha steps | Variants | Use case |
 |--------|-----------|-------------|----------|----------|
-| `test` | 10% | 5 | 1 (none) | Quick validation; check pipeline is working |
-| `fast` | 50% | 7 | 1 (none) | Fast eval; good for 50+ methods on medium datasets |
-| `balanced` (default) | 75% | 11 | 4 (none, th_equalization, rgb_equalization, rgb_th_equalization) | Standard eval; measure equalization impact |
-| `quality` | 100% | 15 | 4 (none, th_equalization, rgb_equalization, rgb_th_equalization) | Exhaustive eval; all images, all regimes |
+| `test` | 10% | 5 | 1 (none) | Quick validation |
+| `fast` | 50% | 7 | 1 (none) | Fast eval on many methods |
+| `balanced` (default) | 75% | 11 | 4 (none, th, rgb, rgb_th) | Standard eval with equalization analysis |
+| `quality` | 100% | 15 | 4 (none, th, rgb, rgb_th) | Exhaustive coverage |
 
-Choose `--preset test` to iterate quickly, `fast` for large method suites,
-`balanced` for publication-ready numbers with equalization analysis, and
-`quality` when you want exhaustive coverage.
-
-Equalization Impact via Automatic Calibration Variants
--------------------------------------------------------
-
-When you run with `--preset balanced` or `--preset quality`, the pipeline automatically
-generates 4 independent calibration/evaluation variants:
-
-1. **none**: No preprocessing on either image.
-2. **th_equalization**: CLAHE applied to LWIR only.
-3. **rgb_equalization**: CLAHE applied to visible only.
-4. **rgb_th_equalization**: CLAHE applied to both images.
-
-Each variant is fit independently from the same synthetic mixtures, then evaluated
-on the same selected image subset and cached.
-This lets you compare how equalization affects both the calibration map and the
-final method scores, while keeping the sampled images fixed and reproducible.
-
-All variants are reported, and the overview table keeps them side by side via
-`eq_vis` and `eq_th` columns.
-
-At runtime, the report prints a short one-line summary per variant:
-which variant was used, how many knots it has, and the fitted raw/visible/thermal
-range.
-
-The method report is also compact: it shows a single overview table in the
-terminal and saves the full per-method summaries into the report folder.
+`balanced` and `quality` run 4 independent calibration/evaluation variants
+(equalization regimes: none / th CLAHE / rgb CLAHE / both), each fit from the
+same synthetic mixtures but evaluated under its own preprocessing. Results
+appear side-by-side via `eq_vis` / `eq_th` columns.
 
 Method Overview Columns
 -----------------------
 
-The terminal overview table includes both final and proxy metrics:
+The overview table mixes final scores and proxy diagnostics:
 
-- `eq_vis`: visible-side equalization used for that run (`none` or `clahe`)
-- `eq_th`: thermal-side equalization used for that run (`none` or `clahe`)
-- `cont_vis`: primary visible contribution estimate (disagreement-aware weighted aggregation of 6 proxies)
-- `cont_vis_raw`: plain unweighted mean of all 6 proxies, kept for traceability
-- `reg`: per-channel **NNLS** (Non-Negative Least Squares) visible estimate. For
-  each channel we solve `F_c ≈ a·V_c + b·T_c` with `a,b ≥ 0` and report the
-  share attributable to visible: `100·a/(a+b)`. Non-negativity rules out
-  physically impossible "negative mixtures".
-- `mi`: per-channel unique-mutual-information visible estimate. For each
-  channel, **Mutual Information** (a measure of statistical dependence
-  between two random variables) of `(V_c, F_c)` and `(T_c, F_c)` is
-  computed, then the *unique* contribution of each source is the MI
-  discounted by the cross-source MI (so shared information is not double
-  counted). The visible share is reported as a percentage.
-- `ssim`: multichannel **SSIM** (Structural Similarity Index, which captures
-  luminance/contrast/structure similarity, not just pixel differences). We
-  compare `SSIM(V,F)` and `SSIM(T,F)` and map their difference to a visible
-  percentage via a logistic squashing.
-- `grad`: combined gradient proxy (50% gradient magnitude correlation +
-  50% gradient orientation agreement). Structural-texture evidence.
-- `spectral`: inter-channel independence structure visible estimate.
-  Measures whether fused channels carry *independent* spectral information
-  (like visible's 3 distinct bands) or *redundant* information (like LWIR
-  replicated across 3 channels).
-- `freq`: **FFT** (Fast Fourier Transform) magnitude spectrum correlation.
-  Captures the energy distribution over frequencies; LWIR concentrates
-  energy in low frequencies, visible has richer high-frequency content.
-- `latent_z`: calibrated thermal-axis score in `[0, 1]`
-- `contrib_std`: dispersion across proxies (proxy disagreement)
-- `contrib_confidence`: proxy-consensus confidence used by the weighted aggregator
+| Column | Meaning |
+|--------|---------|
+| `eq_vis` / `eq_th` | Equalization used (`none` or `clahe`) |
+| `cont_vis` | Weighted visible contribution (disagreement-aware, 6 proxies) |
+| `cont_vis_raw` | Plain unweighted mean of 6 proxies (auditability) |
+| `reg` | Per-channel NNLS visible share |
+| `mi` | Per-channel unique-MI visible share |
+| `ssim` | Multichannel SSIM-based visible estimate |
+| `grad` | Combined gradient (50% magnitude + 50% orientation) |
+| `spectral` | Inter-channel independence estimate |
+| `freq` | FFT magnitude-spectrum correlation |
+| `latent_z` | Calibrated thermal fraction (global IVW) |
+| `latent_z_αdep` | Same, using α-dependent IVW (see below) |
+| `contrib_std` | Proxy dispersion (disagreement) |
+| `contrib_confidence` | Consensus confidence used by weighted aggregator |
+| `ch_redund` | Mean \|corr\| between output channels (1 = duplicates, ~0.8 ≈ natural RGB) |
+| `thermal_share_raw` | `1 − cont_vis_raw/100` — uncalibrated thermal share. Portable cross-dataset. |
+| `thermal_share_reg` | `1 − reg/100` — NNLS thermal share. Most calibration-portable single proxy. |
+| `calibration_lift` | `latent_z − thermal_share_raw` — magnitude of saturation correction PAVA applies for this method. |
 
-This makes it easier to detect methods that look similar in the final score but
-behave differently across proxy families.
+Proxy Formulas
+--------------
 
-Proxy Formulas (Implementation-Level)
--------------------------------------
+Let $V$ be the visible reference, $T$ the LWIR reference, and $F$ the fused
+image (all normalized to $[0, 1]$). Subscript $c$ denotes per-channel computation.
 
-Let $V$ be the visible reference, $T$ the LWIR reference, and $F$ the fused image
-(all normalized to $[0,1]$ in the metric pipeline). Let subscript $c$ denote
-per-channel computation when applicable.
-
-### Per-channel regression proxy (`reg`)
-
-For each channel $c \in \{0, 1, 2\}$:
-
-$$
-F_c \approx a_c V_c + b_c T_c,\quad a_c,b_c \ge 0
-$$
-
-$$
-\mathrm{reg}_c = 100 \cdot \frac{a_c}{a_c+b_c}
-$$
-
-$$
-\mathrm{reg} = \frac{1}{3}\sum_{c} \mathrm{reg}_c
-$$
-
-**Design decision**: Per-channel computation avoids a structural bias where
-flattening all channels into one vector gives visible (3 independent spectral
-bands at ~470/530/620nm) a richer subspace than LWIR (single ~8-14um band
-replicated to 3 identical channels), making NNLS inherently favor visible
-regardless of actual content contribution.
-
-### Per-channel unique-MI proxy (`mi`)
+### Per-channel regression (`reg`)
 
 For each channel $c$:
 
 $$
-u_{V,c} = \max\big(\mathrm{MI}(V_c,F_c) - \rho_c\,\mathrm{MI}(T_c,F_c),\;0\big),
-$$
-
-$$
-u_{T,c} = \max\big(\mathrm{MI}(T_c,F_c) - \rho_c\,\mathrm{MI}(V_c,F_c),\;0\big),
-$$
-
-$$
-\rho_c = |\mathrm{corr}(V_c,T_c)|,
+F_c \approx a_c V_c + b_c T_c,\quad a_c, b_c \ge 0,
 \qquad
-\mathrm{mi}_c = 100 \cdot \frac{u_{V,c}}{u_{V,c} + u_{T,c}}
+\mathrm{reg}_c = 100 \cdot \frac{a_c}{a_c + b_c},
+\qquad
+\mathrm{reg} = \tfrac{1}{3} \sum_c \mathrm{reg}_c
+$$
+
+**Design decision**: per-channel (not flattened) to avoid structural bias —
+flattening gives visible (3 independent spectral bands) a richer subspace than
+LWIR (1 band replicated to 3 channels).
+
+**Cross-channel blind spot**: each output channel is regressed against *only*
+its homologous visible channel ($V_c$).  Methods that mix across visible
+channels (PCA / FA decompose by covariance, hsvt converts to HSV) leave the
+non-homologous visible content unmodelled — the residual is absorbed by
+$b_c$, inflating the apparent thermal share.  `reg` therefore underestimates
+the true visible contribution of cross-channel methods; `mi`, `spectral` and
+`freq` capture them better but are less calibration-portable across datasets.
+Read `reg` as a *structural* metric (linear amplitude composition), not as a
+universal "thermal share".
+
+### Per-channel unique-MI (`mi`)
+
+For each channel $c$, discount cross-source MI to isolate unique contribution:
+
+$$
+u_{V,c} = \max(\mathrm{MI}(V_c, F_c) - \rho_c\,\mathrm{MI}(T_c, F_c), 0),
+\quad
+u_{T,c} = \max(\mathrm{MI}(T_c, F_c) - \rho_c\,\mathrm{MI}(V_c, F_c), 0),
 $$
 
 $$
-\mathrm{mi} = \frac{1}{3}\sum_{c} \mathrm{mi}_c
+\rho_c = |\mathrm{corr}(V_c, T_c)|,
+\quad
+\mathrm{mi}_c = 100 \cdot \frac{u_{V,c}}{u_{V,c} + u_{T,c}},
+\quad
+\mathrm{mi} = \tfrac{1}{3} \sum_c \mathrm{mi}_c
 $$
 
-**Design decision**: Same per-channel rationale as regression. MI is computed
-with spatial subsampling (50k pixels, seed=42) for efficiency: with 128-bin
-joint histograms (16384 cells), ~20k samples suffice for <1% estimation error
-vs full-image computation (see Kraskov et al. convergence bounds for plug-in
-MI estimators). 50k provides comfortable margin.
+**Design decision**: same per-channel rationale as `reg`. Spatial subsampling
+(50k pixels, seed 42) keeps cost bounded; with 128-bin joint histograms that
+gives <1% estimation error vs full-image MI.
 
-### Multichannel SSIM proxy (`ssim`)
+### Multichannel SSIM (`ssim`)
 
 $$
-\Delta_{ssim} = \mathrm{SSIM}(V,F) - \mathrm{SSIM}(T,F)
-$$
-
-$$
+\Delta_{ssim} = \mathrm{SSIM}(V, F) - \mathrm{SSIM}(T, F),
+\qquad
 \mathrm{ssim} = \frac{100}{1 + e^{-5\Delta_{ssim}}}
 $$
 
-SSIM is computed as multichannel via scikit-image's `channel_axis` parameter
-when available. This is inherently per-channel internally (SSIM averages
-structural similarity across channels), so it does not suffer from the
-flatten bias.
+SSIM is multichannel (scikit-image `channel_axis`), averaging per-channel
+structural similarity internally, so it does not suffer flatten bias.
 
-### Combined gradient proxy (`grad`)
+### Combined gradient (`grad`)
 
-Magnitude component:
+Magnitude and orientation, anchored per image pair to endpoints:
 
 $$
-\Delta_{mag}(F) = \mathrm{corr}(\|\nabla V\|,\|\nabla F\|)
-- \mathrm{corr}(\|\nabla T\|,\|\nabla F\|)
+\Delta_{mag}(F) = \mathrm{corr}(\|\nabla V\|, \|\nabla F\|) - \mathrm{corr}(\|\nabla T\|, \|\nabla F\|),
 $$
 
-Mapped to $[0, 100]$ with visible/thermal anchor endpoints.
-
-Orientation component:
-
 $$
-\Delta_{ori}(F) = A(V,F;w_F) - A(T,F;w_F)
+\Delta_{ori}(F) = A(V, F; w_F) - A(T, F; w_F),
+\qquad
+\mathrm{grad} = \tfrac{1}{2}(\mathrm{grad\_mag} + \mathrm{grad\_ori})
 $$
 
-Mapped to $[0, 100]$ with the same anchor scheme.
+**Design decision**: magnitude and orientation were previously two separate
+proxies (40% of the aggregate, biasing toward fine-texture modalities). Merged
+into one proxy (1/6 weight) so structural signal is preserved without
+dominating. Still leans visible when visible has richer micro-edges; this is a
+real signal, not a bug.
 
-Combined:
-
-$$
-\mathrm{grad} = 0.5 \cdot \mathrm{grad\_mag} + 0.5 \cdot \mathrm{grad\_ori}
-$$
-
-**Design decision**: Magnitude and orientation were previously separate proxies
-contributing 2/5 = 40% of the aggregate score, biasing toward whichever
-modality had richer fine-grained texture (typically visible, with its
-micro-edges, background patterns, etc.). Merging them into one proxy reduces
-their combined weight to 1/6 while retaining both structural signals. The
-gradient proxy correctly reports visible dominance when the fused image
-preserves visible textures, and thermal dominance otherwise — the fix is about
-aggregate weighting, not suppressing the signal.
-
-### Inter-channel independence proxy (`spectral`)
+### Inter-channel independence (`spectral`)
 
 $$
-C_X = \text{pairwise Pearson correlation matrix of channels of } X
+C_X = \text{pairwise Pearson correlation matrix of channels of } X,
 $$
 
 $$
 \mathrm{spectral} = 100 \cdot \frac{\|C_F - C_T\|_F}{\|C_F - C_V\|_F + \|C_F - C_T\|_F}
 $$
 
-**Design decision**: This captures spectral-band information preservation
-regardless of whether the fused output is true-color or false-color (e.g.
-PCA/FA descriptors). It does not assume perceptual color meaning — it measures
-whether the fused channels carry independent information (like visible's 3
-spectral bands at ~470nm B, ~530nm G, ~620nm R) or redundant information
-(like LWIR's single ~8-14um band replicated to 3 channels). Permutation-
-invariant by construction: pairwise correlations form an unordered set.
+**Design decision**: measures whether fused channels carry independent info
+(like visible's 3 spectral bands) or redundant info (like LWIR replicated).
+Permutation-invariant. Works for true-color, false-color, and descriptor
+outputs (PCA/FA).
 
-### Frequency proxy (`freq`)
+### Frequency (`freq`)
 
 $$
-M_X = \log(1 + |\mathrm{FFT}_{\text{shifted}}(X_{\text{gray}})|)
-$$
-
-$$
+M_X = \log(1 + |\mathrm{FFT}_{\text{shifted}}(X_{\text{gray}})|),
+\qquad
 \Delta_{freq}(F) = \mathrm{corr}(M_V, M_F) - \mathrm{corr}(M_T, M_F)
 $$
 
-Anchors (same image pair):
+Anchored per pair:
 
 $$
-\Delta_{freq}^{V} = \Delta_{freq}(F{=}V),
-\qquad
-\Delta_{freq}^{T} = \Delta_{freq}(F{=}T)
+\mathrm{freq} = \mathrm{clip}_{[0, 100]}\!
+\left( 100 \cdot \frac{\Delta_{freq}(F) - \Delta_{freq}^{T}}{\Delta_{freq}^{V} - \Delta_{freq}^{T}} \right)
 $$
 
-$$
-\mathrm{freq} = \mathrm{clip}_{[0,100]}
-\left(
-100\cdot\frac{\Delta_{freq}(F)-\Delta_{freq}^{T}}{\Delta_{freq}^{V}-\Delta_{freq}^{T}}
-\right)
-$$
+**Design decision**: LWIR concentrates energy in low frequencies, visible has
+richer high-frequency content. Endpoint anchoring ensures exact 0 / 100 at the
+endpoints; without it V/T FFT spectra share enough structure to compress the
+range. Grayscale, permutation-invariant.
 
-**Design decision**: Complementary to spatial-domain proxies. LWIR typically
-concentrates energy in low frequencies (smooth thermal gradients) while visible
-has richer high-frequency content (texture, edges, fine patterns). Uses endpoint
-anchoring (like the gradient proxy): the delta for fused=visible and fused=lwir
-defines the [0, 100] range, ensuring exact 0 and 100 at the endpoints. Without
-anchoring, visible and LWIR images of the same scene share enough spatial
-structure that their FFT spectra are naturally correlated (~0.7+), compressing
-the output range and preventing the proxy from reaching the expected extremes.
-Operates on grayscale (channel average) and is permutation-invariant.
-
-### Final raw contribution (`cont_vis_raw`)
+### Raw and weighted aggregates
 
 $$
-\mathrm{cont\_vis\_raw} = \frac{1}{6}
-\left(
-\mathrm{reg} + \mathrm{mi} + \mathrm{ssim} + \mathrm{grad} + \mathrm{spectral} + \mathrm{freq}
-\right)
+\mathrm{cont\_vis\_raw} = \tfrac{1}{6}(\mathrm{reg} + \mathrm{mi} + \mathrm{ssim}
++ \mathrm{grad} + \mathrm{spectral} + \mathrm{freq})
 $$
 
-### Disagreement-aware weighted contribution (`cont_vis`)
-
-Let $p_i$ be the 6 proxy scores and $\tilde{p}$ their median. Define robust weights
-from median absolute deviation (MAD):
+Weighted `cont_vis` uses robust MAD weights and shrinks toward 50 when proxies
+disagree. Let $p_i$ be proxy scores and $\tilde{p}$ their median:
 
 $$
 z_i = \frac{|p_i - \tilde{p}|}{1.4826\,\mathrm{MAD}(p) + \epsilon},
 \qquad
-w_i = \mathrm{clip}_{[0.05,1]}\!\left(\frac{1}{1+z_i^2}\right)
+w_i = \mathrm{clip}_{[0.05, 1]}\!\left(\frac{1}{1 + z_i^2}\right),
 $$
 
 $$
-\hat{p}_{\mathrm{rob}} = \frac{\sum_i w_i p_i}{\sum_i w_i}
+\hat{p}_{\mathrm{rob}} = \frac{\sum_i w_i p_i}{\sum_i w_i},
+\qquad
+c = \mathrm{clip}_{[0,1]}\!\left(1 - \frac{\mathrm{std}(p)}{35}\right),
 $$
 
-A disagreement confidence is derived from proxy spread:
-
 $$
-\mathrm{contrib\_confidence} = 100\cdot\mathrm{clip}_{[0,1]}\left(1-\frac{\mathrm{std}(p)}{35}\right)
-$$
-
-The final score shrinks toward neutral 50 when disagreement grows:
-
-$$
-\mathrm{cont\_vis} = c\,\hat{p}_{\mathrm{rob}} + (1-c)\,50,
-\quad c=\frac{\mathrm{contrib\_confidence}}{100}
+\mathrm{cont\_vis} = c\,\hat{p}_{\mathrm{rob}} + (1 - c)\cdot 50,
+\qquad
+\mathrm{contrib\_confidence} = 100\,c
 $$
 
-### Dispersion across proxies (`contrib_std`)
+$\mathrm{contrib\_std} = \mathrm{std}(p)$ reports dispersion across proxies.
+
+### Channel redundancy (`ch_redund`, v18)
 
 $$
-\mathrm{contrib\_std} = \mathrm{std}
-\left[
-\mathrm{reg},\mathrm{mi},\mathrm{ssim},\mathrm{grad},\mathrm{spectral},\mathrm{freq}
-\right]
+\mathrm{ch\_redund} = \tfrac{1}{3}\big(
+|\mathrm{corr}(F_0, F_1)| + |\mathrm{corr}(F_1, F_2)| + |\mathrm{corr}(F_0, F_2)|
+\big)
 $$
 
-### Calibrated thermal axis (`latent_z`)
+Permutation-invariant, computed once per image. Complements `latent_z`:
 
-Since v10, the pipeline fits **one monotonic calibration curve per proxy**
-(reg, mi, ssim, grad, spectral, freq), not just one aggregate curve. Each raw
-proxy value is mapped through its own curve to a visible fraction in `[0,1]`,
-and the six calibrated values are combined by **Inverse-Variance Weighting
-(IVW)**:
+- `latent_z` high + `ch_redund ≈ 1` → thermal dominance via **channel duplication**
+  (e.g. replicated T,T,T).
+- `latent_z` high + `ch_redund ≈ 0.7–0.85` → thermal dominance with **distributed**
+  content across distinct channels.
+- `latent_z` low + `ch_redund ≈ 0.8` → visible-centric with natural-RGB redundancy.
+
+Since `PROXY_VERSION = v18_cr_reliability_weighted`, `ch_redund` is a single
+robust composite score:
+
+$$
+\mathrm{ch\_redund} = \sum_k w_k\,r_k,
+\qquad
+w_k \propto \pi_k\,\rho_k,
+\qquad
+\sum_k w_k = 1
+$$
+
+where:
+
+- $r_{\mathrm{pearson,global}}$: legacy mean $|\mathrm{corr}|$ over channel pairs.
+- $r_{\mathrm{spearman,global}}$: rank-correlation counterpart (sampled for speed).
+- $r_{\mathrm{pearson,tiles}}$: median local redundancy over a $4\times4$ grid
+  (robust to spatial artifacts).
+- $r_{\mathrm{effrank}}$: covariance effective-rank mapped to redundancy
+  ($1\Rightarrow$ duplicated channels, $3\Rightarrow$ independent channels).
+- $\pi_k$: fixed prior importance per component.
+- $\rho_k$: per-image reliability estimate (lower component dispersion
+  $\Rightarrow$ higher reliability).
+
+Design intent: keep one metric only (no v1/v2 split) while preserving
+interpretability through component diagnostics and effective weights.
+
+Calibration note: unlike `cont_vis -> latent_z`, there is no synthetic
+monotonic ground-truth axis for redundancy, so we do not run a PAVA/IVW
+calibration stage for `ch_redund`. Robustness is handled via the
+reliability-weighted component fusion above.
+
+Computational cost: low relative to existing proxies. The added operations are
+small-channel ($3\times3$) covariance/eigendecomposition and a bounded-sample
+Spearman computation (max 25k points), which are negligible versus MI, SSIM,
+and gradient/FFT proxy steps already computed per image.
+
+### Expected redundancy by construction
+
+The following table summarises the expected `ch_redund` for each fusion method
+based on structural analysis of its channel construction logic. It serves as
+ground truth for validating the measured metric.
+
+| Method | Ch 0 | Ch 1 | Ch 2 | Expected `ch_redund` | Why |
+|---|---|---|---|---|---|
+| wavelet | `(B+T)/2` (wavelet coeffs) | `(G+T)/2` | `(R+T)/2` | **≈ 0.95** | V_{RGB} very correlated → 3 outputs ≈ same blend |
+| wavelet_max | same + max-abs detail | same | same | **≈ 0.95** | thermal dominates detail → 3 nearly identical |
+| curvelet / curvelet_max | analogous to wavelet in curvelet domain | — | — | **≈ 0.97** | same structural pattern |
+| ssim_v2 | `ssim_R·R + (1-ssim_R)·T` | `ssim_G·G + …` | `ssim_B·B + …` | **≈ 0.96** | 3 SSIM maps (R/G/B vs T) are very correlated |
+| hsvt | `cv.COLOR_HSV2BGR` after V←mean(V,T) | (H,S from visible) | — | **≈ 0.90** | color transform decorrelates somewhat |
+| rgbt_v2 | `B·T` (product) | `G·T` | `R·T` | **≈ 0.97** | multiplicative; B/G/R modulated by same T |
+| superpixel | `mask·R + (1-mask)·T` | `mask·G + …` | `mask·B + …` | **≈ 0.94** | single mask from superpixel means → near-identical blend |
+| sobel_weighted | `(1-α·∇T)·ch + α·∇T·T` per ch | — | — | **≈ 0.94** | one gradient mask across all channels |
+| vt | V (luminance) | T | mean(V,T) | **≈ 0.5** | ch2 = linear combo of ch0,ch1 → moderate |
+| vths_v2 | V (luminance) | T | HS packed (4b H + 4b S) | **≈ 0.13** | ch2 orthogonal to luminance |
+| pca | PC₁ | PC₂ | PC₃ | **≈ 0** | orthogonal by construction |
+| fa | FA₁ | FA₂ | FA₃ | **≈ 0.1–0.3** | nearly orthogonal; FA retains some covariance (noise model) |
+
+**Design decision**: methods with `ch_redund > 0.9` achieve high `latent_z`
+by replicating thermal across channels. Methods with similar `latent_z` but
+lower redundancy distribute thermal content across structurally distinct
+channels — this is more informative for a downstream detector that benefits
+from 3 independent feature planes.
+
+Calibrated Thermal Axis (`latent_z`)
+------------------------------------
+
+Since v10 the pipeline fits **one monotonic calibration curve per proxy** (PAVA
+isotonic regression on per-α-group medians). Raw proxy values map through their
+own curves to visible fractions $\hat{v}_p \in [0, 1]$. The six calibrated
+fractions are combined by **Inverse-Variance Weighting (IVW)**:
 
 $$
 \hat{v} = \frac{\sum_p w_p\,\hat{v}_p(p)}{\sum_p w_p},
 \qquad
-w_p = \frac{1}{\sigma_p^2 + \epsilon}
+w_p = \frac{1}{\sigma_p + \epsilon},
+\qquad
+z = \mathrm{latent\_z} = 1 - \hat{v}
 $$
 
-- $\hat{v}_p(\cdot)$ is the per-proxy monotonic interpolator fitted during
-  calibration (PAVA isotonic regression on per-alpha-group medians).
-- $\sigma_p$ is the proxy's **calibrated intra-group dispersion** — computed
-  by pushing the calibration samples through their own curve and measuring
-  how tight the per-alpha-group distribution is. Low $\sigma_p$ ⇒ the proxy
-  reacts consistently to known mixtures ⇒ larger weight.
-- A variance floor $\epsilon$ prevents a degenerate zero-variance proxy
-  from collapsing the combination onto itself.
+$\sigma_p$ is the proxy's **calibrated intra-group dispersion**: calibration
+samples are pushed through the proxy's own curve, and the std of each α-group's
+distribution is measured. Low $\sigma_p$ → proxy reacts consistently → higher
+weight.
 
-$$
-z = \text{latent\_z} = 1 - \hat{v}
-$$
+**Soft IVW (v15)**: weights use $1/\sigma_p$ (inverse-std) instead of
+$1/\sigma_p^2$ (inverse-variance). Inverse-variance amplifies moderate σ
+differences quadratically — with the current proxy set, `reg` would reach 93%
+weight, effectively silencing 5 of 6 proxies. Inverse-std is a deliberate
+choice: all proxies have the same between-group signal after calibration
+(PAVA normalises to [0, 1]), so the only differentiator is within-group noise;
+$1/\sigma$ gives consistent proxies a moderate advantage without the extreme
+nonlinearity of $1/\sigma^2$.
 
-**Why per-proxy + IVW?** Proxies saturate at different rates (e.g. `grad` and
-`freq` reach 90-100% visible at alpha ≈ 0.3, while `reg` stays almost linear).
-Calibrating each proxy independently *corrects the non-linearity* automatically
-without reshuffling raw values. IVW then down-weights proxies whose calibrated
-output is noisy (they had wide intra-group spread during calibration),
-preferring proxies that proved stable.
+After normalisation, weights are capped at `MAX_PROXY_WEIGHT` (default 0.25 ≈
+1.5× uniform) and excess redistributed proportionally among uncapped proxies.
+A std floor $\epsilon$ prevents degenerate zero-σ proxies from exploding the
+weight.
 
-An **aggregate calibration** on the averaged `cont_vis` is still fitted for
-backward-compatibility and diagnostics (column `lz_agg` in the calibration
-table) — it is what would happen if you applied a single curve to the mean
-proxy score. Compare with `lz_per_proxy` to see the effect of per-proxy IVW.
+An aggregate calibration on averaged `cont_vis` is still fitted for
+backward-compatibility (column `lz_agg` in the calibration table).
 
-### Channel-concatenation calibration (diagnostic)
+### α-dependent IVW (v14)
 
-In addition to the main **blend** calibration
-(`F = (1-α)·V + α·T_rgb`), the pipeline also generates a **concat**
-calibration using channel-concatenation ground truths:
+The global IVW uses one σ_p per proxy (mean over α-groups). This is fine when
+σ_p(α) is roughly flat along α, but many proxies have **peaked** or **monotone**
+σ shapes (e.g. inverted parabola with peak at α ≈ 0.5). In that case the global
+σ̄ over-penalises the proxy at the endpoints and under-penalises it in the middle.
+
+The α-dependent IVW iterates:
+
+1. Seed with the global-IVW estimate α̂₀.
+2. For each proxy, interpolate σ_p(α̂) over the stored per-α-group σ curve
+   (`group_std_per_alpha` vs `group_alphas_std`).
+3. Recompute weights `w_p = 1 / σ_p(α̂)` normalised across proxies (+ cap).
+4. Re-combine per-proxy calibrated fractions → new α̂.
+5. Repeat until `|Δα̂| < 1e-3` or `max_iter = 4`.
+
+The result is stored as `latent_z_αdep` alongside the global `latent_z`.
+Per-image bookkeeping (iterations, convergence flag, α̂ trace, effective vs
+global weights per proxy) is persisted for downstream inspection.
+
+**When it helps**: inspect `calibration_sigma_shape`. If two or more proxies
+show `σ_max / σ_min > 2` or a clearly picuda/monotone shape, α-dep IVW
+redistributes weight meaningfully and `latent_z_αdep` diverges from `latent_z`
+for methods in the high-σ regions. If σ(α) is flat, both variants converge to
+the same result.
+
+Channel-Concatenation Calibration (Diagnostic)
+----------------------------------------------
+
+### Calibration bias and multi-format calibration (v15)
+
+**Fundamental bias**: the primary calibration uses pixel-wise linear blends
+`F = (1 - α)·V + α·T_{rgb}`. Proxies that structurally match this model
+(e.g. `reg`, which fits `F ≈ a·V + b·T` via NNLS) achieve artificially low σ
+and high F-ratio because they are solving the generating model. Real fusion
+methods (wavelet decomposition, channel substitution, nonlinear blending) do
+NOT produce pixel-wise linear blends. A proxy's calibration-measured σ therefore
+reflects its affinity to the calibration format, not its general reliability.
+
+To mitigate this, the pipeline fits **four calibration formats** that exercise
+proxies in complementary ways:
+
+| Format | Synthetic | α range | Exercises |
+|---|---|---|---|
+| **blend** | `(1-α)·V + α·T_{rgb}` pixel-wise | [0, 1] continuous | `reg` (linear model), `mi`, `ssim` |
+| **concat** | Channel substitution + intra-channel mix `[R,G,T]`, `[R,mix,T]`, … | {0, ⅙, ⅓, ½, ⅔, ⅚, 1} | `spectral` (channel independence), `grad` |
+| **freq_blend** | Wavelet coefficient blend + reconstruct | [0, 1] continuous | `freq`, `spectral` (frequency-domain mixing) |
+| **nonlinear** | `V^{1-α} · T_{rgb}^α` (geometric mean) | [0, 1] continuous | `mi`, `ssim`, `grad` (nonlinear interaction) |
+
+**R vs G vs B are not perceptually weighted in our metrics, but they are
+structurally distinct.** `[R, R, T]` has a duplicated visible channel plus
+thermal, which `spectral` picks up as LWIR-like redundancy; `[R, G, T]` has two
+independent visibles and preserves more visible info even though both have
+α = 1/3. The concat calibration uses patterns where listed visible channels
+are distinct, plus intra-channel 50/50 mixes (`m` = `(V_ch + T)/2`) to fill
+gaps between the pure-substitution points:
 
 ```
-[R, G, T]     → α = 1/3        (2 visible channels out of 3)
-[R, G, B]     → α = 0          (fully visible)
-[T, T, T]     → α = 1          (fully thermal)
+α = 0:    (R,G,B)                              — pure visible
+α = 1/6:  (R,G,m_B), (R,m_G,B), (m_R,G,B)     — one channel half-mixed
+α = 1/3:  (R,G,T), (R,T,B), (T,G,B)           — one channel replaced
+α = 1/2:  (R,m_G,T), (m_R,G,T), (m_R,T,B)     — one replaced + one mixed
+α = 2/3:  (R,T,T), (T,G,T), (T,T,B)           — two channels replaced
+α = 5/6:  (m_R,T,T), (T,m_G,T), (T,T,m_B)     — two replaced + one mixed
+α = 1:    (T,T,T)                              — pure thermal
 ```
 
-With 3 channels we can only obtain α ∈ {0, 1/3, 2/3, 1}. Introducing
-intra-channel mixing (e.g. `T/2 + R/2`) would break the structural "whole
-channel from one source" property, so concat stays at 4 anchor points and
-serves only as a **sanity check**, not as a second calibration to be averaged
-with blend. The `apply_contribution_calibration` function uses the blend
-curves to produce `latent_z`; concat is plotted side-by-side for verification.
+The intermediate mix points (`m`) stress the proxies differently from pure
+substitution: `grad_combined` and `ssim` respond to partial blending within a
+channel differently than to complete replacement. Each α group averages over
+its permutations.
 
-**A note on RTT/GTT/BTT and R vs G vs B.** There is no *perceptual*
-weighting in our metrics (no `0.299·R + 0.587·G + 0.114·B`), so we do not
-privilege one visible channel over another on luminance grounds. But R, G
-and B are *not* structurally equivalent either — they are correlated but
-distinct channels carrying different information about the scene. In
-particular:
+#### Proxy weighting across formats
 
-- `[R, R, T]` has a *duplicated* visible channel plus thermal. Structurally
-  it looks closer to LWIR than one might expect because `spectral` picks up
-  on the redundancy (R correlates perfectly with R, like T does with T).
-- `[R, G, T]` has two *independent* visible channels plus thermal.
-  Structurally this preserves more visible information than `[R, R, T]`
-  even though both have α = 1/3.
+Per-format proxy weights (soft IVW: 1/σ + cap) are **averaged across the four
+formats** before normalisation. A proxy that dominates in blend (e.g. `reg`)
+but is mediocre in freq_blend and concat ends up with a moderate combined
+weight. This eliminates the single-format bias without discarding consistency
+information.
 
-For this reason the concat calibration uses patterns where each listed
-visible channel is **distinct**:
+#### Scale correction: best-fit calibration per method
 
-```
-α = 1/3:  (R,G,T), (R,T,B), (T,G,B)        # 2 distinct visibles + thermal
-α = 2/3:  (R,T,T), (T,G,T), (T,T,B)        # 1 distinct visible + 2 thermals
-```
+For mapping raw proxy values → latent_z, the pipeline selects the calibration
+format that **best fits each evaluated method**. Selection criterion: apply
+each format's per-proxy curves to the method's raw proxy values; the format
+producing the **lowest inter-proxy disagreement** (`contrib_std` of the
+calibrated fractions) is the best match. Intuition: if a calibration's curves
+"understand" how the method mixes, all six proxies should converge after
+calibration. High disagreement signals a mismatch between format and method.
 
-The calibration knot at each α is the median of the metric across the 3
-patterns — this averages over "which specific channel was used" without
-assuming the channels are interchangeable. We do *not* use RRT/GGT/BBT
-because they introduce channel redundancy that would bias the knot toward
-LWIR-like behavior for no good reason.
+This separates two roles that were previously conflated:
+1. **Proxy weighting** — multi-format average, no single format dominates.
+2. **Scale correction** — per-method best-fit, uses the most appropriate
+   reference for that fusion type.  Since `f2_multi_format_avg_fix`, best-fit
+   selection minimises the **weighted** inter-proxy std (using the same
+   averaged proxy weights the aggregator applies), so the format chosen for
+   scale correction is the one most consistent with the actual aggregation —
+   not just the unweighted mean.
 
-Design Decisions
-------------------------------------
+Calibration Protocol
+--------------------
 
-- Why per-channel proxies: flattening 3-channel visible and replicated-LWIR into
-	single vectors creates a structural bias toward visible because it has 3
-	independent spectral bands vs 1 replicated band. Per-channel computation
-	ensures 1D-vs-1D comparisons on equal footing.
-- Why subsampled MI: with 128x128=16384 histogram bins, ~20k samples give <1%
-	estimation error. Using 50k gives comfortable margin. Fixed seed (42) ensures
-	reproducibility. Full-image MI on large images is unnecessarily expensive.
-- Why combined gradient: as two separate proxies they contributed 40% of the
-	aggregate, over-weighting structural texture signals. As one proxy they
-	contribute 1/6, better balanced against semantic proxies.
-- Why spectral independence: captures information diversity across channels
-	without assuming color semantics. Works for true-color, false-color, and
-	descriptor outputs (PCA/FA). The question is not "does the fused image look
-	colorful?" but "do the fused channels carry independent spectral information?"
-- Why frequency proxy: provides an orthogonal view to spatial-domain metrics.
-	Low-frequency dominance suggests LWIR contribution; high-frequency richness
-	suggests visible. Not biased by fine-texture density in the same way as
-	gradient proxies.
-- Why weighted aggregation: plain mean is easy but can be unstable when one proxy
-	disagrees strongly. The weighted score improves robustness while keeping the
-	pipeline simple and deterministic.
-- Why keep `cont_vis_raw`: auditability and comparability. You can still inspect
-	the original unweighted behavior and quantify how much weighting changed each method.
-- Why shrink toward 50 under disagreement: when proxies conflict, certainty is lower.
-	Moving toward neutral avoids overconfident extremes.
-- Why no semantic proxy yet: semantic encoders (LPIPS/ViT/CLIP-like) add model bias,
-	compute overhead, and domain adaptation cost. This pipeline stays signal-centric for
-	now and reports structural uncertainty explicitly.
-- Why permutation pre-screening: for standard fusion methods, channel identity is
-	best. For descriptor methods (PCA, FA), channel order may vary. Pre-screening
-	cheaply selects the top 1-2 permutations by per-channel correlation, reducing
-	computation from 6x to ~1-2x without loss of robustness. Permutation-invariant
-	proxies (grad, spectral, freq) skip this entirely.
+The pipeline fits `z` in two stages: (1) compute the six raw proxies per image,
+(2) calibrate to the latent axis via synthetic mixtures. The calibration is
+fitted **once per protocol** from the synthetic subset, then reused for every
+evaluated image sharing that protocol. All four formats are generated from the
+same image subset and share the same protocol hash.
 
-Calibration Protocol (What "split/alpha/protocol" means)
----------------------------------------------------------
+Protocol fields (if any changes, a fresh calibration is generated and cached
+separately): dataset, root path, condition, split settings (ratio/images + seed),
+`alpha_steps`, equalization variant.
 
-The pipeline estimates a latent thermal axis `z` in `[0, 1]`:
-
-- `z = 0`: visible-only endpoint.
-- `z = 1`: LWIR-only endpoint.
-
-It does this in two stages:
-
-1. Compute a raw per-image contribution score from six proxies
-   (per-channel NNLS, per-channel MI, multichannel SSIM, combined gradient,
-   spectral independence, frequency correlation).
-2. Calibrate that raw score to the latent axis using synthetic mixtures:
-	 `I_alpha = (1 - alpha) * V + alpha * T`.
-
-Protocol fields are parameters that define which calibration is valid:
-
-- dataset and root path
-- condition (day/night/all)
-- split settings (ratio/images + seed)
-- alpha grid density (`alpha_steps`)
-- equalization variant (none/th_equalization/rgb_equalization/rgb_th_equalization)
-
-If any of these changes, a fresh calibration is generated and cached separately.
-
-How calibration is applied
---------------------------
-
-The calibration is **not** computed per image. It is fitted once from the
-synthetic calibration subset, then reused for every evaluated image that shares
-the same protocol.
-
-In practice:
-
-- one calibration curve is built per preset and equalization variant
-- each fused image gets its raw `cont_vis` mapped through that shared curve
-- the same calibration is reused for all images in the run
-
-So the evaluation compares images on a common scale; it does not search for a
-different optimal calibration for each individual image.
-
-Metric Design Principles
-------------------------
-
-Contribution scoring is intentionally designed to be:
-
-1. **Generic across methods**: no method-specific heuristics are injected into
-	the metric.
-2. **Representation-aware**: visible information is evaluated using per-channel
-	signals (not a single early grayscale collapse), while LWIR remains a single
-	source replicated to 3 channels for fair comparison.
-3. **Channel-order robust**: fused 3-channel outputs are evaluated with
-	permutation pre-screening for channel-sensitive proxies, while spectral,
-	gradient, and frequency proxies are permutation-invariant by construction.
-4. **Multi-domain**: spatial (reg, mi, ssim), structural (grad), spectral
-	(spectral independence), and frequency (FFT) domains are all represented
-	for comprehensive characterization.
-
-In practice, this keeps the score meaningful for classic RGB-like fusions,
-pseudo-color outputs, and descriptor-like fusion encodings without tailoring the
-metric to any specific method family.
-
-Runtime and Cache Notes
+Correlation Diagnostics
 -----------------------
 
-- Evaluation metrics are cached per method/image with implementation fingerprint.
-- Calibration now supports incremental sample caching for `(image, alpha)` points.
-- Calibration is auto-saved/auto-loaded using a protocol-derived hash path in cache.
-- Metric logic changes are versioned in code and included in cache keys/hash
-	inputs, so old cache entries are not mixed with new metric definitions.
-
-Plot Interpretation Guide
--------------------------
-
-All diagnostic plots are written to the report folder with filenames of the
-form `<dataset>_<condition>_<plotname>_<variant>.png`. Here is what each
-template plot tells you:
-
-### `proxy_overview`
-
-Three stacked panels per dataset/condition:
-
-1. **Top (grouped bars)**: raw per-proxy `cont_vis` per fusion method. Each
-   method has six bars (reg/mi/ssim/grad/spectral/freq). Useful for spotting
-   methods where one proxy disagrees with the rest.
-2. **Middle (side-by-side bars)**: raw `cont_vis` (uncalibrated) vs
-   calibrated `cont_vis` (IVW per-proxy) per method. Shows the net effect of
-   calibration: a method at `cont_vis≈75` may drop to `cont_vis_calibrated≈55`
-   once saturating proxies are corrected.
-3. **Bottom (single-color bars)**: final `latent_z` per method, blue→red
-   colormap (blue = visible-dominant, red = LWIR-dominant). Read this as the
-   final ranking.
-
-### `calibration_diagnostic`
-
-Left panel overlays the blend and concat calibration curves. Right panels
-(one per sample type) show the per-alpha boxplot of `cont_vis` across images.
-Ideally the per-alpha medians should track the dashed ideal line
-`(1-α)·100`; the spread of each box reports how noisy that alpha slice is.
-
-### `per_proxy_calibration_curves`
-
-Six panels, one per proxy. Each panel shows:
-- solid colored curve: the per-proxy monotonic calibration
-- dashed gray: the aggregate curve, for reference
-- dashed black: the ideal linear response
-- colored 'x' markers: per-alpha group medians (the knots PAVA fits)
-- green stars: fusion methods projected onto that proxy's curve
-
-The legend label `w=0.xxx  σ=0.yyy` shows the IVW weight and the calibrated
-intra-group std used to compute it. A proxy with `σ` near zero dominates the
-combination; a noisy proxy contributes almost nothing.
-
-### `per_proxy_calibration`
-
-Per-proxy boxplot of raw proxy values vs alpha, with ideal line overlaid.
-Complementary to `per_proxy_calibration_curves`: shows pre-calibration
-saturation, not the calibration curve itself.
-
-### `calibration_nodes_overview`
-
-Bar chart with one group of bars per α step. Top panel: each proxy's median
-raw value at that α. Bottom panel: deviation of aggregated `cont_vis` from
-the ideal `(1-α)·100`. Red bars below zero mean the method under-reports
-visible at that α.
-
-### `training_vs_latent_<equalization>`
-
-2x2 grid, one panel per training metric (P, R, mAP50, mAP50-95). X-axis is
-the computed `latent_z` for the method (under that equalization), Y-axis is
-the observed training metric. Each method shows:
-- faint blue dots: individual training runs from `raw_data/raw_training_data.csv`
-- red diamond: per-method mean
-- dashed gray line: linear fit
-- Pearson r printed in the upper-left
-
-Use this to check whether the computed latent axis tracks actual detection
-performance. A monotonic trend (positive or negative slope) suggests the
-latent axis is capturing something useful about the fusion. A flat cloud
-means the axis and the detection metric are essentially uncorrelated — which
-may simply mean that, under the tested training conditions, the
-visible/thermal mixture matters less than we assumed.
-
-Correlation Choice: Pearson vs Spearman
----------------------------------------
-
-- **Pearson** correlation assumes a *linear* relationship. We use it in the
-  regression proxy (`reg`, NNLS is explicitly linear) and in the training-vs-
-  latent summary plot (easy to read as a coefficient). It is the right choice
-  when the underlying model is linear.
-- **Spearman** correlation uses *ranks* and only assumes a *monotonic*
-  relationship. It is more robust to outliers and to saturating metrics,
-  and makes fewer assumptions about the shape of the response.
-
-In practice we compute **both**:
-
-- Pearson r is the primary coefficient because calibration already handles
-  non-linearity (each proxy has its own monotonic PAVA curve), so by the
-  time values reach the final combination they live in a roughly linear
-  "calibrated visible-fraction" space. Pearson is also what the NNLS `reg`
-  proxy optimises.
-- Spearman ρ is emitted alongside (`sp_vis`, `sp_lw` in the per-image
-  result dict) as a rank-based diagnostic. It is more honest when
-  inspecting raw saturating proxies or when an outlier image would
-  dominate Pearson. Large Pearson/Spearman disagreement is a red flag
-  that the relationship is non-linear or outlier-driven for that method.
+Each image emits **both** Pearson (`cc_vis`, `cc_lw`) and Spearman (`sp_vis`,
+`sp_lw`) correlations between fused and each source. Pearson is the primary
+coefficient — calibration handles non-linearity per proxy, so by the time
+values reach the combination they live in a roughly linear calibrated-fraction
+space. Spearman is emitted as a rank-based diagnostic; large Pearson/Spearman
+disagreement flags non-linear or outlier-driven behaviour for that method.
 
 Training Results Correspondence
 -------------------------------
 
-`training_results_check.py` encapsulates CSV parsing so that format changes
-only require editing that one module. It exposes:
+`training_results_check.py` encapsulates CSV parsing (slicing by fusion type,
+condition, equalization) so format changes only require editing that module.
+Fusion method names in the pipeline (`sobel_weighted`, `ssim_v2`, `rgbt_v2`,
+`curvelet_max`, `wavelet_max`) are mapped to shorter CSV tags (`sobel`, `ssim`,
+`rgbt`, `curvelet`, `wavelet`) via `_METHOD_NAME_TO_CSV_TYPE` — extend it when
+adding non-matching names.
 
-- `load_training_results(csv_path, target_class)` — read and filter.
-- `get_runs(df, fusion_type, condition, equalization)` — slice rows.
-- `build_method_metrics(df, method_name, condition, equalization)` — mean /
-  std / median / raw values for P, R, mAP50, mAP50-95 for one slice.
-- `build_dataset_metrics(df, method_names, condition, equalization)` — dict
-  of the above across several methods.
+With only ~5 runs per method, a classical boxplot is noisy; we use a strip-plot
+style (individual points + marker) which is more honest for small n. The
+method-level summary for training-vs-latent plots uses the **P90 of the fitted
+normal** (μ + 1.28·σ) per method, consistent with the user's other work.
 
-Fusion method names used in the pipeline (e.g. `sobel_weighted`, `ssim_v2`,
-`rgbt_v2`, `curvelet_max`, `wavelet_max`) are mapped internally to the
-shorter CSV tags (e.g. `sobel`, `ssim`, `rgbt`, `curvelet`, `wavelet`). Add
-entries to `_METHOD_NAME_TO_CSV_TYPE` if you add more fusion methods with
-non-matching names.
+PCA and Regression Diagnostics
+------------------------------
 
-With only ~5 runs per method, a classical boxplot is noisy; we instead use
-a strip-plot style (individual points + mean marker) which is more honest
-for small n.
+**Motivation.** `latent_z` collapses the six proxies into a single dimension by
+IVW-weighted aggregation.  That is *useful* but not necessarily *complete*: if
+two methods share the same `latent_z` but differ in, say, how redundant visible
+and thermal channels are, the 1-D summary loses that distinction.  PCA on the
+proxy matrix is the cheapest way to ask: *how many latent dimensions do the
+proxies actually span?*
 
-Gradient Proxy Notes
---------------------
+**Artifacts.** `analysis_pca.py` reads the evaluation cache (per method × image
+× proxy), z-scores the feature table, runs SVD-based PCA and emits:
 
-- The gradient proxy is a 50/50 composite of magnitude correlation and orientation
-	agreement, computed on grayscale (channel average) and mapped to [0, 100] with
-	per-pair anchor endpoints.
-- This anchoring keeps gradient scales interpretable and bounded.
-- In night scenes, visible and LWIR can still share strong edge structure, so
-	the gradient proxy may remain less extreme than expected for some methods.
-- The gradient proxy correctly reports visible dominance when fused images
-	preserve visible texture, and thermal dominance otherwise. It can still lean
-	toward visible when visible has richer fine texture, but as a single proxy
-	(1/6 weight vs the former 2/5 = 40%) this no longer dominates the aggregate.
-- Interpretation guideline: use the gradient proxy as structural-detail evidence,
-	complemented by frequency and spectral proxies for a fuller picture.
+- `pca_explained_variance_<tag>.csv` — eigenvalues, % explained, cumulative, and
+  the **broken-stick** reference.  Broken-stick is the expected eigenvalue of
+  each PC under random unit-variance data; a component above the line is more
+  informative than noise.
+- `pca_loadings_<tag>.csv` + heatmap — how each proxy weights each PC.
+- `pca_scores_per_entry_<tag>.csv` — per-(method, image) projection.
+- `pca_scores_per_method_<tag>.csv` — per-method mean/std of PC scores.
+- `pca_pc1_pc2_scatter_<tag>.png` — visual of method layout on the top-2 axes.
+
+Pass `--include-channel-redundancy --overview-csv <methods_overview>` to inject
+the per-method mean `channel_redundancy` as a 7th feature (until the cache is
+regenerated with `PROXY_VERSION` bumped, the cache does not carry per-image
+`channel_redundancy`).
+
+**Diagnostic criteria.**
+
+- **Kaiser rule** — with z-scored inputs, any PC with eigenvalue > 1 captures
+  more variance than a single original feature.
+- **Broken-stick** — stricter null model; surviving a broken-stick threshold
+  is stronger evidence the PC is real.
+- We keep the union of both in the CSVs and flag which PCs pass which.
+
+**Regression against detection.** `analysis_regression.py` answers the follow-up
+question: *do the PC scores predict training mAP?*  Pipeline:
+
+1. Load per-method PC scores (`pca_scores_per_method_<tag>.csv`).
+2. Load detection metrics via `training_results_check.load_training_results` +
+   `build_dataset_metrics` (same module used by the correspondence plots, so
+   `Class=person` and `Group Key` filtering are shared).
+3. Inner-join on `method`.  Per-method detection summary is either `mean` or
+   `p90` (μ + 1.28·σ) per the `--target-reducer` flag.
+4. Fit nested OLS: `target ~ PC1`, `target ~ PC1 + PC2`, `target ~ PC1 + PC2 + PC3`.
+5. Report R², adjusted R², ΔR² and a **nested F-test** (`F = ((RSS_s − RSS_l)/Δdf) /
+   (RSS_l/(n−p_l))`) for each added PC.
+
+**Reading the output.** A large ΔR² with non-significant p-value usually just
+means n is too small (≤ ~10 methods overlap between PCA cache and training CSV);
+treat the point estimate as a signal-suggestion, not a conclusion.  An R² that
+jumps only once PC3 is added, when ΔR²(PC2) ≈ 0, is almost always overfitting
+at small n.
+
+Runtime and Cache Notes
+-----------------------
+
+- Three independent version tags gate three independent caches so you only
+  invalidate what actually changed:
+  - `PROXY_VERSION` → evaluation cache (per method/image proxies). Bump when
+    proxy formulas or `compute_contribution_rgb` output shape change.
+    Invalidates everything downstream (samples + fit too).
+  - `CALIBRATION_SAMPLES_VERSION` → calibration-samples cache (synthetic
+    mixture proxies at `(image, α, sample_type)`). Bump when synthetic
+    generators or `_CHANNEL_CONCAT_PATTERNS` change. Does **not** invalidate
+    evaluation.
+  - `CALIBRATION_FIT_VERSION` → calibration object (PAVA curves + IVW
+    weights). Bump when `fit_contribution_calibration`, `_cap_proxy_weights`,
+    `_average_proxy_weights_across_formats`, or `_select_best_fit_calibration`
+    change. Does **not** invalidate samples or evaluation.
+  Current tags: proxy `v16_cr_per_image`, samples `s2_freq_maxabs`,
+  fit `f2_multi_format_avg_fix` (bumped from `f1_soft_ivw_cap25` after fixing
+  the key mismatch that made `_average_proxy_weights_across_formats` always
+  fall back to uniform 1/n; the soft-IVW averaged weights are now the ones
+  the aggregator actually uses).
+- Calibration has incremental sample caching for `(image, α, sample_type)`
+  points; protocol fields drive the cache key.
+- **Crash-safe checkpointing**: both calibration and evaluation flush the cache
+  every `max(1, min(total_batches // 20, 25))` batches (≈5% of the run, capped
+  at 25 between flushes). On `BaseException` (ctrl+C, OOM, crash) partial
+  progress is flushed before re-raise. Failed batches do not poison the cache;
+  their images are simply recomputed on the next run.
+
+Machine-Readable Artifacts
+--------------------------
+
+Every run emits structured dumps alongside PNG plots, so results can be inspected
+numerically without re-executing:
+
+- `<tag>_methods_overview.csv` — per-method numeric summary (mean/std/median per
+  column, including `latent_z`, `latent_z_alpha_dep`, `channel_redundancy`,
+  `ivw_iters`, …).
+- `<tag>_calibration_sigma_shape_<variant>.csv` — long-format
+  `proxy, alpha, sigma, sigma_mean_global, ivw_weight_global`.
+- `<tag>_method_sigma_shape_<variant>.csv` — per-method per-proxy empirical σ
+  alongside calibration σ interpolated at the method's `latent_z`.
+- `<tag>_ivw_weights_<variant>.csv` — per-(method, proxy) global vs α-dep
+  weights and their Δ%.
+- `<tag>_ivw_weight_shape_<variant>.csv` — α-dep weight curves backing the
+  corresponding plot.
+- `<tag>_reg_crosscheck_<variant>.csv` — per-method thermal share from raw
+  regression vs `latent_z` (global and α-dep) and `channel_redundancy`.
+- `<tag>_report.json` — full per-method summary snapshot (no raw per-image data).
+- `<tag>_calibration_<variant>.json` — calibration structure (σ curves, knots,
+  nodes).
+- `<tag>_ivw_diagnostic_<variant>.txt` — plaintext diagnostic: σ_max/σ_min per
+  proxy (justification for α-dep IVW), convergence rate, Δlatent_z per method,
+  mean weight redistribution.
+
+Plot Interpretation Guide
+-------------------------
+
+All diagnostic plots are written to the report folder as
+`<dataset>_<condition>_<plotname>_<variant>.png`.
+
+### `proxy_overview`
+
+Three stacked panels:
+
+1. **Top (grouped bars)**: raw per-proxy `cont_vis` per method. Spots proxy
+   disagreement.
+2. **Middle (side-by-side bars)**: raw vs calibrated `cont_vis` per method. Net
+   effect of calibration (methods at `cont_vis ≈ 75` may drop to `≈ 55` once
+   saturating proxies are corrected).
+3. **Bottom**: final `latent_z` per method, blue→red colormap (visible→thermal).
+   The final ranking.
+
+### `calibration_diagnostic`
+
+Left: blend and concat calibration curves overlaid. Right (one per sample type):
+per-α boxplot of `cont_vis` across images. Per-α medians should track the
+dashed ideal `(1 - α)·100`; spread reports alpha-slice noise.
+
+### `per_proxy_calibration_curves`
+
+Six panels (one per proxy). Each shows the per-proxy monotonic calibration
+(solid), the aggregate curve (dashed gray reference), the ideal linear response
+(dashed black), the per-α knots fitted by PAVA (`x` markers), and fusion methods
+projected onto that proxy's curve (green stars). Legend label `w=0.xxx σ=0.yyy`
+is the IVW weight and calibrated intra-group std.
+
+### `per_proxy_calibration`
+
+Per-proxy boxplot of raw proxy values vs α with ideal line. Complementary to
+`per_proxy_calibration_curves`: shows pre-calibration saturation, not the
+calibration curve itself.
+
+### `calibration_nodes_overview`
+
+Bar chart, one group per α. Top: each proxy's median raw value at that α.
+Bottom: deviation of aggregated `cont_vis` from ideal `(1 - α)·100`; red bars
+below zero mean under-reporting of visible.
+
+### `calibration_sigma_shape_<variant>`
+
+Per-proxy σ(α) curves from calibration data. Flat curves → global σ is
+adequate; picuda/monotone shapes justify α-dep IVW. Inverted-parabola
+(peak at α ≈ 0.5) is typical.
+
+### `per_method_proxy_std_<variant>`
+
+Per-method per-proxy σ of raw `cont_vis` across images. Dashed references =
+global calibration σ. Bars above the dashed line → method's proxy dispersion
+exceeds what global IVW assumes.
+
+### `method_sigma_shape_<variant>`
+
+Real-methods counterpart of `calibration_sigma_shape`: per-proxy σ vs method's
+`latent_z`. Sawtoothy because methods cluster at specific `latent_z` values;
+use to confirm/contrast with calibration curves at the levels where methods
+actually live.
+
+### `channel_redundancy_<variant>`
+
+Scatter of `channel_redundancy` vs `latent_z` per method. Dashed at ~0.8
+(natural-RGB baseline), dotted at 1.0 (full duplication). Upper-right points
+= high thermal dominance via channel duplication; high `latent_z` with
+redundancy near 0.7-0.85 = distributed thermal content.
+
+### `ivw_weight_shape_<variant>`
+
+Per-proxy normalised IVW weight as a function of α. Solid = α-dependent weights
+`w_p(α)/Σ_q w_q(α)`; dashed horizontals = corresponding global weights. Drift
+between solid and dashed measures how much α-dep IVW redistributes mass from
+that proxy. Companion to `calibration_sigma_shape` in weight space.
+
+### `ivw_global_vs_alphadep_<variant>`
+
+Per-method `latent_z` (global) vs `latent_z_αdep`. Points far from the 1:1
+diagonal = methods whose estimate moves under α-dependent reweighting. Diagonal
+pileup → global IVW is effectively equivalent to α-dep for the current method
+population.
+
+### `reg_crosscheck_<variant>`
+
+Two-panel scatter: X = thermal share from raw per-channel NNLS regression
+(`1 − cont_vis_reg/100`), Y = `latent_z` (left panel: global IVW, right:
+α-dep). Points near the diagonal confirm that the IVW aggregate tracks the
+direct regression; deviations reveal IVW distortion. Companion CSV with
+`channel_redundancy` for quick triaging.
+
+### Cross-dataset portability (PAVA)
+
+PAVA calibration is fitted **per dataset** from that dataset's synthetic
+mixtures.  An empirical curve-overlap diagnostic on the three default slices
+(kaist_day / kaist_night / llvip_night) reports max|Δ| between curves at the
+same raw input value:
+
+| Proxy | Max\|Δ\| (KAIST↔LLVIP) | Portability |
+|---|---|---|
+| `reg`      | ≈ 0.075 | High — the structural V/T linear share is dataset-invariant |
+| `ssim`     | ≈ 0.13  | Moderate |
+| `mi`       | ≈ 0.20  | Low at KAIST↔LLVIP (high information-content sensitivity) |
+| `freq`     | ≈ 0.20  | Low |
+| `grad`     | ≈ 0.25  | Low — varies even within KAIST_day↔KAIST_night |
+| `spectral` | ≈ 0.29  | Low |
+
+Implication: `latent_z` absolute values are **dataset-relative** — a method's
+0.7 in KAIST and 0.7 in LLVIP do not refer to the same V/T mixture, because
+the calibration endpoints differ.
+
+**Which metric for which comparison?**  No single column wins all three cases.
+
+| Comparison | Use | Why |
+|---|---|---|
+| Same method, different datasets | `thermal_share_reg` | The structural cross-channel bias of `reg` is the *same* in every dataset, so it cancels under method-vs-itself comparison.  Most calibration-portable. |
+| Different methods, same dataset | `latent_z` | All six proxies + saturation correction + IVW reliability weighting; the aggregate handles the per-method proxy biases that any single column would carry. |
+| Different methods, different datasets | No clean comparison | `latent_z` mixes calibration drift across datasets; `thermal_share_reg` mixes per-method bias.  Rank within each dataset and compare *rankings*, not absolute values. |
+
+`thermal_share_raw` (unweighted mean of the 6 raw proxies) sits in between:
+reasonable cross-dataset, less biased than `reg` cross-method, but saturates
+near the endpoints.  All three columns are exposed in `methods_overview.csv`
+and as side-by-side panels in `analysis_latent2d.py`.
+
+### `latent2d_scatter_<eq>_<reducer>_<metric>`
+
+Cross-dataset scatter combining one or more `*_methods_overview.csv` files
+along two latent axes.  By default emits **three side-by-side panels** — one
+per x-axis variant — to make the calibration vs portable comparison
+immediate:
+
+- **x panel 1 — `latent_z`** (PAVA-calibrated, IVW-weighted).  Best
+  intra-dataset reading; *not directly comparable across datasets*.
+- **x panel 2 — `1 − cont_vis_raw/100`** (uncalibrated mean of 6 proxies).
+  Portable cross-dataset; saturates near the endpoints.
+- **x panel 3 — `1 − reg/100`** (NNLS thermal share).  Calibration-portable;
+  reductive (single proxy).
+- **y (all panels) — `channel_redundancy`** (axis 2 — inter-channel mean |corr|).
+
+Visual encoding:
+- Marker shape *and* color per `(dataset, condition)` slice — redundant cues
+  so the figure reads in B&W and for color-vision-deficient viewers.
+- Marker size uniform (the previous `contrib_confidence` size encoding was
+  hard to read without a key).
+- Small grey "+" markers at the four corners are the
+  `visible`/`lwir` anchors per dataset, kept off-legend.
+- A shaded box marks the bottom-left quadrant ("visible-dominant +
+  distributed channels") — currently empty across all surveyed methods.
+
+`latent_z_alpha_dep` is **not** plotted as a second axis: empirically it
+correlates 0.92–0.98 with `latent_z` across the three default slices, so it
+adds almost no orthogonal information.  It remains a diagnostic of σ-shape
+heterogeneity (see `ivw_global_vs_alphadep`), not a second latent.
+
+Companion artifacts emitted alongside the figure:
+- `latent2d_data_<tag>.csv` — per-method joint coordinates including
+  `thermal_share_raw`, `thermal_share_reg`, `calibration_lift`, and the
+  training metric.
+- `latent2d_top3_<tag>.csv` — top-3 methods per slice by mAP, for the
+  "where do the winners land?" reading.
+- `latent2d_corr_<tag>.csv` — per-slice Pearson r between each thermal-axis
+  variant and mAP, plus r(`channel_redundancy`, mAP).  When a method's r
+  flips sign between `latent_z` and `thermal_share_raw`, calibration is
+  amplifying or hiding the underlying signal.
+
+Run via `python -m Dataset_review.review_contribution.analysis_latent2d`
+(see `--help`).  Outputs land under `<reports>/latent2d/`.
+
+### `training_vs_latent_<equalization>`
+
+2×2 grid, one panel per training metric (P, R, mAP50, mAP50-95). X = `latent_z`
+per method under that equalization, Y = observed training metric. Each method:
+faint blue dots = individual runs, red marker = P90-of-fitted-normal summary,
+dashed gray = linear fit. Pearson r and Spearman ρ printed. A monotonic trend
+suggests the latent axis captures something useful about the fusion; a flat
+cloud means the axis and the detection metric are uncorrelated under the tested
+training conditions.

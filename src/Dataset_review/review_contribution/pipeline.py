@@ -8,6 +8,8 @@ and fusion method evaluation via a simple CLI.
 """
 
 import argparse
+import csv
+import json
 import os
 import pickle
 import hashlib
@@ -26,11 +28,18 @@ if str(SRC_DIR) not in sys.path:
 from Dataset_review.review_contribution.settings import PRESET_SETTINGS
 from utils.log_utils import log, logCoolMessage, logTable
 from .calibration import build_contribution_calibration_from_dataset
-from .evaluation import CONTRIBUTION_METRIC_VERSION
+from .data_loading import (
+    iter_visible_images,
+    infer_condition,
+    resolve_dataset_root,
+)
+from .evaluation import (
+    PROXY_VERSION,
+    CALIBRATION_SAMPLES_VERSION,
+    CALIBRATION_FIT_VERSION,
+)
 from .contribution import (
     evaluate_fusion_methods_on_dataset,
-    _iter_visible_images,
-    _infer_condition,
     _split_calibration_eval,
     _get_default_fusion_methods,
 )
@@ -42,14 +51,35 @@ from .training_results_check import (
 
 
 def _log_summary(summary: dict, output_path: str, filename: str) -> None:
-    """Print and store a compact summary table using the shared logger."""
+    """Print and store a compact summary table using the shared logger.
+
+    Aggregated summaries contain heterogeneous entries:
+      - standard {mean, median, std, n} stats dicts for scalar metrics;
+      - per-proxy dict-of-dicts (e.g. ivw_weights_effective_mean) → expanded
+        as one row per proxy with key "<metric>[<proxy>]";
+      - plain scalars (e.g. ivw_converged_rate) → rendered as a single value.
+    """
     if not summary:
         log("No samples to summarise.")
         return
 
     table_data = [["metric", "mean", "std", "n"]]
     for key, stats in summary.items():
-        table_data.append([key, f"{stats['mean']:.4f}", f"{stats['std']:.4f}", str(stats['n'])])
+        if isinstance(stats, dict) and "mean" in stats:
+            table_data.append([key, f"{stats['mean']:.4f}", f"{stats['std']:.4f}", str(stats['n'])])
+        elif isinstance(stats, dict):
+            # Per-proxy nested stats (ivw_weights_effective_mean, ...)
+            for proxy_key, proxy_stats in stats.items():
+                if not isinstance(proxy_stats, dict) or "mean" not in proxy_stats:
+                    continue
+                table_data.append([
+                    f"{key}[{proxy_key}]",
+                    f"{proxy_stats['mean']:.4f}",
+                    f"{proxy_stats['std']:.4f}",
+                    str(proxy_stats['n']),
+                ])
+        elif isinstance(stats, (int, float)):
+            table_data.append([key, f"{float(stats):.4f}", "-", "-"])
 
     logTable(table_data, output_path, filename, screen=False, showindex=False)
 
@@ -73,18 +103,38 @@ def _equalization_display_labels(variant: str) -> tuple[str, str]:
 
 
 def _path_bucket(visible_path: str, dataset_root: str) -> str:
-    """Return the top-level dataset bucket used for stratified sampling."""
+    """Return the stratification bucket for *visible_path*.
+
+    Picks the deepest path component that is still *above* the ``visible`` leaf
+    — for KAIST originals (``setXX/VNNN/visible/I*.jpg``) this yields
+    ``setXX``; for LLVIP originals (``visible/{train,test}/*.jpg``) it yields
+    ``train`` / ``test``.  Falls back to the first relative component when no
+    ``visible`` segment is present, preserving old behavior for ad-hoc layouts.
+    """
     root = Path(dataset_root).resolve()
     path = Path(visible_path).resolve()
     try:
         rel_parts = path.relative_to(root).parts
     except ValueError:
         rel_parts = path.parts
-    return rel_parts[0] if rel_parts else "root"
+    if not rel_parts:
+        return "root"
+    # LLVIP originals start with ``visible/`` — skip it to bucket by split
+    # (``train``/``test``).  KAIST originals start with ``setXX/`` directly.
+    if rel_parts[0] == "visible" and len(rel_parts) > 1:
+        return rel_parts[1]
+    return rel_parts[0]
 
 
 def _stratified_sample_paths(visible_paths: list[str], dataset_root: str, max_images: int | None, seed: int) -> list[str]:
-    """Select a deterministic, roughly balanced subset across top-level dataset buckets."""
+    """Deterministic proportional-stratified subsample across top-level buckets.
+
+    Per-bucket quota ``n_k`` ≈ ``max_images · |B_k| / N`` using largest-remainder
+    rounding so ``sum(n_k) == max_images`` exactly.  Within each bucket paths
+    are shuffled with a seeded RNG, then the first ``n_k`` entries are kept.
+    If a bucket lacks stock for its quota, the surplus is redistributed to
+    buckets with remaining capacity.
+    """
     if max_images is None or max_images >= len(visible_paths):
         return list(visible_paths)
 
@@ -98,20 +148,37 @@ def _stratified_sample_paths(visible_paths: list[str], dataset_root: str, max_im
         rng.shuffle(bucket_paths)
 
     bucket_names = sorted(buckets.keys())
-    sampled: list[str] = []
-    while len(sampled) < max_images:
+    total = len(visible_paths)
+
+    # Largest-remainder apportionment.
+    raw = {b: max_images * len(buckets[b]) / total for b in bucket_names}
+    quotas = {b: int(raw[b]) for b in bucket_names}
+    leftover = max_images - sum(quotas.values())
+    for b in sorted(bucket_names, key=lambda n: raw[n] - quotas[n], reverse=True):
+        if leftover <= 0:
+            break
+        quotas[b] += 1
+        leftover -= 1
+
+    # Respect each bucket's capacity; redistribute any shortfall round-robin.
+    for b in bucket_names:
+        quotas[b] = min(quotas[b], len(buckets[b]))
+    shortfall = max_images - sum(quotas.values())
+    while shortfall > 0:
         progressed = False
-        for bucket_name in bucket_names:
-            bucket_paths = buckets[bucket_name]
-            if not bucket_paths:
-                continue
-            sampled.append(bucket_paths.pop())
-            progressed = True
-            if len(sampled) >= max_images:
-                break
+        for b in bucket_names:
+            if quotas[b] < len(buckets[b]):
+                quotas[b] += 1
+                shortfall -= 1
+                progressed = True
+                if shortfall == 0:
+                    break
         if not progressed:
             break
 
+    sampled: list[str] = []
+    for b in bucket_names:
+        sampled.extend(buckets[b][:quotas[b]])
     return sampled
 
 
@@ -142,8 +209,10 @@ def _method_overview_rows(report: dict) -> list[list[str]]:
             "cont_vis_freq": _summary_value(summary, "cont_vis_freq"),
             "latent_z": latent_z_str,
             "latent_z_val": latent_z_val,
+            "latent_z_alpha_dep": _summary_value(summary, "latent_z_alpha_dep"),
             "contrib_std": _summary_value(summary, "contrib_std"),
             "contrib_confidence": _summary_value(summary, "contrib_confidence"),
+            "channel_redundancy": _summary_value(summary, "channel_redundancy"),
         })
 
     # Sort by latent_z in descending order (highest first: lwir at top, visible at bottom)
@@ -164,8 +233,10 @@ def _method_overview_rows(report: dict) -> list[list[str]]:
         "spectral",
         "freq",
         "latent_z",
+        "latent_z_αdep",
         "contrib_std",
         "conf",
+        "ch_redund",
     ]]
     for row in rows:
         table_data.append([
@@ -182,8 +253,10 @@ def _method_overview_rows(report: dict) -> list[list[str]]:
             row["cont_vis_spectral"],
             row["cont_vis_freq"],
             row["latent_z"],
+            row["latent_z_alpha_dep"],
             row["contrib_std"],
             row["contrib_confidence"],
+            row["channel_redundancy"],
         ])
     return table_data
 
@@ -280,8 +353,10 @@ def _print_method_metric_legend(output_path: str) -> None:
         ["spectral", "Inter-channel independence proxy. Measures whether fused channels carry independent info (like visible's 3 spectral bands) or redundant info (like replicated LWIR). Permutation-invariant."],
         ["freq", "FFT magnitude spectrum correlation proxy. Compares frequency-domain profile of fused vs each source. Complementary to spatial proxies (LWIR = low-freq, visible = high-freq)."],
         ["latent_z", "Calibrated thermal fraction in [0,1] from synthetic alpha mixtures using cont_vis. 0 = visible endpoint, 1 = thermal endpoint."],
+        ["latent_z_αdep", "Same as latent_z but using α-dependent IVW: per-proxy σ is interpolated at the current α̂ estimate (iterative reweighting). Differences from latent_z reveal σ-heterogeneity along α."],
         ["contrib_std", "Std deviation across 6 proxy contributions. Low = agreement/high confidence; high = disagreement/lower confidence."],
         ["conf", "Proxy-agreement confidence in [0,100] used by weighted aggregation. High = stable proxy consensus; low = stronger shrink toward neutral 50."],
+        ["ch_redund", "Channel redundancy in [0,1]: reliability-weighted composite of global Pearson, global Spearman, tile-robust Pearson and covariance effective-rank redundancy. 1 = duplicated channels, lower = more independent cross-channel content."],
         ["n_images", "Number of evaluated images for that method. Compare methods using similar n_images for fairness."],
     ]
 
@@ -347,6 +422,345 @@ def _save_plot(fig, output_path: str, filename: str) -> None:
     log(f"Plot saved: {plot_path}")
 
 
+# ---------------------------------------------------------------------------
+# Tabular / structured artifact writers
+# ---------------------------------------------------------------------------
+# These CSV/JSON dumps mirror the plots so downstream review (including future
+# Claude sessions) can inspect the data numerically without re-running the
+# whole evaluation or trying to read raster images.
+# ---------------------------------------------------------------------------
+
+def _write_csv(output_path: str, filename: str, header: list[str],
+               rows: list[list]) -> None:
+    """Write a CSV file with given header + rows, log the path."""
+    csv_path = os.path.join(output_path, f"{filename}.csv")
+    with open(csv_path, "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(header)
+        for r in rows:
+            writer.writerow(r)
+    log(f"CSV saved: {csv_path}")
+
+
+def _fmt(x, nd: int = 6) -> str:
+    """Stable numeric formatting for CSV (empty for None/NaN)."""
+    if x is None:
+        return ""
+    try:
+        xf = float(x)
+    except (TypeError, ValueError):
+        return str(x)
+    if not np.isfinite(xf):
+        return ""
+    return f"{xf:.{nd}g}"
+
+
+def _dump_methods_overview_csv(report: dict, output_path: str, report_tag: str) -> None:
+    """Per-method summary as CSV (numeric, one row per method).
+
+    Adds three cross-dataset-portable columns derived from the per-key means:
+      - ``thermal_share_raw`` = 1 − cont_vis_raw/100 (no calibration; honest
+        cross-dataset reference because PAVA is dataset-specific).
+      - ``thermal_share_reg`` = 1 − reg/100 (per-channel NNLS thermal share;
+        the most calibration-portable proxy — see PAVA-portability diagnostic
+        in the README).
+      - ``calibration_lift`` = latent_z − thermal_share_raw (how much the
+        calibration shifts the answer for this method; absolute value
+        quantifies saturation correction strength).
+    """
+    rows = []
+    for method_name, method_report in report.get("methods", {}).items():
+        summary = method_report.get("summary", {})
+        row = [
+            method_report.get("method_name", method_name),
+            method_report.get("eq_vis", ""),
+            method_report.get("eq_th", ""),
+            method_report.get("n_images", 0),
+        ]
+        # Scalar summary fields: mean, std, median per key
+        for key in ["cont_vis", "cont_vis_raw",
+                    "cont_vis_reg", "cont_vis_mi", "cont_vis_ssim",
+                    "cont_vis_grad_combined", "cont_vis_spectral", "cont_vis_freq",
+                    "latent_z", "latent_z_alpha_dep",
+                    "contrib_std", "contrib_confidence",
+                "channel_redundancy", "ivw_iters"]:
+            stats = summary.get(key) or {}
+            row.extend([_fmt(stats.get("mean")), _fmt(stats.get("std")), _fmt(stats.get("median"))])
+        row.append(_fmt(summary.get("ivw_converged_rate")))
+        # Derived portable columns (single scalar each).
+        cv_raw = (summary.get("cont_vis_raw") or {}).get("mean")
+        cv_reg = (summary.get("cont_vis_reg") or {}).get("mean")
+        lz_mean = (summary.get("latent_z") or {}).get("mean")
+        ts_raw = 1.0 - float(cv_raw) / 100.0 if cv_raw is not None else None
+        ts_reg = 1.0 - float(cv_reg) / 100.0 if cv_reg is not None else None
+        cal_lift = (float(lz_mean) - ts_raw) if (lz_mean is not None and ts_raw is not None) else None
+        row.extend([_fmt(ts_raw), _fmt(ts_reg), _fmt(cal_lift)])
+        rows.append(row)
+    header = ["method", "eq_vis", "eq_th", "n_images"]
+    for key in ["cont_vis", "cont_vis_raw", "reg", "mi", "ssim",
+                "grad", "spectral", "freq",
+                "latent_z", "latent_z_alpha_dep",
+                "contrib_std", "contrib_confidence",
+            "channel_redundancy", "ivw_iters"]:
+        header.extend([f"{key}_mean", f"{key}_std", f"{key}_median"])
+    header.append("ivw_converged_rate")
+    header.extend(["thermal_share_raw", "thermal_share_reg", "calibration_lift"])
+    _write_csv(output_path, f"{report_tag}_methods_overview", header, rows)
+
+
+def _dump_calibration_sigma_csv(calibration: dict, output_path: str,
+                                 report_tag: str, variant: str) -> None:
+    """Long-format CSV of per-proxy σ(α) from calibration data."""
+    by_type = calibration.get("by_type") or calibration.get("calibrations_by_type") or {}
+    active_cal = by_type.get("blend") or calibration
+    pcs = active_cal.get("proxy_calibrations") or {}
+    if not pcs:
+        return
+    rows = []
+    for pkey, p_cal in pcs.items():
+        alphas = np.asarray(p_cal.get("group_alphas_std", []), dtype=np.float64)
+        sigmas = np.asarray(p_cal.get("group_std_per_alpha", []), dtype=np.float64)
+        mean_sigma = p_cal.get("calibrated_mean_std")
+        ivw_w = p_cal.get("ivw_weight_normalized", p_cal.get("ivw_weight"))
+        for a, s in zip(alphas.ravel(), sigmas.ravel()):
+            rows.append([pkey, _fmt(a), _fmt(s), _fmt(mean_sigma), _fmt(ivw_w)])
+    if rows:
+        _write_csv(output_path, f"{report_tag}_calibration_sigma_shape_{variant}",
+                   ["proxy", "alpha", "sigma", "sigma_mean_global", "ivw_weight_global"],
+                   rows)
+
+
+def _dump_method_sigma_csv(calibration: dict, report: dict, output_path: str,
+                            report_tag: str, variant: str) -> None:
+    """Per-method per-proxy σ of raw cont_vis, alongside calibration σ at the
+    method's latent_z (so differences are visible numerically)."""
+    method_rows = _extract_method_rows(report)
+    by_type = calibration.get("by_type") or calibration.get("calibrations_by_type") or {}
+    active_cal = by_type.get("blend") or calibration
+    pcs = active_cal.get("proxy_calibrations") or {}
+    rows = []
+    for m in method_rows:
+        lz = m.get("latent_z")
+        for pkey in PROXY_KEYS:
+            sigma_empirical = m.get(pkey + "_std", 0.0)
+            p_cal = pcs.get(pkey, {})
+            # Interpolate calibration σ at this method's latent_z
+            alpha_grid = np.asarray(p_cal.get("group_alphas_std", []),
+                                     dtype=np.float64).ravel()
+            sigma_grid = np.asarray(p_cal.get("group_std_per_alpha", []),
+                                     dtype=np.float64).ravel()
+            sigma_cal_at_lz = None
+            if (alpha_grid.size and sigma_grid.size and np.isfinite(lz)
+                    and alpha_grid.size == sigma_grid.size):
+                order = np.argsort(alpha_grid)
+                sigma_cal_at_lz = float(np.interp(
+                    np.clip(lz, 0.0, 1.0), alpha_grid[order], sigma_grid[order],
+                    left=sigma_grid[order][0], right=sigma_grid[order][-1]))
+            rows.append([
+                m["name"], pkey, _fmt(lz),
+                _fmt(sigma_empirical),
+                _fmt(p_cal.get("calibrated_mean_std")),
+                _fmt(sigma_cal_at_lz),
+            ])
+    if rows:
+        _write_csv(output_path, f"{report_tag}_method_sigma_shape_{variant}",
+                   ["method", "proxy", "latent_z",
+                    "sigma_empirical", "sigma_calibration_global",
+                    "sigma_calibration_at_latent_z"],
+                   rows)
+
+
+def _dump_ivw_weights_csv(report: dict, output_path: str,
+                           report_tag: str, variant: str) -> None:
+    """Per-method per-proxy effective (α-dep) vs global IVW weights."""
+    rows = []
+    for method_name, method_report in report.get("methods", {}).items():
+        summary = method_report.get("summary", {})
+        w_eff = summary.get("ivw_weights_effective_mean") or {}
+        w_glob = summary.get("ivw_weights_global_mean") or {}
+        proxy_keys_union = sorted(set(w_eff.keys()) | set(w_glob.keys()))
+        display_name = method_report.get("method_name", method_name)
+        for pk in proxy_keys_union:
+            we = (w_eff.get(pk) or {}).get("mean")
+            wg = (w_glob.get(pk) or {}).get("mean")
+            delta_pct = None
+            if we is not None and wg not in (None, 0.0):
+                try:
+                    delta_pct = 100.0 * (float(we) - float(wg)) / float(wg)
+                except (TypeError, ValueError, ZeroDivisionError):
+                    delta_pct = None
+            rows.append([display_name, pk,
+                         _fmt(wg), _fmt(we), _fmt(delta_pct)])
+    if rows:
+        _write_csv(output_path, f"{report_tag}_ivw_weights_{variant}",
+                   ["method", "proxy",
+                    "weight_global_mean", "weight_alpha_dep_mean",
+                    "delta_pct"],
+                   rows)
+
+
+def _json_sanitize(obj, _seen: set | None = None):
+    """Recursive conversion of numpy scalars/arrays and non-serializable types
+    into JSON-friendly primitives. Uses an id()-based memo to break reference
+    cycles (self-referencing dicts/lists would otherwise blow the stack)."""
+    # Fast-path primitives before any allocation.
+    if obj is None or isinstance(obj, (str, bool, int, float)):
+        return obj
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+
+    if _seen is None:
+        _seen = set()
+    oid = id(obj)
+    if oid in _seen:
+        return f"<cycle:{type(obj).__name__}>"
+
+    if isinstance(obj, dict):
+        _seen.add(oid)
+        try:
+            return {str(k): _json_sanitize(v, _seen) for k, v in obj.items()}
+        finally:
+            _seen.discard(oid)
+    if isinstance(obj, (list, tuple)):
+        _seen.add(oid)
+        try:
+            return [_json_sanitize(v, _seen) for v in obj]
+        finally:
+            _seen.discard(oid)
+    if isinstance(obj, np.ndarray):
+        # ndarray.tolist() yields primitives (no cycles possible), recurse without memo.
+        return [_json_sanitize(v, _seen) for v in obj.tolist()]
+    # Fall back to repr for opaque objects (shouldn't normally happen).
+    return repr(obj)
+
+
+def _dump_report_json(report: dict, output_path: str, report_tag: str) -> None:
+    """Dump the combined evaluation report (summaries per method) as JSON.
+
+    Excludes per-image raw results to keep the file small and focused on
+    aggregated statistics — full raw results live in the pickle cache.
+    """
+    slim = {
+        "report_tag": report_tag,
+        "condition": report.get("condition"),
+        "dataset": report.get("dataset"),
+        "methods": {},
+    }
+    for mname, mrep in report.get("methods", {}).items():
+        slim["methods"][mname] = {
+            "method_name": mrep.get("method_name", mname),
+            "eq_vis": mrep.get("eq_vis"),
+            "eq_th": mrep.get("eq_th"),
+            "n_images": mrep.get("n_images"),
+            "summary": mrep.get("summary"),
+        }
+    path = os.path.join(output_path, f"{report_tag}_report.json")
+    with open(path, "w") as fh:
+        json.dump(_json_sanitize(slim), fh, indent=2)
+    log(f"JSON saved: {path}")
+
+
+def _dump_calibration_json(calibration: dict, output_path: str,
+                            report_tag: str, variant: str) -> None:
+    """Dump calibration structure (σ curves, knots, nodes) as JSON for review."""
+    path = os.path.join(output_path, f"{report_tag}_calibration_{variant}.json")
+    with open(path, "w") as fh:
+        json.dump(_json_sanitize(calibration), fh, indent=2)
+    log(f"JSON saved: {path}")
+
+
+def _write_ivw_diagnostic_txt(calibration: dict, report: dict,
+                                output_path: str, report_tag: str,
+                                variant: str) -> None:
+    """Plain-text diagnostic: σ_max/σ_min per proxy (justifying α-dep IVW),
+    convergence rate, weight redistribution, methods with largest Δlatent_z."""
+    by_type = calibration.get("by_type") or calibration.get("calibrations_by_type") or {}
+    active_cal = by_type.get("blend") or calibration
+    pcs = active_cal.get("proxy_calibrations") or {}
+
+    lines = []
+    lines.append(f"IVW α-dependent diagnostic — {report_tag} / {variant}")
+    lines.append("=" * 72)
+    lines.append("")
+    lines.append("[σ shape per proxy — ratio σ_max/σ_min along α]")
+    lines.append("A ratio > 2 justifies α-dep IVW; ~1 means global σ is fine.")
+    lines.append("")
+    lines.append(f"  {'proxy':<28s} {'σ_min':>10s} {'σ_max':>10s} {'ratio':>10s} {'σ̄':>10s}")
+    for pkey, p_cal in pcs.items():
+        sigmas = np.asarray(p_cal.get("group_std_per_alpha", []), dtype=np.float64).ravel()
+        if sigmas.size == 0:
+            continue
+        smin = float(np.min(sigmas))
+        smax = float(np.max(sigmas))
+        ratio = smax / smin if smin > 1e-12 else float("inf")
+        smean = p_cal.get("calibrated_mean_std")
+        lines.append(f"  {pkey:<28s} {smin:>10.4f} {smax:>10.4f} "
+                     f"{ratio:>10.2f} {(smean or 0.0):>10.4f}")
+    lines.append("")
+
+    # Convergence + Δlatent_z per method
+    lines.append("[IVW α-dep convergence and latent_z shift]")
+    lines.append("")
+    lines.append(f"  {'method':<30s} {'n':>5s} {'iters':>8s} {'conv':>6s} "
+                 f"{'lz_glob':>8s} {'lz_αdep':>8s} {'Δlz':>8s}")
+    shifts = []
+    for mname, mrep in report.get("methods", {}).items():
+        summary = mrep.get("summary", {}) or {}
+        lz_g = (summary.get("latent_z") or {}).get("mean")
+        lz_a = (summary.get("latent_z_alpha_dep") or {}).get("mean")
+        it_m = (summary.get("ivw_iters") or {}).get("mean")
+        conv = summary.get("ivw_converged_rate")
+        n_img = mrep.get("n_images", 0)
+        delta = None
+        if lz_g is not None and lz_a is not None:
+            delta = float(lz_a) - float(lz_g)
+            shifts.append((mrep.get("method_name", mname), abs(delta), delta))
+        lines.append(
+            f"  {mrep.get('method_name', mname):<30s} {n_img:>5d} "
+            f"{(it_m or 0.0):>8.2f} {(conv or 0.0):>6.2f} "
+            f"{(lz_g if lz_g is not None else float('nan')):>8.4f} "
+            f"{(lz_a if lz_a is not None else float('nan')):>8.4f} "
+            f"{(delta if delta is not None else float('nan')):>8.4f}"
+        )
+    lines.append("")
+
+    # Top shifts
+    shifts.sort(reverse=True)
+    lines.append("[Methods with largest |Δlatent_z| (α-dep vs global)]")
+    for name, _absd, delta in shifts[:10]:
+        lines.append(f"  {name:<30s} Δ = {delta:+.4f}")
+    lines.append("")
+
+    # Mean weights per proxy across methods
+    lines.append("[Mean effective weights per proxy across all methods]")
+    lines.append(f"  {'proxy':<28s} {'w_global':>10s} {'w_α-dep':>10s} {'Δ%':>10s}")
+    proxy_w_glob: dict[str, list[float]] = {}
+    proxy_w_adep: dict[str, list[float]] = {}
+    for _, mrep in report.get("methods", {}).items():
+        summary = mrep.get("summary", {}) or {}
+        for pk, st in (summary.get("ivw_weights_global_mean") or {}).items():
+            if st and st.get("mean") is not None:
+                proxy_w_glob.setdefault(pk, []).append(float(st["mean"]))
+        for pk, st in (summary.get("ivw_weights_effective_mean") or {}).items():
+            if st and st.get("mean") is not None:
+                proxy_w_adep.setdefault(pk, []).append(float(st["mean"]))
+    for pk in sorted(set(proxy_w_glob) | set(proxy_w_adep)):
+        wg = float(np.mean(proxy_w_glob.get(pk, [0.0])))
+        wa = float(np.mean(proxy_w_adep.get(pk, [0.0])))
+        dp = (100.0 * (wa - wg) / wg) if wg > 1e-12 else float("nan")
+        lines.append(f"  {pk:<28s} {wg:>10.4f} {wa:>10.4f} {dp:>10.2f}")
+    lines.append("")
+
+    path = os.path.join(output_path, f"{report_tag}_ivw_diagnostic_{variant}.txt")
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    log(f"Diagnostic saved: {path}")
+
+
 def _extract_calibration_per_alpha(calibration: dict) -> list[dict] | None:
     """Extract per-alpha-group statistics from calibration diagnostic data.
 
@@ -408,6 +822,15 @@ def _extract_method_rows(report: dict) -> list[dict]:
         cvc = summary.get("cont_vis_calibrated")
         row["cont_vis_calibrated"] = cvc["mean"] if cvc else float("nan")
         row["cont_vis_calibrated_std"] = cvc["std"] if cvc else 0.0
+        cr = summary.get("channel_redundancy")
+        row["channel_redundancy"] = cr["mean"] if cr else float("nan")
+        row["channel_redundancy_std"] = cr["std"] if cr else 0.0
+        lza = summary.get("latent_z_alpha_dep")
+        row["latent_z_alpha_dep"] = lza["mean"] if lza else float("nan")
+        row["latent_z_alpha_dep_std"] = lza["std"] if lza else 0.0
+        cvr = summary.get("cont_vis_raw")
+        row["cont_vis_raw"] = cvr["mean"] if cvr else float("nan")
+        row["calibration_type"] = summary.get("calibration_type_mode", "blend")
         rows.append(row)
     rows.sort(key=lambda m: m["cont_vis"])
     return rows
@@ -466,7 +889,12 @@ def _plot_calibration_diagnostic(calibration: dict, report: dict, output_path: s
 
     # --- Left panel: Both calibration curves overlaid ---
     ax = axes[0]
-    curve_styles = {"blend": ("red", "o", "Blend"), "concat": ("blue", "s", "Concat")}
+    curve_styles = {
+        "blend": ("red", "o", "Blend"),
+        "concat": ("blue", "s", "Concat"),
+        "freq_blend": ("purple", "D", "Freq-blend"),
+        "nonlinear": ("orange", "^", "Nonlinear"),
+    }
     x_dense = np.linspace(0, 100, 500)
 
     for stype, cal in by_type.items():
@@ -481,13 +909,20 @@ def _plot_calibration_diagnostic(calibration: dict, report: dict, output_path: s
         y_dense = np.interp(x_dense, raw_knots, visible_knots)
         ax.plot(x_dense, 1.0 - y_dense, "--", color=color, alpha=0.3, linewidth=1, zorder=2)
 
-    # Overlay method positions (using the combined latent_z which averages both curves)
+    # Overlay method positions, coloured by their best-fit calibration type
     method_rows = _extract_method_rows(report) if report else []
     if method_rows:
-        mx = [r["cont_vis"] for r in method_rows]
-        my = [r["latent_z"] for r in method_rows]
-        ax.scatter(mx, my, s=100, c="green", marker="*",
-                   edgecolors="black", linewidths=0.5, label="Fusion methods", zorder=5)
+        # Group methods by selected calibration type for per-type legend entries
+        by_sel_type: dict[str, list[dict]] = {}
+        for r in method_rows:
+            by_sel_type.setdefault(r.get("calibration_type", "blend"), []).append(r)
+        for sel_type, items in by_sel_type.items():
+            color = curve_styles.get(sel_type, ("gray", "^", sel_type))[0]
+            ax.scatter([r["cont_vis"] for r in items],
+                       [r["latent_z"] for r in items],
+                       s=110, c=color, marker="*",
+                       edgecolors="black", linewidths=0.6,
+                       label=f"best-fit: {sel_type}", zorder=5)
         for r in method_rows:
             ax.annotate(r["name"], (r["cont_vis"], r["latent_z"]),
                         textcoords="offset points", xytext=(5, 5), fontsize=7, alpha=0.8)
@@ -520,7 +955,13 @@ def _plot_calibration_diagnostic(calibration: dict, report: dict, output_path: s
                  linewidth=1, label="ideal (1-α)×100")
         ax2.set_xlabel("alpha_lwir (thermal fraction)")
         ax2.set_ylabel("cont_vis (%)")
-        title_kind = "blend fractions" if stype == "blend" else "channel-concat patterns"
+        _title_kinds = {
+            "blend": "blend fractions",
+            "concat": "channel-concat patterns",
+            "freq_blend": "wavelet-coeff blend",
+            "nonlinear": "geometric-mean blend",
+        }
+        title_kind = _title_kinds.get(stype, stype)
         ax2.set_title(f"{label}: cont_vis per alpha ({title_kind})")
         ax2.set_xticks(unique_alphas.tolist())
         ax2.set_xticklabels([f"{a:.2f}" for a in unique_alphas], rotation=45, ha="right", fontsize=8)
@@ -564,7 +1005,10 @@ def _plot_per_proxy_calibration_curves(calibration: dict, report: dict, output_p
         thermal_knots = 1.0 - visible_knots
 
         # Per-proxy calibration curve
-        ivw_w = p_cal.get("ivw_weight_normalized", p_cal.get("ivw_weight"))
+        # Prefer multi-format averaged weight when available
+        avg_weights = calibration.get("averaged_proxy_weights", {})
+        ivw_w = avg_weights.get(proxy_key,
+                    p_cal.get("ivw_weight_normalized", p_cal.get("ivw_weight")))
         cal_std = p_cal.get("calibrated_mean_std")
         extra_info = ""
         if ivw_w is not None:
@@ -661,12 +1105,25 @@ def _plot_proxy_overview(report: dict, output_path: str, report_tag: str) -> Non
     latent_vals = [m["latent_z"] for m in method_rows]
     bar_colors = plt.cm.RdYlBu_r(np.array(latent_vals))
     ax2.bar(x, latent_vals, color=bar_colors, edgecolor="black", linewidth=0.5)
+    # Saturation-naive reference: thermal fraction inferred directly from the
+    # unweighted raw proxy mean (1 - cont_vis_raw/100).  The gap between this
+    # marker and the calibrated bar exposes the saturation correction PAVA is
+    # applying — large gaps mean proxies were saturating near the visible
+    # endpoint and the calibration is pulling them back toward the centre.
+    naive_lz = np.array([
+        np.nan if not np.isfinite(m.get("cont_vis_raw", float("nan")))
+        else 1.0 - float(m["cont_vis_raw"]) / 100.0
+        for m in method_rows
+    ])
+    ax2.scatter(x, naive_lz, marker="_", s=140, color="gray", linewidths=2.0,
+                label="naive 1 − cont_vis_raw/100", zorder=3)
     ax2.set_xticks(x)
     ax2.set_xticklabels(names, rotation=45, ha="right", fontsize=9)
     ax2.set_ylabel("latent_z (thermal fraction)")
-    ax2.set_title("Calibrated thermal fraction (latent_z)")
+    ax2.set_title("Calibrated thermal fraction (latent_z)  —  gray ticks: saturation-naive reference")
     ax2.set_ylim(0, 1.05)
     ax2.axhline(0.5, color="gray", linestyle="--", alpha=0.5)
+    ax2.legend(fontsize=8, loc="upper left")
     ax2.grid(True, axis="y", alpha=0.3)
 
     plt.tight_layout()
@@ -728,6 +1185,336 @@ def _plot_per_method_proxy_std(
               bbox_to_anchor=(0.5, -0.18))
     plt.tight_layout()
     _save_plot(fig, output_path, f"{report_tag}_per_method_proxy_std_{variant}")
+
+
+def _plot_method_sigma_shape(
+    calibration: dict,
+    report: dict,
+    output_path: str,
+    report_tag: str,
+    variant: str,
+) -> None:
+    """Per-proxy σ across fusion methods, plotted against latent_z.
+
+    Analogous to `calibration_sigma_shape` but for the real fusion methods
+    instead of synthetic blend samples.  Each method contributes one point
+    per proxy: x = method's latent_z, y = σ of that proxy's raw cont_vis
+    across images for that method.  The dashed horizontal line per proxy is
+    the calibration-derived σ (the global IVW σ) for reference.
+
+    Interpretation: if a method's point sits well above its proxy's dashed
+    line, that proxy is noisier for that method than the calibration assumed
+    — the global IVW weight is over-confident for that method.  If the
+    point clouds follow the same shape as `calibration_sigma_shape` (peak
+    mid-α, tails at extremes), the calibration σ generalises cleanly.
+    """
+    method_rows = _extract_method_rows(report)
+    if not method_rows:
+        return
+    by_type = calibration.get("by_type") or {}
+    active_cal = by_type.get("blend") or calibration
+    pcs = active_cal.get("proxy_calibrations") or {}
+
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for pkey, plabel, pcolor in zip(PROXY_KEYS, PROXY_LABELS, PROXY_COLORS):
+        xs, ys = [], []
+        for m in method_rows:
+            lz = m.get("latent_z")
+            sd = m.get(pkey + "_std")
+            if lz is None or np.isnan(lz) or sd is None:
+                continue
+            xs.append(lz)
+            ys.append(sd)
+        if not xs:
+            continue
+        order = np.argsort(xs)
+        xs_sorted = np.array(xs)[order]
+        ys_sorted = np.array(ys)[order]
+        ax.plot(xs_sorted, ys_sorted, "o-", color=pcolor, linewidth=1.2,
+                markersize=5, label=plabel, alpha=0.85)
+        # Calibration σ reference (global, from IVW) as dashed line
+        cal_std = pcs.get(pkey, {}).get("calibrated_mean_std")
+        if cal_std is not None:
+            ax.axhline(cal_std, color=pcolor, linestyle="--",
+                       linewidth=0.9, alpha=0.55)
+
+    ax.set_xlabel("latent_z (thermal fraction)")
+    ax.set_ylabel("σ of proxy cont_vis across images (per method)")
+    ax.set_title(
+        f"Per-method proxy σ shape along latent_z  —  dashed = calibration σ [{variant}]")
+    ax.set_xlim(-0.02, 1.02)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, ncol=len(PROXY_KEYS), loc="upper center",
+              bbox_to_anchor=(0.5, -0.15))
+    plt.tight_layout()
+    _save_plot(fig, output_path, f"{report_tag}_method_sigma_shape_{variant}")
+
+
+def _plot_channel_redundancy_vs_latent(
+    report: dict,
+    output_path: str,
+    report_tag: str,
+    variant: str,
+) -> None:
+    """Scatter plot of per-method channel redundancy vs latent_z.
+
+    Helps distinguish fusions that reach high latent_z by carrying distributed
+    thermal information across distinct channels (low redundancy) from those
+    that replicate thermal across channels (high redundancy ≈ 1).  A dashed
+    reference at ~0.8 marks the ballpark redundancy of natural RGB imagery.
+    """
+    method_rows = _extract_method_rows(report)
+    rows = [m for m in method_rows
+            if np.isfinite(m.get("channel_redundancy", float("nan")))
+            and np.isfinite(m.get("latent_z", float("nan")))]
+    if not rows:
+        return
+
+    xs = np.array([m["latent_z"] for m in rows], dtype=np.float64)
+    ys = np.array([m["channel_redundancy"] for m in rows], dtype=np.float64)
+    ystd = np.array([m.get("channel_redundancy_std", 0.0) for m in rows], dtype=np.float64)
+    names = [m["name"] for m in rows]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.errorbar(xs, ys, yerr=ystd, fmt="o", color="tab:purple",
+                ecolor="tab:purple", elinewidth=0.8, capsize=2, alpha=0.85,
+                label="channel_redundancy")
+    for x, y, n in zip(xs, ys, names):
+        ax.annotate(n, (x, y), textcoords="offset points", xytext=(4, 4),
+                    fontsize=8, alpha=0.8)
+
+    ax.axhline(0.8, color="gray", linestyle="--", alpha=0.6,
+               label="natural RGB reference (~0.8)")
+    ax.axhline(1.0, color="red", linestyle=":", alpha=0.5,
+               label="full duplication (R=G=B)")
+    ax.set_xlabel("latent_z (thermal fraction)")
+    ax.set_ylabel("channel redundancy score [0,1]")
+    ax.set_title(
+        f"Channel redundancy vs latent_z  —  high latent_z + high redundancy = thermal duplication  [{variant}]")
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.05)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, loc="best")
+    plt.tight_layout()
+    _save_plot(fig, output_path, f"{report_tag}_channel_redundancy_{variant}")
+
+
+def _plot_ivw_weight_shape(
+    calibration: dict,
+    output_path: str,
+    report_tag: str,
+    variant: str,
+) -> None:
+    """Per-proxy effective weight w_p(α) = 1/σ_p(α) (soft IVW), normalized across proxies.
+
+    Shows how the α-dependent IVW redistributes mass between proxies along
+    the latent axis.  A proxy whose σ is low at α≈0 but high at α≈1 will have
+    a high weight near visible and low weight near thermal — the global IVW
+    collapses this to a single constant weight.  Accompanies
+    `calibration_sigma_shape` (raw σ) and is more directly interpretable as
+    "what is the α-dep IVW actually doing".
+    """
+    by_type = calibration.get("by_type") or calibration.get("calibrations_by_type") or {}
+    active_cal = by_type.get("blend") or calibration
+    pcs = active_cal.get("proxy_calibrations") or {}
+    if not pcs:
+        return
+
+    # Build a common α grid from union of per-proxy grids, sampled densely
+    # for smooth curves.
+    alpha_grid = np.linspace(0.0, 1.0, 101)
+    fig, ax = plt.subplots(figsize=(11, 6))
+
+    # Compute per-proxy weights at each α, then normalize across proxies so
+    # each α column sums to 1.
+    proxy_keys = list(pcs.keys())
+    w_matrix = np.zeros((len(proxy_keys), alpha_grid.size), dtype=np.float64)
+    for i, pkey in enumerate(proxy_keys):
+        p_cal = pcs[pkey]
+        a_grid = np.asarray(p_cal.get("group_alphas_std", []), dtype=np.float64).ravel()
+        s_grid = np.asarray(p_cal.get("group_std_per_alpha", []), dtype=np.float64).ravel()
+        if a_grid.size == 0 or s_grid.size == 0 or a_grid.size != s_grid.size:
+            fallback = float(p_cal.get("calibrated_mean_std", 1.0))
+            sigmas = np.full_like(alpha_grid, max(fallback, 1e-8))
+        else:
+            order = np.argsort(a_grid)
+            sigmas = np.interp(alpha_grid, a_grid[order], s_grid[order],
+                                left=s_grid[order][0], right=s_grid[order][-1])
+        sigmas = np.maximum(sigmas, 1e-8)
+        w_matrix[i] = 1.0 / sigmas  # soft IVW (1/σ), consistent with evaluation.py
+
+    col_sums = w_matrix.sum(axis=0, keepdims=True)
+    col_sums = np.where(col_sums <= 0, 1.0, col_sums)
+    w_norm = w_matrix / col_sums
+
+    # Apply the MAX_PROXY_WEIGHT cap per α-column to match what the IVW
+    # actually uses in evaluation.  Without this, the plot misrepresents
+    # how much influence any single proxy really has.
+    from .evaluation import _cap_proxy_weights
+    for col in range(w_norm.shape[1]):
+        w_norm[:, col] = _cap_proxy_weights(w_norm[:, col])
+
+    label_map = dict(zip(PROXY_KEYS, PROXY_LABELS))
+    color_map = dict(zip(PROXY_KEYS, PROXY_COLORS))
+    for i, pkey in enumerate(proxy_keys):
+        label = label_map.get(pkey, pkey)
+        color = color_map.get(pkey, None)
+        ax.plot(alpha_grid, w_norm[i], label=label, color=color, linewidth=2)
+        # Horizontal reference: global (α-independent) normalized weight.
+        # Prefer multi-format averaged weight for consistency with what the
+        # IVW actually applies.
+        avg_weights = calibration.get("averaged_proxy_weights", {})
+        gw = avg_weights.get(pkey,
+                pcs[pkey].get("ivw_weight_normalized",
+                               pcs[pkey].get("ivw_weight")))
+        if gw is not None:
+            ax.axhline(float(gw), linestyle="--", linewidth=1.0,
+                       color=color, alpha=0.4)
+
+    ax.set_xlabel("α (latent_z)")
+    ax.set_ylabel("normalized IVW weight")
+    ax.set_title(
+        f"IVW weight shape along α  —  solid = α-dep, dashed = global [{variant}]")
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, ncol=len(proxy_keys), loc="upper center",
+              bbox_to_anchor=(0.5, -0.12))
+    plt.tight_layout()
+    _save_plot(fig, output_path, f"{report_tag}_ivw_weight_shape_{variant}")
+
+    # CSV dump of the same curves for numerical inspection
+    rows = []
+    for i, pkey in enumerate(proxy_keys):
+        for a, w in zip(alpha_grid, w_norm[i]):
+            rows.append([pkey, _fmt(a), _fmt(w)])
+    _write_csv(output_path, f"{report_tag}_ivw_weight_shape_{variant}",
+               ["proxy", "alpha", "weight_normalized"], rows)
+
+
+def _plot_global_vs_alphadep_latent(
+    report: dict,
+    output_path: str,
+    report_tag: str,
+    variant: str,
+) -> None:
+    """Scatter: latent_z (global IVW) vs latent_z_alpha_dep per method.
+
+    Identifies methods whose estimate shifts under α-dependent reweighting —
+    points far from the diagonal are where the global weighting was masking
+    (or inflating) the thermal fraction due to σ-heterogeneity.
+    """
+    method_rows = _extract_method_rows(report)
+    pairs = []
+    for m in method_rows:
+        lz_g = m.get("latent_z")
+        # latent_z_alpha_dep is fetched from the summary; _extract_method_rows
+        # doesn't pull it yet, but we can read it from the original report.
+        pairs.append((m["name"], lz_g, m.get("latent_z_alpha_dep")))
+    # Pull latent_z_alpha_dep directly from the report (as _extract_method_rows
+    # returns only latent_z today).
+    # Build name->summary map
+    name_to_summary = {}
+    for mname, mrep in report.get("methods", {}).items():
+        name_to_summary[mrep.get("method_name", mname)] = mrep.get("summary", {})
+
+    xs, ys, names = [], [], []
+    for m in method_rows:
+        summary = name_to_summary.get(m["name"], {})
+        lz_g = (summary.get("latent_z") or {}).get("mean")
+        lz_a = (summary.get("latent_z_alpha_dep") or {}).get("mean")
+        if lz_g is None or lz_a is None:
+            continue
+        xs.append(float(lz_g))
+        ys.append(float(lz_a))
+        names.append(m["name"])
+    if not xs:
+        return
+
+    xs = np.array(xs); ys = np.array(ys)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", alpha=0.6,
+            label="identity")
+    ax.scatter(xs, ys, color="tab:blue", s=45, alpha=0.85, edgecolor="black",
+               linewidth=0.4)
+    for x, y, n in zip(xs, ys, names):
+        ax.annotate(n, (x, y), textcoords="offset points", xytext=(4, 4),
+                    fontsize=8, alpha=0.85)
+    ax.set_xlabel("latent_z (global IVW)")
+    ax.set_ylabel("latent_z (α-dep IVW)")
+    ax.set_title(f"Global vs α-dependent IVW latent_z per method  [{variant}]")
+    ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, loc="best")
+    plt.tight_layout()
+    _save_plot(fig, output_path, f"{report_tag}_ivw_global_vs_alphadep_{variant}")
+
+
+def _plot_reg_vs_latent_crosscheck(
+    report: dict,
+    output_path: str,
+    report_tag: str,
+    variant: str,
+) -> None:
+    """Cross-check: raw per-channel regression (cont_vis_reg) vs IVW latent_z.
+
+    cont_vis_reg is a direct per-channel NNLS visible share — independent of the
+    IVW combination. If the weight cap is effective, latent_z should track reg
+    closely. Large deviations flag IVW distortion.
+    """
+    name_to_summary: dict[str, dict] = {}
+    for mname, mrep in report.get("methods", {}).items():
+        name_to_summary[mrep.get("method_name", mname)] = mrep.get("summary", {})
+
+    names, reg_vals, lz_glob, lz_adep, ch_redund = [], [], [], [], []
+    for dname, summary in name_to_summary.items():
+        reg_s = (summary.get("cont_vis_reg") or {}).get("mean")
+        lz_g = (summary.get("latent_z") or {}).get("mean")
+        lz_a = (summary.get("latent_z_alpha_dep") or {}).get("mean")
+        cr = (summary.get("channel_redundancy") or {}).get("mean")
+        if reg_s is None or lz_g is None or lz_a is None:
+            continue
+        names.append(dname)
+        reg_vals.append(1.0 - float(reg_s) / 100.0)  # thermal share from reg
+        lz_glob.append(float(lz_g))
+        lz_adep.append(float(lz_a))
+        ch_redund.append(float(cr) if cr is not None else None)
+    if not names:
+        return
+
+    reg_arr = np.array(reg_vals)
+    lz_g_arr = np.array(lz_glob)
+    lz_a_arr = np.array(lz_adep)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+    for ax, lz, label in (
+        (axes[0], lz_g_arr, "latent_z (global IVW)"),
+        (axes[1], lz_a_arr, "latent_z (α-dep IVW)"),
+    ):
+        ax.plot([0, 1], [0, 1], "--", color="gray", alpha=0.5, label="identity")
+        sc = ax.scatter(reg_arr, lz, c="tab:blue", s=50, alpha=0.8,
+                        edgecolor="black", linewidth=0.4)
+        for i, n in enumerate(names):
+            ax.annotate(n, (reg_arr[i], lz[i]), textcoords="offset points",
+                        xytext=(4, 4), fontsize=7, alpha=0.85)
+        ax.set_xlabel("thermal share from reg (1 − cont_vis_reg/100)")
+        ax.set_ylabel(label)
+        ax.set_title(f"Reg cross-check: {label}  [{variant}]")
+        ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.02, 1.02)
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=8)
+    plt.tight_layout()
+    _save_plot(fig, output_path, f"{report_tag}_reg_crosscheck_{variant}")
+
+    # CSV companion
+    rows = []
+    for i, n in enumerate(names):
+        rows.append([n, _fmt(reg_vals[i]), _fmt(lz_glob[i]), _fmt(lz_adep[i]),
+                      _fmt(ch_redund[i])])
+    _write_csv(output_path, f"{report_tag}_reg_crosscheck_{variant}",
+               ["method", "thermal_share_reg", "latent_z_global", "latent_z_alpha_dep",
+                "channel_redundancy"],
+               rows)
 
 
 def _plot_calibration_sigma_shape(
@@ -986,6 +1773,7 @@ def _plot_training_vs_latent(
     report_tag: str,
     condition: str,
     equalization: str,
+    dataset: str,
 ) -> None:
     """Plot training metrics (P, R, mAP50, mAP50-95) vs latent_z per fusion method.
 
@@ -1007,16 +1795,26 @@ def _plot_training_vs_latent(
         return
 
     method_names = [m["name"] for m in method_rows]
-    metrics_by_method = build_dataset_metrics(df, method_names, condition, equalization)
+    metrics_by_method = build_dataset_metrics(df, method_names, condition, equalization, dataset)
     if not metrics_by_method:
-        log(f"No training data matched condition={condition} eq={equalization}; skipping plot")
+        log(f"No training data matched condition={condition} eq={equalization} dataset={dataset}; skipping plot")
         return
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     axes_flat = axes.flatten()
 
+    # Φ⁻¹(0.9) — z-score for the 90th percentile of a standard normal.
+    # Using P90 of the fitted normal (μ + z·σ) as the per-method summary
+    # keeps this plot consistent with how dispersion is reported elsewhere
+    # in the user's work, and captures "achievable performance under this
+    # method's distribution" rather than central tendency.  With small n
+    # per method (typically 3–5 runs), σ is noisy and so is the P90, but
+    # that is a property inherent to the sample size, not the choice of
+    # summary.  Individual runs are still drawn as a strip so dispersion
+    # remains visible at a glance.
+    P90_Z = 1.2815515655446004
     for ax, metric in zip(axes_flat, TRAINING_METRICS):
-        xs_means, ys_means, names, xs_points, ys_points = [], [], [], [], []
+        xs_centers, ys_centers, names, xs_points, ys_points = [], [], [], [], []
         for m in method_rows:
             info = metrics_by_method.get(m["name"])
             if info is None or metric not in info["metrics"]:
@@ -1025,9 +1823,10 @@ def _plot_training_vs_latent(
             if np.isnan(lz):
                 continue
             mstats = info["metrics"][metric]
-            xs_means.append(lz)
-            ys_means.append(mstats["mean"])
-            names.append(m["name"])
+            p90 = mstats["mean"] + P90_Z * mstats["std"]
+            xs_centers.append(lz)
+            ys_centers.append(p90)
+            names.append(f"{m['name']} (n={len(mstats['values'])})")
             for v in mstats["values"]:
                 xs_points.append(lz)
                 ys_points.append(v)
@@ -1036,19 +1835,22 @@ def _plot_training_vs_latent(
         if xs_points:
             ax.scatter(xs_points, ys_points, s=18, color="#4c72b0", alpha=0.45,
                        edgecolors="none", zorder=2, label="individual runs")
-        # Per-method mean markers
-        if xs_means:
-            ax.scatter(xs_means, ys_means, s=80, color="#c44e52", marker="D",
-                       edgecolors="black", linewidths=0.5, zorder=4, label="mean per method")
+        # Per-method P90 markers (fitted normal, μ + 1.28·σ)
+        if xs_centers:
+            ax.scatter(xs_centers, ys_centers, s=80, color="#c44e52", marker="D",
+                       edgecolors="black", linewidths=0.5, zorder=4,
+                       label="P90 per method (fitted normal)")
             # Annotate
-            for x, y, n in zip(xs_means, ys_means, names):
+            for x, y, n in zip(xs_centers, ys_centers, names):
                 ax.annotate(n, (x, y), textcoords="offset points",
                             xytext=(5, 4), fontsize=7, alpha=0.85)
-            # Correlation line (Spearman/Pearson-informed trend)
-            if len(xs_means) >= 3:
-                order = np.argsort(xs_means)
-                xs_sorted = np.array(xs_means)[order]
-                ys_sorted = np.array(ys_means)[order]
+            # Correlation line + Pearson/Spearman on the per-method P90
+            # (one point per method — replicates at the same latent_z would
+            # artificially inflate n and inject replicate noise into r/ρ).
+            if len(xs_centers) >= 3:
+                order = np.argsort(xs_centers)
+                xs_sorted = np.array(xs_centers)[order]
+                ys_sorted = np.array(ys_centers)[order]
                 coeffs = np.polyfit(xs_sorted, ys_sorted, 1)
                 xfit = np.linspace(xs_sorted.min(), xs_sorted.max(), 50)
                 ax.plot(xfit, np.polyval(coeffs, xfit), "--", color="gray",
@@ -1056,8 +1858,8 @@ def _plot_training_vs_latent(
                 # Pearson r (linear) + Spearman ρ (rank-monotonic).
                 # Disagreement between the two signals a non-linear or
                 # outlier-driven relationship.
-                xs_arr = np.asarray(xs_means, dtype=np.float64)
-                ys_arr = np.asarray(ys_means, dtype=np.float64)
+                xs_arr = np.asarray(xs_centers, dtype=np.float64)
+                ys_arr = np.asarray(ys_centers, dtype=np.float64)
                 pearson = float(np.corrcoef(xs_arr, ys_arr)[0, 1])
                 if np.std(xs_arr) > 1e-12 and np.std(ys_arr) > 1e-12:
                     rx = np.argsort(np.argsort(xs_arr)).astype(np.float64)
@@ -1102,16 +1904,10 @@ def main() -> None:
     except Exception:
         pass
 
-    from Dataset.constants import kaist_images_path, llvip_yolo_dataset_path
-
     if args.dataset == "llvip" and args.condition == "day":
         raise ValueError("LLVIP does not provide day split; use --condition night or --condition all")
 
-    default_roots = {
-        "kaist": kaist_images_path,
-        "llvip": llvip_yolo_dataset_path,
-    }
-    dataset_root = args.dataset_root or default_roots[args.dataset]
+    dataset_root = resolve_dataset_root(args.dataset, args.dataset_root)
 
     cache_file = args.cache_file
     if cache_file is None:
@@ -1129,10 +1925,20 @@ def main() -> None:
         fusion_methods = {name: fusion_methods[name] for name in args.methods if name in fusion_methods}
 
     # Calculate max_images from an absolute override first, then fall back to subsample ratio.
-    visible_paths_all = []
-    for visible_path in _iter_visible_images(dataset_root, args.dataset):
-        if args.condition != "all" and _infer_condition(visible_path, args.dataset) != args.condition:
+    # Deduplicate by basename so overlapping splits (e.g. LLVIP train-full vs train-half1/half2,
+    # or any future dataset layout with redundant folders) do not inflate the image count.
+    # Both KAIST (setXX_VNNN_IMMMMM.png) and LLVIP (numeric IDs) guarantee globally unique basenames.
+    visible_paths_all: list[str] = []
+    seen_basenames: set[str] = set()
+    duplicate_count = 0
+    for visible_path in iter_visible_images(dataset_root, args.dataset):
+        if args.condition != "all" and infer_condition(visible_path, args.dataset) != args.condition:
             continue
+        basename = os.path.basename(visible_path)
+        if basename in seen_basenames:
+            duplicate_count += 1
+            continue
+        seen_basenames.add(basename)
         visible_paths_all.append(visible_path)
     if settings.max_images is not None:
         max_images = max(1, min(int(settings.max_images), len(visible_paths_all)))
@@ -1150,7 +1956,8 @@ def main() -> None:
 
     logCoolMessage("Run configuration")
     log(f"Dataset: {args.dataset} | condition: {args.condition} | preset: {args.preset}")
-    log(f"Visible images found: {len(visible_paths_all)} | sampling: {sampling_note} | selected: {len(selected_visible_paths)}")
+    dedup_note = f" | duplicates filtered: {duplicate_count}" if duplicate_count else ""
+    log(f"Visible images found: {len(visible_paths_all)}{dedup_note} | sampling: {sampling_note} | selected: {len(selected_visible_paths)}")
     log(f"Calibration ratio: {settings.calibration_ratio:.2f} | calibration_images: {settings.calibration_images}")
     log(f"Execution mode: {settings.execution_mode} | workers: {settings.workers} | alpha_steps: {settings.alpha_steps} | chunk: {settings.task_chunksize}")
     log(f"CPU count: {os.cpu_count()} | OpenCV threads forced to 1")
@@ -1160,9 +1967,20 @@ def main() -> None:
     # Generate calibrations for each equalization variant
     log(f"Generating calibrations for variants: {settings.equalization_variants}")
     calibrations = {}
+    from .evaluation import proxy_set_signature
+    proxy_set_sig = proxy_set_signature()
     for variant in settings.equalization_variants:
-        calibration_protocol = {
-            "metric_version": CONTRIBUTION_METRIC_VERSION,
+        # Two protocol hashes — one for the *samples* cache (heavy: synthetic
+        # mixture proxy computations) and one for the *fit* cache (light:
+        # PAVA curves + IVW weights derived from the samples).  The samples
+        # store the full proxy schema (all six values per (image, α, type))
+        # so they are invariant to ENABLED_PROXIES; only the fit cache picks
+        # up the active subset via ``active_proxy_set``.  This separation is
+        # what makes "toggle a proxy on/off" cheap: the samples (the heavy
+        # part) are reused, only the fit gets refit.
+        samples_protocol = {
+            "proxy_version": PROXY_VERSION,
+            "calibration_samples_version": CALIBRATION_SAMPLES_VERSION,
             "dataset": args.dataset,
             "dataset_root": str(Path(dataset_root).resolve()),
             "condition": args.condition,
@@ -1174,13 +1992,22 @@ def main() -> None:
             "preset": args.preset,
             "equalization": variant,
         }
-        protocol_raw = "|".join(f"{key}={value}" for key, value in sorted(calibration_protocol.items()))
-        protocol_hash = hashlib.sha256(protocol_raw.encode("utf-8")).hexdigest()[:12]
+        samples_raw = "|".join(f"{k}={v}" for k, v in sorted(samples_protocol.items()))
+        samples_hash = hashlib.sha256(samples_raw.encode("utf-8")).hexdigest()[:12]
 
-        calibration_file = str(cache_dir / f"review_image_contribution_calibration_{args.dataset}_{args.condition}_{variant}_{protocol_hash}.pkl")
+        # Fit-cache protocol = samples protocol + everything fit-specific.
+        fit_protocol = {
+            **samples_protocol,
+            "calibration_fit_version": CALIBRATION_FIT_VERSION,
+            "active_proxy_set": proxy_set_sig,
+        }
+        fit_raw = "|".join(f"{k}={v}" for k, v in sorted(fit_protocol.items()))
+        fit_hash = hashlib.sha256(fit_raw.encode("utf-8")).hexdigest()[:12]
+
+        calibration_file = str(cache_dir / f"review_image_contribution_calibration_{args.dataset}_{args.condition}_{variant}_{fit_hash}.pkl")
         calibration_samples_file = str(
             Path(cache_file).with_name(
-                Path(cache_file).stem + f"_calibration_samples_{variant}_{protocol_hash}.pkl"
+                Path(cache_file).stem + f"_calibration_samples_{variant}_{samples_hash}.pkl"
             )
         )
 
@@ -1258,6 +2085,25 @@ def main() -> None:
         _plot_per_method_proxy_std(calibration, combined_report, report_dir, report_tag, variant)
         # σ-vs-α shape per proxy (shows whether dispersion peaks mid-fusion)
         _plot_calibration_sigma_shape(calibration, report_dir, report_tag, variant)
+        # Analogous σ-vs-latent_z shape but using real fusion methods
+        # (compares method dispersion to the calibration reference)
+        _plot_method_sigma_shape(calibration, combined_report, report_dir, report_tag, variant)
+        # Channel-redundancy vs latent_z diagnostic: flags methods that reach
+        # high latent_z by replicating thermal across channels.
+        _plot_channel_redundancy_vs_latent(combined_report, report_dir, report_tag, variant)
+        # α-dependent IVW diagnostics: weight-shape curve, global vs α-dep
+        # scatter, and numeric diagnostic txt.
+        _plot_ivw_weight_shape(calibration, report_dir, report_tag, variant)
+        _plot_global_vs_alphadep_latent(combined_report, report_dir, report_tag, variant)
+        # Cross-check: raw per-channel regression vs IVW-aggregated latent_z.
+        _plot_reg_vs_latent_crosscheck(combined_report, report_dir, report_tag, variant)
+        _write_ivw_diagnostic_txt(calibration, combined_report, report_dir, report_tag, variant)
+        # CSV dumps so the data behind sigma-shape / ivw-weights plots can be
+        # inspected numerically without re-running.
+        _dump_calibration_sigma_csv(calibration, report_dir, report_tag, variant)
+        _dump_method_sigma_csv(calibration, combined_report, report_dir, report_tag, variant)
+        _dump_ivw_weights_csv(combined_report, report_dir, report_tag, variant)
+        _dump_calibration_json(calibration, report_dir, report_tag, variant)
         # Per calibration type: table, per-proxy, and node overview
         by_type = calibration.get("calibrations_by_type", {"blend": calibration})
         for stype, sub_cal in by_type.items():
@@ -1266,6 +2112,9 @@ def main() -> None:
             _plot_per_proxy_calibration(sub_cal, report_dir, report_tag, type_tag)
             _plot_calibration_nodes_overview(sub_cal, report_dir, report_tag, type_tag)
     _plot_proxy_overview(combined_report, report_dir, report_tag)
+    # Overall method summary + full report snapshot as machine-readable dumps.
+    _dump_methods_overview_csv(combined_report, report_dir, report_tag)
+    _dump_report_json(combined_report, report_dir, report_tag)
 
     # Training-vs-latent correspondence plots.  One per (variant × condition).
     # If args.condition == "all" we emit both day and night when data exists.
@@ -1273,7 +2122,7 @@ def main() -> None:
     for variant, report in variant_reports.items():
         for cond in conditions_to_plot:
             cond_tag = f"{args.dataset}_{cond}"
-            _plot_training_vs_latent(report, report_dir, cond_tag, cond, variant)
+            _plot_training_vs_latent(report, report_dir, cond_tag, cond, variant, args.dataset)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ import pickle
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import numpy as np
 import cv2 as cv
+import pywt
 from tqdm import tqdm
 
 try:
@@ -22,12 +23,18 @@ except Exception:
 
 from utils.file_lock import FileLock
 from utils.log_utils import log
-from .evaluation import compute_contribution_rgb, _align_shapes, CONTRIBUTION_METRIC_VERSION
+from .data_loading import load_rgb_lwir_pair, visible_to_lwir_path
+from .evaluation import (
+    compute_contribution_rgb,
+    _align_shapes,
+    PROXY_VERSION,
+    CALIBRATION_SAMPLES_VERSION,
+)
 
 
 def _calibration_sample_key(visible_path: str, alpha: float, sample_type: str = "blend") -> str:
     """Stable key for one calibration sample point."""
-    lwir_path = visible_path.replace(os.sep + "visible" + os.sep, os.sep + "lwir" + os.sep)
+    lwir_path = visible_to_lwir_path(visible_path)
     try:
         vis_mtime = os.path.getmtime(visible_path)
     except OSError:
@@ -37,7 +44,7 @@ def _calibration_sample_key(visible_path: str, alpha: float, sample_type: str = 
     except OSError:
         lwir_mtime = -1.0
     raw = (
-        f"{CONTRIBUTION_METRIC_VERSION}|{visible_path}|{vis_mtime:.6f}|"
+        f"{PROXY_VERSION}|{CALIBRATION_SAMPLES_VERSION}|{visible_path}|{vis_mtime:.6f}|"
         f"{lwir_path}|{lwir_mtime:.6f}|{float(alpha):.8f}|{sample_type}"
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -72,51 +79,93 @@ def _load_cache(cache_file: str | None) -> dict:
     return {}
 
 
-def _load_rgb_lwir_pair(visible_path: str, equalization: str = "no_equalization") -> tuple[np.ndarray, np.ndarray]:
-    """Load a visible/LWIR pair from a visible image path with optional equalization."""
-    visible_bgr = cv.imread(visible_path, cv.IMREAD_COLOR)
-    lwir_path = visible_path.replace(os.sep + "visible" + os.sep, os.sep + "lwir" + os.sep)
-    lwir = cv.imread(lwir_path, cv.IMREAD_GRAYSCALE)
-
-    if visible_bgr is None or lwir is None:
-        raise FileNotFoundError(f"Could not read visible/LWIR pair for {visible_path}")
-
-    if equalization in ("th_equalization", "rgb_th_equalization", "rgb_equalization"):
-        from Dataset.th_equalization import th_equalization, rgb_equalization
-        if equalization in ("th_equalization", "rgb_th_equalization"):
-            lwir = th_equalization(lwir, "clahe")
-        if equalization in ("rgb_equalization", "rgb_th_equalization"):
-            visible_bgr = rgb_equalization(visible_bgr, "clahe")
-
-    visible = cv.cvtColor(visible_bgr, cv.COLOR_BGR2RGB)
-
-    if visible.ndim == 2:
-        visible = np.repeat(visible[..., None], 3, axis=2)
-    if visible.shape[-1] > 3:
-        visible = visible[..., :3]
-    if lwir.ndim == 3:
-        lwir = lwir[..., 0]
-
-    return visible, lwir
-
-
 _PROXY_CACHE_KEYS = ("cont_vis_reg", "cont_vis_mi", "cont_vis_ssim",
                      "cont_vis_grad_combined", "cont_vis_spectral", "cont_vis_freq")
 
 
 # Channel-concatenation patterns for calibration.  Each entry is
 # (channel_sources, alpha_thermal) where channel_sources is a 3-tuple of
-# "v0","v1","v2" (visible channels) or "t" (thermal replicated).
+# "v0","v1","v2" (visible channels), "t" (thermal replicated), or
+# "m0","m1","m2" (50/50 mix of that visible channel with thermal).
+# Alpha reflects the effective thermal fraction: v=0, m=0.5, t=1 per channel.
 _CHANNEL_CONCAT_PATTERNS: list[tuple[tuple[str, str, str], float]] = [
-    (("v0", "v1", "v2"), 0.0),        # 3/3 visible
-    (("v0", "v1", "t"),  1.0 / 3.0),  # 2/3 visible
+    # Pure substitution (original set)
+    (("v0", "v1", "v2"), 0.0),          # α = 0/3
+    (("v0", "v1", "t"),  1.0 / 3.0),    # α = 1/3
     (("v0", "t",  "v2"), 1.0 / 3.0),
     (("t",  "v1", "v2"), 1.0 / 3.0),
-    (("v0", "t",  "t"),  2.0 / 3.0),  # 1/3 visible
+    (("v0", "t",  "t"),  2.0 / 3.0),    # α = 2/3
     (("t",  "v1", "t"),  2.0 / 3.0),
     (("t",  "t",  "v2"), 2.0 / 3.0),
-    (("t",  "t",  "t"),  1.0),        # 0/3 visible
+    (("t",  "t",  "t"),  1.0),          # α = 3/3
+    # Intra-channel 50/50 mix — fills gaps between substitution points
+    (("v0", "v1", "m2"), 1.0 / 6.0),    # α = 0.5/3  (one channel half-mixed)
+    (("v0", "m1", "v2"), 1.0 / 6.0),
+    (("m0", "v1", "v2"), 1.0 / 6.0),
+    (("v0", "m1", "t"),  1.0 / 2.0),    # α = 1.5/3  (one replaced + one mixed)
+    (("m0", "v1", "t"),  1.0 / 2.0),
+    (("m0", "t",  "v2"), 1.0 / 2.0),
+    (("m0", "t",  "t"),  5.0 / 6.0),    # α = 2.5/3  (two replaced + one mixed)
+    (("t",  "m1", "t"),  5.0 / 6.0),
+    (("t",  "t",  "m2"), 5.0 / 6.0),
 ]
+
+
+def _build_freq_blend_fused(visual: np.ndarray, lwir: np.ndarray,
+                            alpha: float, wavelet: str = "db1") -> np.ndarray:
+    """Frequency-domain blend via nonlinear detail selection.
+
+    Linear blending of DWT coefficients is equivalent to linear pixel blending
+    because DWT is a linear operator (blend is a no-op in the transform
+    domain).  To produce a genuinely different signal we apply a nonlinear
+    rule on the detail subbands:
+
+      - Approximation (cA): linear blend (1-α)·cA_v + α·cA_t  — controls
+        luminance, must remain smooth.
+      - Details (cH, cV, cD): α-weighted max-abs selection, i.e. at each
+        coefficient location we pick the source with larger magnitude, with
+        α biasing the choice toward thermal.  This mirrors the `wavelet_max`
+        fusion method and exercises `freq`/`spectral` proxies differently
+        from the linear blend.
+
+    Result is (H, W, 3) float64 [0, 1].
+    """
+    H, W = visual.shape[:2]
+    a = float(alpha)
+    fused_channels = []
+    for ch in range(3):
+        v_ch = visual[..., ch]
+        cA_v, (cH_v, cV_v, cD_v) = pywt.dwt2(v_ch, wavelet)
+        cA_t, (cH_t, cV_t, cD_t) = pywt.dwt2(lwir, wavelet)
+        cA = (1.0 - a) * cA_v + a * cA_t
+
+        def _detail_select(c_v: np.ndarray, c_t: np.ndarray) -> np.ndarray:
+            # α-biased max-abs: compare |c_t|*α to |c_v|*(1-α) and pick the
+            # coefficient with larger effective magnitude.
+            mask = (np.abs(c_t) * a) > (np.abs(c_v) * (1.0 - a))
+            return np.where(mask, c_t, c_v)
+
+        cH = _detail_select(cH_v, cH_t)
+        cV = _detail_select(cV_v, cV_t)
+        cD = _detail_select(cD_v, cD_t)
+        rec = pywt.idwt2((cA, (cH, cV, cD)), wavelet)
+        fused_channels.append(rec[:H, :W])
+    fused = np.stack(fused_channels, axis=2)
+    return np.clip(fused, 0.0, 1.0)
+
+
+def _build_nonlinear_fused(visual: np.ndarray, lwir: np.ndarray,
+                           alpha: float) -> np.ndarray:
+    """Nonlinear (geometric mean) blend: V^(1-α) · T_rgb^α.
+
+    Both inputs assumed float64 [0, 1].  Epsilon floor avoids 0^x = NaN.
+    Result is (H, W, 3) float64 [0, 1].
+    """
+    eps = 1e-8
+    a = float(alpha)
+    lwir_rgb = np.repeat(lwir[..., None], 3, axis=2)
+    fused = np.power(visual + eps, 1.0 - a) * np.power(lwir_rgb + eps, a)
+    return np.clip(fused, 0.0, 1.0)
 
 
 def _build_channel_concat_fused(visual: np.ndarray, lwir: np.ndarray,
@@ -124,9 +173,18 @@ def _build_channel_concat_fused(visual: np.ndarray, lwir: np.ndarray,
     """Build a 3-channel fused image by concatenating visible/thermal channels.
 
     *visual* is (H,W,3) float64 [0,1], *lwir* is (H,W) float64 [0,1].
-    *pattern* is a 3-tuple of "v0","v1","v2","t".
+    *pattern* is a 3-tuple where each element is one of:
+      "v0","v1","v2" — visible channel
+      "t"            — thermal (replicated)
+      "m0","m1","m2" — 50/50 mix of visible channel with thermal
     """
-    source = {"v0": visual[..., 0], "v1": visual[..., 1], "v2": visual[..., 2], "t": lwir}
+    source = {
+        "v0": visual[..., 0], "v1": visual[..., 1], "v2": visual[..., 2],
+        "t": lwir,
+        "m0": 0.5 * visual[..., 0] + 0.5 * lwir,
+        "m1": 0.5 * visual[..., 1] + 0.5 * lwir,
+        "m2": 0.5 * visual[..., 2] + 0.5 * lwir,
+    }
     return np.stack([source[p] for p in pattern], axis=2)
 
 
@@ -143,7 +201,7 @@ def _calibration_samples_for_visible_path(
 
     Returns (raw_visible_percent, alpha_lwir, per_proxy_values, sample_types).
     """
-    visual, lwir = _load_rgb_lwir_pair(visible_path, equalization=equalization)
+    visual, lwir = load_rgb_lwir_pair(visible_path, equalization=equalization)
     visual = visual.astype(np.float64)
     lwir = lwir.astype(np.float64)
 
@@ -177,6 +235,16 @@ def _calibration_samples_for_visible_path(
         fused = _build_channel_concat_fused(visual, lwir, pattern)
         _record_sample(compute_contribution_rgb(visual, lwir, fused), alpha, "concat")
 
+    # --- Type 3: Frequency-domain (wavelet) blend ---
+    for alpha in alpha_grid_list:
+        fused = _build_freq_blend_fused(visual, lwir, alpha)
+        _record_sample(compute_contribution_rgb(visual, lwir, fused), alpha, "freq_blend")
+
+    # --- Type 4: Nonlinear (geometric mean) blend ---
+    for alpha in alpha_grid_list:
+        fused = _build_nonlinear_fused(visual, lwir, alpha)
+        _record_sample(compute_contribution_rgb(visual, lwir, fused), alpha, "nonlinear")
+
     return raw_visible_percent, alpha_lwir, per_proxy_values, sample_types
 
 
@@ -201,6 +269,53 @@ def _batched(items: list, batch_size: int) -> list[list]:
     return [items[index:index + size] for index in range(0, len(items), size)]
 
 
+def _average_proxy_weights_across_formats(
+    calibrations_by_type: dict[str, dict],
+) -> dict[str, float]:
+    """Average normalised IVW proxy weights across all calibration formats.
+
+    Each format contributes equally (simple mean of normalised weight vectors).
+    This reduces the bias that any single calibration format introduces.
+    Returns a dict {proxy_name: averaged_weight} summing to ~1.0.
+    """
+    weight_vectors: list[dict[str, float]] = []
+    for stype, cal in calibrations_by_type.items():
+        # Key matches `fit_contribution_calibration` writer in evaluation.py
+        # (was previously `per_proxy_calibrations`, which silently fell back to
+        # the uniform 1/n branch and bypassed the soft-IVW averaging).
+        per_proxy_cal = cal.get("proxy_calibrations", {})
+        if not per_proxy_cal:
+            continue
+        raw_weights = {}
+        for pkey, pcal in per_proxy_cal.items():
+            w = pcal.get("ivw_weight", 0.0)
+            if w > 0:
+                raw_weights[pkey] = w
+        if not raw_weights:
+            continue
+        # Normalise within this format
+        wsum = sum(raw_weights.values())
+        weight_vectors.append({k: v / wsum for k, v in raw_weights.items()})
+
+    if not weight_vectors:
+        # Fallback: uniform over known proxies
+        n = len(_PROXY_CACHE_KEYS)
+        return {k: 1.0 / n for k in _PROXY_CACHE_KEYS}
+
+    # Average across formats
+    all_keys = set()
+    for wv in weight_vectors:
+        all_keys.update(wv.keys())
+    averaged = {}
+    for k in all_keys:
+        averaged[k] = sum(wv.get(k, 0.0) for wv in weight_vectors) / len(weight_vectors)
+    # Re-normalise
+    total = sum(averaged.values())
+    if total > 0:
+        averaged = {k: v / total for k, v in averaged.items()}
+    return averaged
+
+
 def build_contribution_calibration_from_dataset(
     visible_paths: list[str],
     alpha_grid: np.ndarray | None = None,
@@ -223,9 +338,10 @@ def build_contribution_calibration_from_dataset(
         sample_paths = sample_paths[:max_images]
 
     # --- Accumulators per sample type ---
-    all_raw: dict[str, list[float]] = {"blend": [], "concat": []}
-    all_alpha: dict[str, list[float]] = {"blend": [], "concat": []}
-    all_proxy: dict[str, dict[str, list[float]]] = {"blend": {}, "concat": {}}
+    _SAMPLE_TYPES = ("blend", "concat", "freq_blend", "nonlinear")
+    all_raw: dict[str, list[float]] = {st: [] for st in _SAMPLE_TYPES}
+    all_alpha: dict[str, list[float]] = {st: [] for st in _SAMPLE_TYPES}
+    all_proxy: dict[str, dict[str, list[float]]] = {st: {} for st in _SAMPLE_TYPES}
     samples_cache = _load_cache(calibration_samples_file) if calibration_samples_file else {}
     if not isinstance(samples_cache, dict):
         samples_cache = {}
@@ -236,6 +352,10 @@ def build_contribution_calibration_from_dataset(
 
     def _collect(raw_vals, alpha_vals, per_proxy, stypes):
         for rv, av, st in zip(raw_vals, alpha_vals, stypes):
+            if st not in all_raw:
+                all_raw[st] = []
+                all_alpha[st] = []
+                all_proxy[st] = {}
             all_raw[st].append(rv)
             all_alpha[st].append(av)
         for pkey in _PROXY_CACHE_KEYS:
@@ -262,7 +382,8 @@ def build_contribution_calibration_from_dataset(
 
     max_workers = max(1, int(workers))
     n_concat = len(_CHANNEL_CONCAT_PATTERNS)
-    points_per_image = len(alpha_grid) + n_concat
+    # blend + freq_blend + nonlinear each produce len(alpha_grid) points; concat has its own count
+    points_per_image = 3 * len(alpha_grid) + n_concat
     log(
         f"Calibration setup: images={len(sample_paths)} alpha_steps={len(alpha_grid)} "
         f"concat_patterns={n_concat} points_per_image={points_per_image} "
@@ -304,9 +425,22 @@ def build_contribution_calibration_from_dataset(
     else:
         executor_cls = ProcessPoolExecutor if execution_mode == "process" else ThreadPoolExecutor
         failed_batches = 0
+
+        def _flush_calibration_cache() -> None:
+            if not calibration_samples_file:
+                return
+            samples_cache["images"] = cached_images
+            samples_cache["version"] = 3
+            _save_cache(calibration_samples_file, samples_cache)
+
         with executor_cls(max_workers=max_workers) as executor:
             spec_batches = _batched(pending_specs, task_chunksize)
-            log(f"Calibration batching: batch_size={max(1, int(task_chunksize))} total_batches={len(spec_batches)}")
+            # 5% of total batches with an absolute cap of 25.  Caps worst-case
+            # lost work to 5% on small/medium runs and to a fixed ≤25 batches
+            # on very large runs (where 5% would be excessive).
+            checkpoint_every_batches = max(1, min(len(spec_batches) // 20, 25))
+            log(f"Calibration batching: batch_size={max(1, int(task_chunksize))} "
+                f"total_batches={len(spec_batches)} checkpoint_every={checkpoint_every_batches}")
             futures = {
                 executor.submit(
                     _calibration_samples_for_path_specs_batch,
@@ -316,55 +450,66 @@ def build_contribution_calibration_from_dataset(
                 for batch in spec_batches
             }
             future_desc = f"Calibration batches ({len(futures)} batches, eq={equalization}, mode={execution_mode})"
-            for future in tqdm(as_completed(futures), total=len(futures), desc=future_desc, leave=False):
-                try:
-                    sample_rows = future.result()
-                except Exception as exc:
-                    failed_batches += 1
-                    if failed_batches <= 5:
-                        log(f"Calibration batch failed ({failed_batches}): {exc}")
-                    continue
-                by_path: dict[str, tuple[list, list, dict, list]] = {}
-                for visible_path, raw_value, alpha, proxy_row, stype in sample_rows:
-                    if visible_path not in by_path:
-                        by_path[visible_path] = ([], [], {k: [] for k in _PROXY_CACHE_KEYS}, [])
-                    rv, av, pp, st = by_path[visible_path]
-                    rv.append(raw_value)
-                    av.append(alpha)
-                    st.append(stype)
-                    for pkey, pval in proxy_row.items():
-                        pp[pkey].append(pval)
-                for visible_path, (rv, av, pp, st) in by_path.items():
-                    _store_image_results(visible_path, rv, av, pp, st)
-                if failed_batches > 0:
-                    log(f"Calibration batch failures: {failed_batches} batches")
+            batches_since_checkpoint = 0
+            try:
+                for future in tqdm(as_completed(futures), total=len(futures), desc=future_desc, leave=False):
+                    try:
+                        sample_rows = future.result()
+                    except Exception as exc:
+                        failed_batches += 1
+                        if failed_batches <= 5:
+                            log(f"Calibration batch failed ({failed_batches}): {exc}")
+                        batches_since_checkpoint += 1
+                        continue
+                    by_path: dict[str, tuple[list, list, dict, list]] = {}
+                    for visible_path, raw_value, alpha, proxy_row, stype in sample_rows:
+                        if visible_path not in by_path:
+                            by_path[visible_path] = ([], [], {k: [] for k in _PROXY_CACHE_KEYS}, [])
+                        rv, av, pp, st = by_path[visible_path]
+                        rv.append(raw_value)
+                        av.append(alpha)
+                        st.append(stype)
+                        for pkey, pval in proxy_row.items():
+                            pp[pkey].append(pval)
+                    for visible_path, (rv, av, pp, st) in by_path.items():
+                        _store_image_results(visible_path, rv, av, pp, st)
+                    batches_since_checkpoint += 1
+                    if batches_since_checkpoint >= checkpoint_every_batches:
+                        _flush_calibration_cache()
+                        batches_since_checkpoint = 0
+            except BaseException:
+                # Guarantees KeyboardInterrupt / OOM / crash still flushes
+                # partial progress before re-raising.
+                log("[warn] calibration interrupted; flushing cache before re-raise")
+                _flush_calibration_cache()
+                raise
+            if failed_batches > 0:
+                log(f"Calibration batch failures: {failed_batches} batches")
 
     if calibration_samples_file:
         samples_cache["images"] = cached_images
-        samples_cache["version"] = 2
+        samples_cache["version"] = 3
         _save_cache(calibration_samples_file, samples_cache)
 
     if reused_points > 0 or new_points > 0:
         log(f"Calibration sample cache: reused={reused_points} new={new_points} total={reused_points + new_points}")
 
-    n_blend = len(all_raw["blend"])
-    n_concat = len(all_raw["concat"])
-    if n_blend == 0 and n_concat == 0:
+    sample_counts = {st: len(all_raw[st]) for st in all_raw}
+    total_samples = sum(sample_counts.values())
+    if total_samples == 0:
         raise RuntimeError("Calibration failed: no valid synthetic samples were generated")
 
     # --- Fit independent calibrations for each type ---------------------------
     calibrations_by_type = {}
-    for stype in ("blend", "concat"):
-        if not all_raw[stype]:
+    for stype, raw_list in all_raw.items():
+        if not raw_list:
             continue
-        # Build per-proxy arrays for per-proxy calibration
         per_proxy = {pk: np.asarray(pv, dtype=np.float64)
                      for pk, pv in all_proxy[stype].items() if pv}
         cal = fit_contribution_calibration(
-            np.asarray(all_raw[stype]), np.asarray(all_alpha[stype]),
+            np.asarray(raw_list), np.asarray(all_alpha[stype]),
             per_proxy_values=per_proxy)
-        # Attach per-proxy raw data for diagnostic plots
-        cal["raw_points_cont_vis"] = np.asarray(all_raw[stype], dtype=np.float64)
+        cal["raw_points_cont_vis"] = np.asarray(raw_list, dtype=np.float64)
         cal["raw_points_alpha"] = np.asarray(all_alpha[stype], dtype=np.float64)
         for pkey, pvals in all_proxy[stype].items():
             cal[f"raw_points_{pkey}"] = np.asarray(pvals, dtype=np.float64)
@@ -373,11 +518,22 @@ def build_contribution_calibration_from_dataset(
         log(f"Calibration [{stype}]: knots={len(knots)} "
             f"raw_range={knots[0] if len(knots) else None}..{knots[-1] if len(knots) else None}")
 
-    # --- Combined calibration: average of both types --------------------------
-    # Use blend as primary; if concat exists, store it alongside for comparison.
-    calibration = calibrations_by_type.get("blend", calibrations_by_type.get("concat", {}))
+    # --- Multi-format proxy weight averaging ----------------------------------
+    # Average IVW weights across all available formats to reduce single-format
+    # bias (e.g. blend favoring reg).  Each format contributes equally.
+    averaged_proxy_weights = _average_proxy_weights_across_formats(calibrations_by_type)
+
+    # --- Combined calibration dict -------------------------------------------
+    # Use blend as primary calibration for scale correction (backward-compat);
+    # best-fit matching per method happens downstream in evaluation.
+    calibration = calibrations_by_type.get("blend",
+                  calibrations_by_type.get("freq_blend",
+                  calibrations_by_type.get("nonlinear",
+                  calibrations_by_type.get("concat", {}))))
     calibration["calibrations_by_type"] = calibrations_by_type
-    calibration["n_blend"] = n_blend
-    calibration["n_concat"] = n_concat
-    log(f"Calibration done: blend_points={n_blend} concat_points={n_concat}")
+    calibration["averaged_proxy_weights"] = averaged_proxy_weights
+    for st, cnt in sample_counts.items():
+        calibration[f"n_{st}"] = cnt
+    log(f"Calibration done: {' '.join(f'{st}={cnt}' for st, cnt in sample_counts.items() if cnt > 0)}")
+    log(f"Averaged proxy weights: { {k: f'{v:.4f}' for k, v in averaged_proxy_weights.items()} }")
     return calibration

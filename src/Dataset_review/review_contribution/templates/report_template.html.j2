@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <style>
+    :root {
+      --bg: #f8f8f8;
+      --fg: #222;
+      --muted: #666;
+      --accent: #2a5db0;
+      --border: #d0d0d0;
+      --card: #ffffff;
+      --ok: #1f7a1f;
+      --warn: #b05a00;
+      --bad: #a01010;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 0; color: var(--fg); background: var(--bg);
+      font-size: 14px; line-height: 1.45;
+    }
+    header {
+      background: var(--accent); color: white;
+      padding: 20px 28px;
+    }
+    header h1 { margin: 0 0 4px 0; font-size: 22px; }
+    header .sub { opacity: 0.9; font-size: 13px; }
+    main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+    .controls {
+      margin-bottom: 16px; font-size: 13px;
+    }
+    .controls a {
+      color: var(--accent); text-decoration: none; margin-right: 12px; cursor: pointer;
+    }
+    .controls a:hover { text-decoration: underline; }
+    details {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; margin-bottom: 14px; padding: 0;
+    }
+    details > summary {
+      cursor: pointer; padding: 14px 18px; font-weight: 600;
+      font-size: 15px; user-select: none;
+    }
+    details[open] > summary { border-bottom: 1px solid var(--border); }
+    details .body { padding: 16px 18px; }
+
+    /* Nested subsections: lighter chrome than top-level ``details``. */
+    details.subsection {
+      background: #fafbfc; border-radius: 4px; margin: 10px 0;
+      border-color: #dce0e6;
+    }
+    details.subsection > summary {
+      padding: 8px 14px; font-size: 13px; font-weight: 600;
+    }
+    details.subsection[open] > summary { border-bottom: 1px solid #dce0e6; }
+    details.subsection .body { padding: 10px 14px; }
+    details.collapsible-table {
+      margin: 8px 0; background: transparent;
+      border: 1px dashed var(--border); border-radius: 3px;
+    }
+    details.collapsible-table > summary {
+      padding: 6px 10px; font-size: 12.5px; font-weight: 500;
+      color: var(--muted);
+    }
+    details.collapsible-table[open] > summary {
+      border-bottom: 1px solid var(--border); color: var(--fg);
+    }
+    details.collapsible-table .body { padding: 8px 10px; }
+    h2 { margin: 4px 0 12px; font-size: 17px; }
+    h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    p.note { color: var(--muted); font-style: italic; margin: 8px 0; }
+
+    /* Tables: horizontal scroll when wider than container. */
+    .table-wrap {
+      overflow-x: auto; margin: 8px 0 14px;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--card);
+    }
+    .table-wrap table { margin: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      font-size: 12.5px; width: 100%;
+    }
+    th, td {
+      border: 1px solid var(--border); padding: 4px 8px; text-align: right;
+      white-space: nowrap;
+    }
+    th {
+      background: #eef0f4; font-weight: 600; text-align: center;
+      position: sticky; top: 0;
+    }
+    td.method, th.method, td:first-child {
+      text-align: left; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+
+    /* Plot grid. Figures flagged ``.wide`` (aspect ratio > 2) span the full row. */
+    .plot-grid {
+      display: grid; gap: 12px; margin: 8px 0;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    }
+    .plot-grid figure {
+      margin: 0; background: #fcfcfc; border: 1px solid var(--border);
+      border-radius: 4px; padding: 8px;
+    }
+    .plot-grid figure.wide { grid-column: 1 / -1; }
+    .plot-grid img {
+      max-width: 100%; height: auto; display: block;
+      cursor: zoom-in; transition: opacity 0.1s;
+    }
+    .plot-grid img:hover { opacity: 0.85; }
+    .plot-grid figcaption { font-size: 12px; color: var(--muted); margin-top: 4px; text-align: center; }
+
+    .tag-row { margin-bottom: 10px; font-size: 12px; color: var(--muted); }
+    .tag-row code { background: #eef0f4; padding: 1px 5px; border-radius: 3px; }
+    .missing { color: var(--warn); font-style: italic; }
+
+    /* Lightbox overlay for zoomed plots. */
+    #lightbox {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      display: none; align-items: center; justify-content: center;
+      z-index: 9999; cursor: zoom-out; padding: 24px;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5); background: white;
+    }
+    #lightbox .cap {
+      position: absolute; bottom: 12px; left: 0; right: 0;
+      text-align: center; color: white; font-size: 13px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    #lightbox .close {
+      position: absolute; top: 14px; right: 18px; color: white;
+      font-size: 26px; line-height: 1; background: transparent;
+      border: 0; cursor: pointer;
+    }
+
+    /* Embedded mode (loaded inside an iframe from the index): suppress the
+       redundant header + tag-row.  Content still gets a little padding so it
+       doesn't hug the iframe edge. */
+    body.embedded > header,
+    body.embedded > main > .tag-row { display: none; }
+    body.embedded > main {
+      padding: 24px 28px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+  </style>
+  <script>
+    // Apply ``body.embedded`` when loaded with ?embed=1 so iframe views inside
+    // the index suppress the duplicate header + tag-row.
+    document.addEventListener("DOMContentLoaded", function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("embed") === "1") {
+          document.body.classList.add("embedded");
+        }
+      } catch (e) { /* ignore */ }
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <h1>{{ title }}</h1>
+    <div class="sub">{{ subtitle }}</div>
+  </header>
+  <main>
+    <div class="controls">
+      <a onclick="document.querySelectorAll('details').forEach(d=>d.open=true)">Expand all</a>
+      <a onclick="document.querySelectorAll('details').forEach(d=>d.open=false)">Collapse all</a>
+    </div>
+
+    <div class="tag-row">
+      Cache tags: <code>proxy={{ version_tags.proxy }}</code>
+      <code>samples={{ version_tags.samples }}</code>
+      <code>fit={{ version_tags.fit }}</code>
+      &nbsp;|&nbsp; Generated: {{ generated_at }}
+      {% if equalization %}&nbsp;|&nbsp; equalization: <code>{{ equalization }}</code>{% endif %}
+      {% if target_reducer %}&nbsp;|&nbsp; target reducer: <code>{{ target_reducer }}</code>{% endif %}
+    </div>
+
+    {% macro render_block(block) %}
+      {% if block.kind == "text" %}
+        <p>{{ block.html | safe }}</p>
+      {% elif block.kind == "heading" %}
+        <h3>{{ block.text }}</h3>
+        {% if block.description %}<p class="note">{{ block.description | safe }}</p>{% endif %}
+      {% elif block.kind == "table" %}
+        {% if block.collapsed %}
+          <details class="collapsible-table">
+            <summary>{{ block.caption or "Table" }}</summary>
+            <div class="body">
+              {% if block.html %}<div class="table-wrap">{{ block.html | safe }}</div>{% else %}<p class="missing">{{ block.missing or "No data." }}</p>{% endif %}
+            </div>
+          </details>
+        {% else %}
+          {% if block.caption %}<h3>{{ block.caption }}</h3>{% endif %}
+          {% if block.html %}<div class="table-wrap">{{ block.html | safe }}</div>{% else %}<p class="missing">{{ block.missing or "No data." }}</p>{% endif %}
+        {% endif %}
+      {% elif block.kind == "plots" %}
+        {% if block.caption %}<h3>{{ block.caption }}</h3>{% endif %}
+        {% if block.plot_items %}
+        <div class="plot-grid">
+          {% for plot in block.plot_items %}
+          <figure>
+            <img src="{{ plot.src }}" alt="{{ plot.caption }}" data-caption="{{ plot.caption }}">
+            <figcaption>{{ plot.caption }}</figcaption>
+          </figure>
+          {% endfor %}
+        </div>
+        {% else %}<p class="missing">{{ block.missing or "No plots produced." }}</p>{% endif %}
+      {% elif block.kind == "subsection" %}
+        <details class="subsection" {% if block.open %}open{% endif %}>
+          <summary>{{ block.title }}{% if block.badge %} — <span style="font-weight:400;color:var(--muted)">{{ block.badge }}</span>{% endif %}</summary>
+          <div class="body">
+            {% if block.description %}<p class="note">{{ block.description | safe }}</p>{% endif %}
+            {% for child in block.blocks %}
+              {{ render_block(child) }}
+            {% endfor %}
+          </div>
+        </details>
+      {% endif %}
+    {% endmacro %}
+
+    {% for section in sections %}
+    <details {% if section.open %}open{% endif %}>
+      <summary>{{ section.title }}{% if section.badge %} — <span style="font-weight:400;color:var(--muted)">{{ section.badge }}</span>{% endif %}</summary>
+      <div class="body">
+        {% if section.description %}<p class="note">{{ section.description | safe }}</p>{% endif %}
+        {% for block in section.blocks %}
+          {{ render_block(block) }}
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </main>
+
+  <div id="lightbox" role="dialog" aria-modal="true" aria-hidden="true">
+    <button class="close" aria-label="Close">&times;</button>
+    <img src="" alt="">
+    <div class="cap"></div>
+  </div>
+
+  <script>
+    // Mark wide-aspect plots to span the full grid row.
+    (function () {
+      const WIDE_RATIO = 2.0;  // width / height above which a plot is "wide"
+      const imgs = document.querySelectorAll(".plot-grid img");
+      imgs.forEach(function (img) {
+        const apply = function () {
+          if (img.naturalHeight > 0 &&
+              img.naturalWidth / img.naturalHeight >= WIDE_RATIO) {
+            img.closest("figure").classList.add("wide");
+          }
+        };
+        if (img.complete) apply();
+        else img.addEventListener("load", apply);
+      });
+    })();
+
+    // Click-to-zoom lightbox.
+    (function () {
+      const lb = document.getElementById("lightbox");
+      const lbImg = lb.querySelector("img");
+      const lbCap = lb.querySelector(".cap");
+      const close = function () {
+        lb.classList.remove("open");
+        lb.setAttribute("aria-hidden", "true");
+      };
+      document.querySelectorAll(".plot-grid img").forEach(function (img) {
+        img.addEventListener("click", function () {
+          lbImg.src = img.src;
+          lbImg.alt = img.alt;
+          lbCap.textContent = img.getAttribute("data-caption") || img.alt || "";
+          lb.classList.add("open");
+          lb.setAttribute("aria-hidden", "false");
+        });
+      });
+      lb.addEventListener("click", close);
+      lb.querySelector(".close").addEventListener("click", function (e) {
+        e.stopPropagation(); close();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") close();
+      });
+    })();
+  </script>
+</body>
+</html>

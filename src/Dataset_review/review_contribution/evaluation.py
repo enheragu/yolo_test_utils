@@ -59,13 +59,114 @@ from skimage.metrics import structural_similarity as skimage_ssim
 
 
 # Bump when contribution logic changes so caches can be invalidated safely.
-CONTRIBUTION_METRIC_VERSION = "v12_permutation_mean"
+# --- Cache versioning ------------------------------------------------------
+# Three independent version tags control three independent caches.  Bump the
+# narrowest one that applies to avoid unnecessary recomputation.
+#
+#   PROXY_VERSION
+#     Governs the evaluation cache (~23MB: proxies raw per method/image).
+#     Bump when: `compute_contribution_rgb`, any proxy formula (reg/mi/ssim/
+#     grad/spectral/freq), or the shape of per-image proxy output changes.
+#     Bumping this also invalidates everything downstream (samples, fit).
+#
+#   CALIBRATION_SAMPLES_VERSION
+#     Governs the calibration-samples cache (synthetic mixture proxies).
+#     Bump when: synthetic generators (`_build_freq_blend_fused`,
+#     `_build_nonlinear_fused`, `_build_channel_concat_fused`,
+#     `_CHANNEL_CONCAT_PATTERNS`) change.  Does NOT invalidate evaluation.
+#
+#   CALIBRATION_FIT_VERSION
+#     Governs the calibration-object cache (PAVA curves + IVW weights).
+#     Bump when: `fit_contribution_calibration`, `_cap_proxy_weights`,
+#     `MAX_PROXY_WEIGHT`, `_average_proxy_weights_across_formats`, or
+#     `_select_best_fit_calibration` change.  Does NOT invalidate samples
+#     or evaluation.
+PROXY_VERSION = "v18_cr_reliability_weighted"
+CALIBRATION_SAMPLES_VERSION = "s2_freq_maxabs"
+CALIBRATION_FIT_VERSION = "f2_multi_format_avg_fix"
 
-# Proxy keys used for per-proxy calibration (must match keys in compute_contribution_rgb output)
+# Full set of proxy keys that ``compute_contribution_rgb`` emits.  This is the
+# *cache schema* — every per-image cache stores all six values regardless of
+# which subset is currently enabled for aggregation.  Disabling a proxy via
+# ``settings.ENABLED_PROXIES`` only changes calibration / aggregation, not
+# the per-image cache (so re-enabling it later doesn't require recomputing).
 _CALIBRATION_PROXY_KEYS = (
     "cont_vis_reg", "cont_vis_mi", "cont_vis_ssim",
     "cont_vis_grad_combined", "cont_vis_spectral", "cont_vis_freq",
 )
+
+
+def _active_proxy_keys() -> tuple[str, ...]:
+    """Subset of ``_CALIBRATION_PROXY_KEYS`` enabled for calibration/aggregation.
+
+    Reads from :data:`settings.ENABLED_PROXIES` at *call time*, so a single
+    process can pick up changes when settings.py is re-imported (e.g. tests).
+    Order follows ``_CALIBRATION_PROXY_KEYS`` for reproducibility.  Unknown
+    keys in ``ENABLED_PROXIES`` are silently dropped — the cache schema is
+    authoritative.
+    """
+    from .settings import ENABLED_PROXIES
+    enabled = set(ENABLED_PROXIES)
+    return tuple(k for k in _CALIBRATION_PROXY_KEYS if k in enabled)
+
+
+def proxy_set_signature() -> str:
+    """Stable short hash of the active proxy set for cache keying.
+
+    Hashing the active subset rather than the full schema means flipping a
+    proxy on/off auto-invalidates the calibration cache without manual
+    ``CALIBRATION_FIT_VERSION`` bumps.  6 hex chars is plenty for a 6-element
+    universe (collision-free in practice).
+    """
+    import hashlib
+    payload = ",".join(_active_proxy_keys()).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:6]
+
+# Maximum normalized weight any single proxy can hold in IVW combination.
+# Prevents a low-σ proxy (e.g. cont_vis_reg) from monopolising the aggregate
+# and masking informative signals from the remaining proxies.
+# With 6 proxies, equal weight = 16.7%; cap at 0.25 allows ≈1.5× advantage.
+MAX_PROXY_WEIGHT = 0.25
+
+# Channel-redundancy uses multiple components combined by per-image reliability
+# (same philosophy as IVW for contribution proxies, but without synthetic-alpha
+# calibration because no monotonic ground-truth target exists for redundancy).
+_CR_COMPONENT_PRIORS = {
+    "pearson_global": 0.45,
+    "spearman_global": 0.20,
+    "pearson_tiles": 0.20,
+    "effective_rank_redundancy": 0.15,
+}
+_SPEARMAN_MAX_SAMPLES = 25_000
+
+
+def _cap_proxy_weights(weights: np.ndarray, cap: float = MAX_PROXY_WEIGHT) -> np.ndarray:
+    """Clip normalized proxy weights so no single proxy exceeds *cap*.
+
+    Excess weight is redistributed proportionally among uncapped proxies.
+    Iterates until no proxy exceeds the cap (handles cascading overflow when
+    redistribution pushes another proxy past the cap).
+    """
+    w = np.asarray(weights, dtype=np.float64).copy()
+    s = w.sum()
+    if s <= 0:
+        return np.ones_like(w) / len(w)
+    w /= s
+    for _ in range(len(w)):
+        over = w > cap
+        if not over.any():
+            break
+        excess = (w[over] - cap).sum()
+        w[over] = cap
+        under = ~over
+        under_sum = w[under].sum()
+        if under_sum > 0:
+            w[under] += w[under] / under_sum * excess
+        else:
+            break
+    # Final normalization for numerical safety.
+    s = w.sum()
+    return w / s if s > 0 else np.ones_like(w) / len(w)
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +278,179 @@ def _safe_spearman(a: np.ndarray, b: np.ndarray) -> float:
     if not np.isfinite(corr):
         return 0.0
     return corr
+
+
+def _safe_spearman_sampled(a: np.ndarray, b: np.ndarray,
+                           max_samples: int = _SPEARMAN_MAX_SAMPLES) -> float:
+    """Sampled Spearman rank correlation for large vectors.
+
+    Keeps compute bounded for high-resolution images while preserving robust
+    monotonic-correlation diagnostics.
+    """
+    a_flat = np.asarray(a, dtype=np.float64).ravel()
+    b_flat = np.asarray(b, dtype=np.float64).ravel()
+    if a_flat.size == 0:
+        return 0.0
+    if a_flat.size > max_samples:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(a_flat.size, size=max_samples, replace=False)
+        a_flat = a_flat[idx]
+        b_flat = b_flat[idx]
+    return _safe_spearman(a_flat, b_flat)
+
+
+def _normalise_positive_weights(weights: dict[str, float]) -> dict[str, float]:
+    """Normalize non-negative weights; fallback to uniform if sum is zero."""
+    keys = list(weights.keys())
+    vals = np.array([max(0.0, float(weights[k])) for k in keys], dtype=np.float64)
+    s = float(np.sum(vals))
+    if s <= 1e-12:
+        vals = np.ones_like(vals) / float(len(vals))
+    else:
+        vals = vals / s
+    return {k: float(v) for k, v in zip(keys, vals)}
+
+
+def _effective_rank_redundancy(img: np.ndarray) -> float:
+    """Map channel covariance effective rank to a redundancy score in [0, 1].
+
+    For a 3-channel image, rank_eff ~= 1 implies duplicated channels
+    (high redundancy), while rank_eff ~= 3 implies more independent channels.
+    """
+    arr = np.asarray(img)
+    if arr.ndim != 3 or arr.shape[2] != 3:
+        return 0.0
+
+    X = arr.reshape(-1, 3).astype(np.float64)
+    X -= np.mean(X, axis=0, keepdims=True)
+    cov = np.cov(X, rowvar=False)
+    evals = np.linalg.eigvalsh(cov)
+    evals = np.clip(evals, 0.0, None)
+    tr = float(np.sum(evals))
+    if tr <= 1e-12:
+        return 1.0
+    p = evals / tr
+    p = p[p > 1e-12]
+    if p.size == 0:
+        return 1.0
+    entropy = -float(np.sum(p * np.log(p)))
+    r_eff = float(np.exp(entropy))
+    # r_eff in [1, 3] -> redundancy in [1, 0]
+    red = (3.0 - r_eff) / 2.0
+    return float(np.clip(red, 0.0, 1.0))
+
+
+def _channel_redundancy_components(img: np.ndarray, tile_grid: int = 4) -> dict[str, float]:
+    """Compute channel-redundancy components and reliability-weighted score.
+
+    Components:
+      - pearson_global: mean |Pearson| across channel pairs (legacy v1)
+      - spearman_global: mean |Spearman| across channel pairs
+      - pearson_tiles: robust spatial median of local mean |Pearson|
+            - effective_rank_redundancy: covariance effective-rank mapping
+
+        Combination:
+            effective_weight_k ∝ prior_k * reliability_k
+            channel_redundancy = sum_k effective_weight_k * component_k
+    """
+    arr = np.asarray(img)
+    if arr.ndim != 3 or arr.shape[2] != 3:
+        return {
+            "pearson_global": 0.0,
+            "spearman_global": 0.0,
+            "pearson_tiles": 0.0,
+            "effective_rank_redundancy": 0.0,
+            "channel_redundancy": 0.0,
+            "w_pearson_global": 0.0,
+            "w_spearman_global": 0.0,
+            "w_pearson_tiles": 0.0,
+            "w_effective_rank_redundancy": 0.0,
+        }
+
+    c0 = arr[..., 0].astype(np.float64)
+    c1 = arr[..., 1].astype(np.float64)
+    c2 = arr[..., 2].astype(np.float64)
+    pairs = ((c0, c1), (c1, c2), (c0, c2))
+
+    pearson_pair_vals = [abs(_safe_corrcoef(a, b)) for a, b in pairs]
+    pearson_global = float(np.mean(pearson_pair_vals))
+    spearman_pair_vals = [abs(_safe_spearman_sampled(a, b)) for a, b in pairs]
+    spearman_global = float(np.mean(spearman_pair_vals))
+
+    h, w = c0.shape
+    gh = max(1, tile_grid)
+    gw = max(1, tile_grid)
+    tile_scores = []
+    for yi in range(gh):
+        y0 = int(round(yi * h / gh))
+        y1 = int(round((yi + 1) * h / gh))
+        if y1 <= y0:
+            continue
+        for xi in range(gw):
+            x0 = int(round(xi * w / gw))
+            x1 = int(round((xi + 1) * w / gw))
+            if x1 <= x0:
+                continue
+            vals = []
+            for a, b in pairs:
+                vals.append(abs(_safe_corrcoef(a[y0:y1, x0:x1], b[y0:y1, x0:x1])))
+            tile_scores.append(float(np.mean(vals)))
+    pearson_tiles = float(np.median(tile_scores)) if tile_scores else pearson_global
+
+    eff_rank_red = _effective_rank_redundancy(arr)
+
+    # Reliability terms in [0,1]. Lower dispersion => higher trust.
+    rel_pearson = float(np.clip(1.0 - np.std(pearson_pair_vals) / 0.25, 0.15, 1.0))
+    rel_spearman = float(np.clip(1.0 - np.std(spearman_pair_vals) / 0.25, 0.15, 1.0))
+    if tile_scores:
+        rel_tiles = float(np.clip(1.0 - np.std(tile_scores) / 0.25, 0.15, 1.0))
+    else:
+        rel_tiles = rel_pearson
+    # Effective-rank reliability drops if covariance is near-degenerate.
+    X = arr.reshape(-1, 3).astype(np.float64)
+    X -= np.mean(X, axis=0, keepdims=True)
+    cov = np.cov(X, rowvar=False)
+    evals = np.clip(np.linalg.eigvalsh(cov), 0.0, None)
+    rel_effrank = float(np.clip(np.sum(evals > 1e-10) / 3.0, 0.2, 1.0))
+
+    raw_weights = {
+        "pearson_global": _CR_COMPONENT_PRIORS["pearson_global"] * rel_pearson,
+        "spearman_global": _CR_COMPONENT_PRIORS["spearman_global"] * rel_spearman,
+        "pearson_tiles": _CR_COMPONENT_PRIORS["pearson_tiles"] * rel_tiles,
+        "effective_rank_redundancy": _CR_COMPONENT_PRIORS["effective_rank_redundancy"] * rel_effrank,
+    }
+    norm_weights = _normalise_positive_weights(raw_weights)
+    score = (
+        norm_weights["pearson_global"] * pearson_global
+        + norm_weights["spearman_global"] * spearman_global
+        + norm_weights["pearson_tiles"] * pearson_tiles
+        + norm_weights["effective_rank_redundancy"] * eff_rank_red
+    )
+
+    return {
+        "pearson_global": float(np.clip(pearson_global, 0.0, 1.0)),
+        "spearman_global": float(np.clip(spearman_global, 0.0, 1.0)),
+        "pearson_tiles": float(np.clip(pearson_tiles, 0.0, 1.0)),
+        "effective_rank_redundancy": float(np.clip(eff_rank_red, 0.0, 1.0)),
+        "channel_redundancy": float(np.clip(score, 0.0, 1.0)),
+        "w_pearson_global": norm_weights["pearson_global"],
+        "w_spearman_global": norm_weights["spearman_global"],
+        "w_pearson_tiles": norm_weights["pearson_tiles"],
+        "w_effective_rank_redundancy": norm_weights["effective_rank_redundancy"],
+    }
+
+
+def _channel_redundancy(img: np.ndarray) -> float:
+    """Mean absolute Pearson correlation between the three channels of a
+    pseudo-RGB image.  Interpretation: 1.0 means channels are duplicates
+    (e.g. R=G=B, as in a fusion that replicates thermal three times); ~0.8
+    is typical for natural RGB (channels structurally distinct but highly
+    correlated); lower values indicate channels that carry more distinct
+    information.  Permutation-invariant, so computed once outside the
+    permutation loop.
+
+    Returns 0.0 for non-3-channel inputs (nothing to correlate)."""
+    return _channel_redundancy_components(img)["channel_redundancy"]
 
 
 def _gradient_maps(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -694,7 +968,10 @@ def fit_contribution_calibration(
         proxy_calibrations = {}
         unique_alphas = np.unique(alpha_lwir)
 
-        for proxy_key in _CALIBRATION_PROXY_KEYS:
+        # Only fit curves for proxies currently enabled by settings.  The
+        # disabled ones still exist in `per_proxy_values` (cache schema is
+        # full) but we skip them so they don't enter the IVW averaging.
+        for proxy_key in _active_proxy_keys():
             pvals = per_proxy_values.get(proxy_key)
             if pvals is None:
                 continue
@@ -720,9 +997,9 @@ def fit_contribution_calibration(
                     group_stds.append(float(np.std(calibrated[mask])))
                     group_alphas_list.append(float(alpha))
             mean_std = float(np.mean(group_stds)) if group_stds else 0.0
-            # Variance floor avoids exploding weight on degenerate zero-variance
+            # Std floor avoids exploding weight on degenerate zero-variance
             # proxies (e.g. constant output) and caps the maximum weight ratio.
-            variance = max(mean_std ** 2, 1e-4)
+            std_floored = max(mean_std, 1e-2)
 
             proxy_calibrations[proxy_key] = {
                 "raw_knots": p_raw_knots,
@@ -730,8 +1007,8 @@ def fit_contribution_calibration(
                 "group_raw": p_group_raw,
                 "group_visible": p_group_vis,
                 "calibrated_mean_std": mean_std,
-                "variance": variance,
-                "ivw_weight": 1.0 / variance,  # unnormalised; consumer normalises
+                "std_floored": std_floored,
+                "ivw_weight": 1.0 / std_floored,  # soft IVW (1/σ); consumer normalises + caps
                 "group_alphas_std": np.asarray(group_alphas_list, dtype=np.float64),
                 "group_std_per_alpha": np.asarray(group_stds, dtype=np.float64),
             }
@@ -760,6 +1037,80 @@ def _apply_single_calibration(
     ), 0.0, 1.0)
 
 
+def _select_best_fit_calibration(
+    calibration: dict,
+    proxy_values: dict[str, float] | None = None,
+) -> tuple[dict, str]:
+    """Select the calibration format that produces lowest inter-proxy disagreement.
+
+    For each available calibration type, calibrate all proxies independently
+    and measure the **weighted** std of the resulting visible fractions, using
+    the same multi-format averaged proxy weights the aggregator will use.  The
+    type with the smallest weighted std (most agreement under the actual
+    aggregator) is the best fit for this method.  Coherent with the soft-IVW
+    aggregator in `apply_contribution_calibration` — both use the same notion
+    of dispersion.
+
+    Returns (active_cal_dict, selected_type_name).
+    Falls back to blend when proxy_values is missing or only one type exists.
+    """
+    by_type = calibration.get("calibrations_by_type")
+    if not by_type:
+        return calibration, "blend"
+
+    # If no proxy values or only one format, use blend as default
+    if not proxy_values or len(by_type) <= 1:
+        for preferred in ("blend", "freq_blend", "nonlinear", "concat"):
+            if preferred in by_type:
+                return by_type[preferred], preferred
+        return calibration, "unknown"
+
+    averaged_weights = calibration.get("averaged_proxy_weights") or {}
+
+    best_type = None
+    best_std = float("inf")
+    best_cal = None
+
+    for stype, cal in by_type.items():
+        proxy_cals = cal.get("proxy_calibrations")
+        if not proxy_cals:
+            continue
+        keys, fracs, weights = [], [], []
+        for pk, pcal in proxy_cals.items():
+            pval = proxy_values.get(pk)
+            if pval is None:
+                continue
+            pval_arr = np.asarray(pval, dtype=np.float64)
+            keys.append(pk)
+            fracs.append(float(_apply_single_calibration(pval_arr, pcal)))
+            weights.append(float(averaged_weights.get(
+                pk, pcal.get("ivw_weight_normalized",
+                              pcal.get("ivw_weight", 0.0)))))
+        if len(fracs) < 2:
+            continue
+        fracs_arr = np.asarray(fracs, dtype=np.float64)
+        weights_arr = np.asarray(weights, dtype=np.float64)
+        if weights_arr.sum() <= 0:
+            weights_arr = np.ones_like(weights_arr)
+        weights_arr = _cap_proxy_weights(weights_arr)
+        # Weighted std (same notion of dispersion as the aggregator)
+        mean_w = float(np.dot(weights_arr, fracs_arr))
+        var_w = float(np.dot(weights_arr, (fracs_arr - mean_w) ** 2))
+        contrib_std = float(np.sqrt(max(var_w, 0.0)))
+        if contrib_std < best_std:
+            best_std = contrib_std
+            best_type = stype
+            best_cal = cal
+
+    if best_cal is None:
+        for preferred in ("blend", "freq_blend", "nonlinear", "concat"):
+            if preferred in by_type:
+                return by_type[preferred], preferred
+        return calibration, "unknown"
+
+    return best_cal, best_type
+
+
 def apply_contribution_calibration(
     raw_visible_percent: float | np.ndarray,
     calibration: dict,
@@ -782,16 +1133,13 @@ def apply_contribution_calibration(
     By default the returned value is the LWIR fraction in [0, 1]:
     0 = visible-only, 1 = LWIR-only.
     """
-    # --- Resolve which calibration dict to use (blend preferred) -------------
-    by_type = calibration.get("calibrations_by_type")
-    active_cal = by_type["blend"] if (by_type and "blend" in by_type) else calibration
+    # --- Resolve which calibration format to use (best-fit for this method) --
+    active_cal, _selected_type = _select_best_fit_calibration(calibration, proxy_values)
+
+    # --- Multi-format averaged proxy weights (preferred over single-format) --
+    averaged_weights = calibration.get("averaged_proxy_weights")
 
     # --- Per-proxy calibration (preferred path) ------------------------------
-    # Each proxy is calibrated through its own curve and combined by
-    # Inverse-Variance Weighting (IVW): proxies that were more consistent
-    # during calibration (lower intra-group dispersion after their own curve)
-    # contribute more to the final latent_z.  This gives a principled way to
-    # down-weight noisy proxies without discarding them.
     proxy_cals = active_cal.get("proxy_calibrations")
     if proxy_values and proxy_cals:
         fractions = []
@@ -802,13 +1150,17 @@ def apply_contribution_calibration(
                 continue
             pval_arr = np.asarray(pval, dtype=np.float64)
             fractions.append(_apply_single_calibration(pval_arr, p_cal))
-            weights.append(p_cal.get("ivw_weight_normalized",
-                                      p_cal.get("ivw_weight", 1.0)))
+            # Use multi-format averaged weight if available, else single-format
+            if averaged_weights and proxy_key in averaged_weights:
+                weights.append(averaged_weights[proxy_key])
+            else:
+                weights.append(p_cal.get("ivw_weight_normalized",
+                                          p_cal.get("ivw_weight", 1.0)))
         if fractions:
             fractions_arr = np.asarray(fractions, dtype=np.float64)
             weights_arr = np.asarray(weights, dtype=np.float64)
             if weights_arr.sum() > 0:
-                weights_arr = weights_arr / weights_arr.sum()
+                weights_arr = _cap_proxy_weights(weights_arr)
                 visible_fraction = np.tensordot(weights_arr, fractions_arr, axes=1)
             else:
                 visible_fraction = np.mean(fractions_arr, axis=0)
@@ -825,6 +1177,163 @@ def apply_contribution_calibration(
     return 1.0 - visible_fraction
 
 
+def _interp_proxy_sigma(alpha_hat: float, p_cal: dict) -> float:
+    """Interpolate a proxy's σ at the current α̂ estimate.
+
+    Uses the calibration-time per-α-group σ curve (`group_alphas_std` /
+    `group_std_per_alpha`) with linear interpolation and flat extrapolation
+    beyond the calibrated α range.  Falls back to the global mean σ
+    (`calibrated_mean_std`) when the per-α curve is unavailable.
+    """
+    alpha_grid = p_cal.get("group_alphas_std")
+    sigma_grid = p_cal.get("group_std_per_alpha")
+    fallback = float(p_cal.get("calibrated_mean_std", 1.0))
+    if alpha_grid is None or sigma_grid is None:
+        return max(fallback, 1e-8)
+    alpha_grid = np.asarray(alpha_grid, dtype=np.float64).ravel()
+    sigma_grid = np.asarray(sigma_grid, dtype=np.float64).ravel()
+    if alpha_grid.size == 0 or sigma_grid.size == 0 or alpha_grid.size != sigma_grid.size:
+        return max(fallback, 1e-8)
+    # np.interp requires monotonically increasing x — sort if needed
+    order = np.argsort(alpha_grid)
+    alpha_sorted = alpha_grid[order]
+    sigma_sorted = sigma_grid[order]
+    sigma_val = float(np.interp(np.clip(alpha_hat, 0.0, 1.0),
+                                 alpha_sorted, sigma_sorted,
+                                 left=sigma_sorted[0], right=sigma_sorted[-1]))
+    return max(sigma_val, 1e-8)
+
+
+def apply_contribution_calibration_alpha_dep(
+    calibration: dict,
+    proxy_values: dict[str, float],
+    max_iter: int = 4,
+    tol: float = 1e-3,
+) -> dict:
+    """α-dependent Inverse-Variance Weighting of per-proxy calibrated fractions.
+
+    Unlike `apply_contribution_calibration` which uses a single global σ per
+    proxy (mean over α-groups), this routine iterates:
+
+      1. Start from the global-IVW estimate of α̂ (LWIR fraction).
+      2. For each proxy, look up σ_p(α̂) via the calibration's per-α σ curve.
+      3. Recompute weights w_p = 1 / σ_p(α̂) (soft IVW, then cap+normalise).
+      4. Combine the per-proxy calibrated visible fractions → new α̂.
+      5. Repeat until |Δα̂| < tol or `max_iter` reached.
+
+    Returns a dict with the final α̂ (LWIR fraction), iteration trace, final
+    weights, and diagnostic bookkeeping.  Falls back to the global result
+    when per-proxy σ curves are missing.
+
+    **TODO (debug once we have results)**: verify convergence is stable and
+    `max_iter=4, tol=1e-3` is adequate across the method population; tighten
+    tolerance or raise max_iter if empirical `ivw_iters` distribution hits
+    the ceiling too often.
+    """
+    # Best-fit calibration format for this method's proxy values
+    active_cal, selected_type = _select_best_fit_calibration(calibration, proxy_values)
+    proxy_cals = active_cal.get("proxy_calibrations")
+    averaged_weights = calibration.get("averaged_proxy_weights")
+
+    # Global (non α-dep) fallback: reuse existing routine.
+    def _global_result():
+        vf_global = float(apply_contribution_calibration(
+            50.0, calibration, proxy_values=proxy_values, return_visible=True))
+        alpha_global = 1.0 - vf_global
+        weights_global_dict = {}
+        if proxy_cals:
+            for pk, pc in proxy_cals.items():
+                weights_global_dict[pk] = float(
+                    pc.get("ivw_weight_normalized", pc.get("ivw_weight", 0.0)))
+        return {
+            "alpha_hat": alpha_global,
+            "visible_fraction": vf_global,
+            "iters": 0,
+            "alpha_trace": [alpha_global],
+            "weights_effective": weights_global_dict,
+            "weights_global": dict(weights_global_dict),
+            "converged": True,
+            "fallback": True,
+        }
+
+    if not proxy_cals or not proxy_values:
+        return _global_result()
+
+    # Pre-compute per-proxy calibrated visible fractions — these don't depend
+    # on α̂, only the *weights* do, so we can factor this out of the loop.
+    proxy_fractions = {}
+    global_weights = {}
+    for proxy_key, p_cal in proxy_cals.items():
+        pval = proxy_values.get(proxy_key)
+        if pval is None:
+            continue
+        pval_arr = np.asarray(pval, dtype=np.float64)
+        proxy_fractions[proxy_key] = float(_apply_single_calibration(pval_arr, p_cal))
+        # Prefer multi-format averaged weight over single-format IVW
+        if averaged_weights and proxy_key in averaged_weights:
+            global_weights[proxy_key] = averaged_weights[proxy_key]
+        else:
+            global_weights[proxy_key] = float(
+                p_cal.get("ivw_weight_normalized", p_cal.get("ivw_weight", 0.0)))
+
+    if not proxy_fractions:
+        return _global_result()
+
+    # Seed α̂ with the global-IVW result so we start close to the solution.
+    keys = list(proxy_fractions.keys())
+    fracs = np.array([proxy_fractions[k] for k in keys], dtype=np.float64)
+    gw = np.array([global_weights.get(k, 0.0) for k in keys], dtype=np.float64)
+    if gw.sum() > 0:
+        gw_norm = _cap_proxy_weights(gw)
+        vf = float(np.dot(gw_norm, fracs))
+    else:
+        vf = float(np.mean(fracs))
+    alpha_hat = 1.0 - vf
+    alpha_trace = [alpha_hat]
+
+    effective_weights = dict(zip(keys, gw_norm if gw.sum() > 0 else np.ones(len(keys)) / len(keys)))
+    converged = False
+    iters_done = 0
+
+    for it in range(max_iter):
+        # Refresh σ_p at current α̂ → recompute weights.
+        sigmas = np.array(
+            [_interp_proxy_sigma(alpha_hat, proxy_cals[k]) for k in keys],
+            dtype=np.float64,
+        )
+        w = 1.0 / sigmas  # soft IVW: 1/σ instead of 1/σ²
+        w_sum = float(w.sum())
+        if w_sum <= 0 or not np.isfinite(w_sum):
+            break
+        w_norm = _cap_proxy_weights(w)
+        vf_new = float(np.dot(w_norm, fracs))
+        alpha_new = 1.0 - vf_new
+
+        effective_weights = dict(zip(keys, w_norm))
+        iters_done = it + 1
+        alpha_trace.append(alpha_new)
+
+        if abs(alpha_new - alpha_hat) < tol:
+            alpha_hat = alpha_new
+            vf = vf_new
+            converged = True
+            break
+        alpha_hat = alpha_new
+        vf = vf_new
+
+    return {
+        "alpha_hat": float(alpha_hat),
+        "visible_fraction": float(vf),
+        "iters": int(iters_done),
+        "alpha_trace": [float(a) for a in alpha_trace],
+        "weights_effective": effective_weights,
+        "weights_global": global_weights,
+        "converged": bool(converged),
+        "fallback": False,
+        "calibration_type": selected_type,
+    }
+
+
 def _with_calibration(raw_result: dict, calibration: dict | None) -> dict:
     """Attach calibrated fields to a raw contribution result."""
     result = dict(raw_result)
@@ -832,12 +1341,20 @@ def _with_calibration(raw_result: dict, calibration: dict | None) -> dict:
         result["latent_z"] = None
         result["latent_z_raw"] = None
         result["latent_z_weighted"] = None
+        result["latent_z_alpha_dep"] = None
         result["cont_vis_calibrated"] = None
         result["cont_lw_calibrated"] = None
+        result["ivw_iters"] = None
+        result["ivw_converged"] = None
+        result["ivw_alpha_trace"] = None
+        result["ivw_weights_effective"] = None
+        result["ivw_weights_global"] = None
         return result
 
-    # Extract per-proxy values for per-proxy calibration
-    proxy_values = {k: result[k] for k in _CALIBRATION_PROXY_KEYS if k in result}
+    # Extract per-proxy values for per-proxy calibration.  Restrict to the
+    # enabled subset so disabled proxies don't influence the apply path
+    # (they're still in `result` because the per-image cache is unfiltered).
+    proxy_values = {k: result[k] for k in _active_proxy_keys() if k in result}
 
     cont_vis_weighted = float(result.get("cont_vis_weighted", result["cont_vis"]))
     cont_vis_raw = float(result.get("cont_vis_raw", result["cont_vis"]))
@@ -847,9 +1364,19 @@ def _with_calibration(raw_result: dict, calibration: dict | None) -> dict:
     latent_z_raw = float(apply_contribution_calibration(
         cont_vis_raw, calibration, proxy_values=proxy_values))
 
+    # α-dependent IVW (iterative), using the same per-proxy calibrated fractions.
+    alpha_dep = apply_contribution_calibration_alpha_dep(calibration, proxy_values)
+
     result["latent_z"] = latent_z_weighted
     result["latent_z_weighted"] = latent_z_weighted
     result["latent_z_raw"] = latent_z_raw
+    result["latent_z_alpha_dep"] = float(alpha_dep["alpha_hat"])
+    result["ivw_iters"] = alpha_dep["iters"]
+    result["ivw_converged"] = alpha_dep["converged"]
+    result["ivw_alpha_trace"] = alpha_dep["alpha_trace"]
+    result["ivw_weights_effective"] = alpha_dep["weights_effective"]
+    result["ivw_weights_global"] = alpha_dep["weights_global"]
+    result["calibration_type"] = alpha_dep.get("calibration_type", "blend")
     result["cont_lw_calibrated"] = 100.0 * latent_z_weighted
     result["cont_vis_calibrated"] = 100.0 - result["cont_lw_calibrated"]
     return result
@@ -964,6 +1491,15 @@ def compute_contribution_rgb(
     freq_source_cache = _build_freq_source_cache(v_gray, lw_gray)
     cv_freq = _contrib_frequency(v_gray, lw_gray, f_gray, source_cache=freq_source_cache)
 
+    # --- Channel redundancy diagnostic (permutation-invariant) -------------
+    # Mean |corr| between the three fused-image channels.  Flags methods that
+    # achieve high latent_z by duplicating thermal across channels (e.g.
+    # combine_lwir_npy does T,T,T → redundancy ≈ 1) vs methods that carry
+    # genuinely distributed thermal content across distinct channels.
+    # Reference: natural RGB images typically sit around 0.8.
+    cr_components = _channel_redundancy_components(f)
+    channel_redundancy = cr_components["channel_redundancy"]
+
     # --- Pre-screen channel permutations ------------------------------------
     all_permutations = _channel_permutations(f)
     selected_permutations = _prescreen_permutations(all_permutations, v)
@@ -1054,8 +1590,14 @@ def compute_contribution_rgb(
     latent_z = None
     latent_z_raw = None
     latent_z_weighted = None
+    latent_z_alpha_dep = None
     cont_vis_calibrated = None
     cont_lw_calibrated = None
+    ivw_iters = None
+    ivw_converged = None
+    ivw_alpha_trace = None
+    ivw_weights_effective = None
+    ivw_weights_global = None
     if calibration is not None:
         proxy_values = {
             "cont_vis_reg": cv_reg,
@@ -1072,6 +1614,15 @@ def compute_contribution_rgb(
         latent_z = latent_z_weighted
         cont_lw_calibrated = 100.0 * latent_z_weighted
         cont_vis_calibrated = 100.0 - cont_lw_calibrated
+
+        alpha_dep = apply_contribution_calibration_alpha_dep(
+            calibration, proxy_values)
+        latent_z_alpha_dep = float(alpha_dep["alpha_hat"])
+        ivw_iters = alpha_dep["iters"]
+        ivw_converged = alpha_dep["converged"]
+        ivw_alpha_trace = alpha_dep["alpha_trace"]
+        ivw_weights_effective = alpha_dep["weights_effective"]
+        ivw_weights_global = alpha_dep["weights_global"]
 
     return {
         # Raw similarity metrics (diagnostic, not used in proxy aggregation)
@@ -1108,8 +1659,30 @@ def compute_contribution_rgb(
         "latent_z":     latent_z,
         "latent_z_raw": latent_z_raw,
         "latent_z_weighted": latent_z_weighted,
+        "latent_z_alpha_dep": latent_z_alpha_dep,
         "cont_vis_calibrated": cont_vis_calibrated,
         "cont_lw_calibrated":  cont_lw_calibrated,
+        # Channel-redundancy diagnostic (0 = fully independent channels,
+        # 1 = channels are duplicates).  Separates thermal-rich fusions that
+        # carry distributed info from those that simply replicate thermal.
+        "channel_redundancy": channel_redundancy,
+        "channel_redundancy_pearson": cr_components["pearson_global"],
+        "channel_redundancy_spearman": cr_components["spearman_global"],
+        "channel_redundancy_tile": cr_components["pearson_tiles"],
+        "channel_redundancy_effrank": cr_components["effective_rank_redundancy"],
+        "channel_redundancy_w_pearson": cr_components["w_pearson_global"],
+        "channel_redundancy_w_spearman": cr_components["w_spearman_global"],
+        "channel_redundancy_w_tile": cr_components["w_pearson_tiles"],
+        "channel_redundancy_w_effrank": cr_components["w_effective_rank_redundancy"],
+        # IVW α-dependent diagnostics: iterative reweighting of proxies using
+        # σ_p(α̂).  Stored as bookkeeping to inspect convergence / weight
+        # redistribution in downstream plots.  Not included in numeric_keys
+        # aggregation beyond `latent_z_alpha_dep` and `ivw_iters`.
+        "ivw_iters": ivw_iters,
+        "ivw_converged": ivw_converged,
+        "ivw_alpha_trace": ivw_alpha_trace,
+        "ivw_weights_effective": ivw_weights_effective,
+        "ivw_weights_global": ivw_weights_global,
     }
 
 
@@ -1131,6 +1704,17 @@ def aggregate_contribution_results(results: list[dict]) -> dict:
         "cont_vis", "cont_lw", "contrib_std",
         "contrib_confidence",
         "latent_z", "latent_z_raw", "latent_z_weighted", "cont_vis_calibrated", "cont_lw_calibrated",
+        "latent_z_alpha_dep",
+        "channel_redundancy",
+        "channel_redundancy_pearson",
+        "channel_redundancy_spearman",
+        "channel_redundancy_tile",
+        "channel_redundancy_effrank",
+        "channel_redundancy_w_pearson",
+        "channel_redundancy_w_spearman",
+        "channel_redundancy_w_tile",
+        "channel_redundancy_w_effrank",
+        "ivw_iters",
     ]
 
     for key in numeric_keys:
@@ -1142,5 +1726,44 @@ def aggregate_contribution_results(results: list[dict]) -> dict:
                 "std": float(np.std(values)),
                 "n": len(values),
             }
+
+    # --- Aggregate per-proxy IVW weights (dict-valued) ---------------------
+    # Record mean effective α-dep weight and mean global weight per proxy so
+    # we can quantify how much the iterative reweighting redistributes mass.
+    for field, out_key in (("ivw_weights_effective", "ivw_weights_effective_mean"),
+                             ("ivw_weights_global", "ivw_weights_global_mean")):
+        per_proxy: dict[str, list[float]] = {}
+        for item in results:
+            wdict = item.get(field)
+            if not isinstance(wdict, dict):
+                continue
+            for pk, wv in wdict.items():
+                if wv is None:
+                    continue
+                per_proxy.setdefault(pk, []).append(float(wv))
+        if per_proxy:
+            summary[out_key] = {
+                pk: {
+                    "mean": float(np.mean(vals)),
+                    "std": float(np.std(vals)),
+                    "n": len(vals),
+                }
+                for pk, vals in per_proxy.items()
+            }
+
+    # Convergence rate of IVW α-dep
+    conv_flags = [item.get("ivw_converged") for item in results
+                  if item.get("ivw_converged") is not None]
+    if conv_flags:
+        summary["ivw_converged_rate"] = float(np.mean([1.0 if c else 0.0 for c in conv_flags]))
+
+    # Best-fit calibration type: mode (most frequently selected) + distribution
+    cal_types = [item.get("calibration_type") for item in results
+                 if item.get("calibration_type")]
+    if cal_types:
+        from collections import Counter
+        counts = Counter(cal_types)
+        summary["calibration_type_mode"] = counts.most_common(1)[0][0]
+        summary["calibration_type_counts"] = dict(counts)
 
     return summary

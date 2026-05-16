@@ -24,12 +24,18 @@ except Exception:
 
 from utils.file_lock import FileLock
 from utils.log_utils import log, logCoolMessage
+from .data_loading import (
+    iter_visible_images,
+    infer_condition,
+    load_bgr_lwir_pair,
+    visible_to_lwir_path,
+)
 from .evaluation import (
     compute_contribution_rgb,
     aggregate_contribution_results,
     apply_contribution_calibration,
     _with_calibration,
-    CONTRIBUTION_METRIC_VERSION,
+    PROXY_VERSION,
 )
 from .calibration import build_contribution_calibration_from_dataset, _load_cache, _save_cache, _batched
 
@@ -37,67 +43,6 @@ from .calibration import build_contribution_calibration_from_dataset, _load_cach
 # ---------------------------------------------------------------------------
 # Dataset utilities
 # ---------------------------------------------------------------------------
-
-KAIST_DAY_SETS = {"set00", "set01", "set02", "set06", "set07", "set08"}
-KAIST_NIGHT_SETS = {"set03", "set04", "set05", "set09", "set10", "set11"}
-
-
-def _infer_kaist_condition(image_path: str) -> str:
-    """Infer day/night from the KAIST set folder name in the image path."""
-    for part in os.path.normpath(image_path).split(os.sep):
-        if part in KAIST_DAY_SETS:
-            return "day"
-        if part in KAIST_NIGHT_SETS:
-            return "night"
-    return "unknown"
-
-
-def _iter_kaist_visible_images(dataset_root: str):
-    """Yield visible image paths under a KAIST-style dataset tree."""
-    for folder_set in sorted(os.listdir(dataset_root)):
-        folder_path = os.path.join(dataset_root, folder_set)
-        if not os.path.isdir(folder_path):
-            continue
-        for subfolder_set in sorted(os.listdir(folder_path)):
-            visible_folder = os.path.join(folder_path, subfolder_set, "visible", "images")
-            if not os.path.isdir(visible_folder):
-                continue
-            for filename in sorted(os.listdir(visible_folder)):
-                if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-                    yield os.path.join(visible_folder, filename)
-
-
-def _iter_llvip_visible_images(dataset_root: str):
-    """Yield visible image paths under an LLVIP YOLO-style dataset tree."""
-    for split in sorted(os.listdir(dataset_root)):
-        split_path = os.path.join(dataset_root, split)
-        if not os.path.isdir(split_path):
-            continue
-        visible_folder = os.path.join(split_path, "visible", "images")
-        if not os.path.isdir(visible_folder):
-            continue
-        for filename in sorted(os.listdir(visible_folder)):
-            if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-                yield os.path.join(visible_folder, filename)
-
-
-def _iter_visible_images(dataset_root: str, dataset: str):
-    """Dataset-aware visible image iterator."""
-    if dataset == "kaist":
-        yield from _iter_kaist_visible_images(dataset_root)
-    elif dataset == "llvip":
-        yield from _iter_llvip_visible_images(dataset_root)
-    else:
-        raise ValueError(f"Unsupported dataset '{dataset}'")
-
-
-def _infer_condition(image_path: str, dataset: str) -> str:
-    """Infer condition label for a given dataset."""
-    if dataset == "kaist":
-        return _infer_kaist_condition(image_path)
-    if dataset == "llvip":
-        return "night"
-    return "unknown"
 
 
 def _split_calibration_eval(
@@ -147,7 +92,7 @@ def _method_fingerprint(method_name: str, fusion_function) -> str:
 
 def _cache_key(method_name: str, method_fp: str, visible_path: str, equalization: str) -> str:
     """Stable cache key that tracks source image mtimes."""
-    lwir_path = visible_path.replace(os.sep + "visible" + os.sep, os.sep + "lwir" + os.sep)
+    lwir_path = visible_to_lwir_path(visible_path)
     try:
         vis_mtime = os.path.getmtime(visible_path)
     except OSError:
@@ -158,7 +103,7 @@ def _cache_key(method_name: str, method_fp: str, visible_path: str, equalization
         lwir_mtime = -1.0
 
     raw = (
-        f"{CONTRIBUTION_METRIC_VERSION}|{method_name}|{method_fp}|{equalization}|"
+        f"{PROXY_VERSION}|{method_name}|{method_fp}|{equalization}|"
         f"{visible_path}|{vis_mtime:.6f}|{lwir_mtime:.6f}"
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -201,22 +146,6 @@ def _get_default_fusion_methods() -> dict:
         if callable(merge_fn):
             methods[method_name] = merge_fn
     return methods
-
-
-# ---------------------------------------------------------------------------
-# Image loading utilities
-# ---------------------------------------------------------------------------
-
-def _load_bgr_lwir_pair(visible_path: str) -> tuple[np.ndarray, np.ndarray]:
-    """Load a visible/LWIR pair in OpenCV BGR order for fusion functions."""
-    visible = cv.imread(visible_path, cv.IMREAD_COLOR)
-    lwir_path = visible_path.replace(os.sep + "visible" + os.sep, os.sep + "lwir" + os.sep)
-    lwir = cv.imread(lwir_path, cv.IMREAD_GRAYSCALE)
-
-    if visible is None or lwir is None:
-        raise FileNotFoundError(f"Could not read visible/LWIR pair for {visible_path}")
-
-    return visible, lwir
 
 
 def _extract_fused_image(fused_output):
@@ -296,7 +225,7 @@ def _compute_raw_method_results(
     selected_methods: set[str] | None = None,
 ) -> dict[str, dict]:
     """Compute one or more raw contribution results from a single fusion call."""
-    visible_bgr, lwir = _load_bgr_lwir_pair(visible_path)
+    visible_bgr, lwir = load_bgr_lwir_pair(visible_path)
     if equalization in ("th_equalization", "rgb_equalization", "rgb_th_equalization"):
         from Dataset.th_equalization import th_equalization, rgb_equalization
         if equalization in ("th_equalization", "rgb_th_equalization"):
@@ -341,7 +270,7 @@ def _compute_raw_method_results_from_inputs(
             continue
         raw = compute_contribution_rgb(visible_bgr, lwir, prepared_fused, calibration=None)
         raw["visible_path"] = visible_path
-        raw["condition"] = _infer_condition(visible_path, dataset)
+        raw["condition"] = infer_condition(visible_path, dataset)
         raw["source_method"] = method_name
         raw["output_method"] = output_method
         raw["fusion_time_ms"] = float(fusion_time_ms)
@@ -370,7 +299,7 @@ def _compute_raw_results_for_image_with_methods(
     fusion_methods: dict,
 ) -> tuple[dict[str, dict], dict[str, str]]:
     """Compute pending method outputs for one image loading/equalizing inputs once."""
-    visible_bgr, lwir = _load_bgr_lwir_pair(visible_path)
+    visible_bgr, lwir = load_bgr_lwir_pair(visible_path)
     if equalization in ("th_equalization", "rgb_equalization", "rgb_th_equalization"):
         from Dataset.th_equalization import th_equalization, rgb_equalization
         if equalization in ("th_equalization", "rgb_th_equalization"):
@@ -609,8 +538,8 @@ def evaluate_fusion_methods_on_dataset(
     """Evaluate multiple fusion methods and aggregate contribution metrics per method."""
     if visible_paths_override is None:
         visible_paths = []
-        for visible_path in _iter_visible_images(dataset_root, dataset):
-            if condition != "all" and _infer_condition(visible_path, dataset) != condition:
+        for visible_path in iter_visible_images(dataset_root, dataset):
+            if condition != "all" and infer_condition(visible_path, dataset) != condition:
                 continue
             visible_paths.append(visible_path)
     else:
@@ -645,8 +574,9 @@ def evaluate_fusion_methods_on_dataset(
     # Failures are scoped to a single (method, image); they do NOT disqualify
     # the method globally, so other successful images still get cached and used.
     skipped_pairs: dict[str, list[tuple[str, str]]] = {m: [] for m in method_names}
-    # How many batches between cache checkpoints (bounds worst-case lost work).
-    checkpoint_every_batches = 10
+    # How many batches/images between cache checkpoints.  Set dynamically per
+    # execution path to ≈10 checkpoints total (bounds lost work to ~10%
+    # regardless of run size, without inflating I/O on large runs).
     method_results_map: dict[str, list[dict]] = {method_name: [] for method_name in method_names}
     method_initial_cache_hits: dict[str, int] = {method_name: 0 for method_name in method_names}
     pending_by_image: dict[str, list[str]] = {}
@@ -696,6 +626,10 @@ def evaluate_fusion_methods_on_dataset(
             # parallel paths.
             iterator = tqdm(pending_by_image.items(), total=len(pending_by_image),
                             desc=image_tqdm_desc, leave=False)
+            # 5% of images with an absolute cap of 25 (bounds lost work to 5%
+            # on small/medium runs and to ≤25 images on very large runs).
+            checkpoint_every_batches = max(1, min(len(pending_by_image) // 20, 25))
+            log(f"Evaluation checkpointing (sequential): every {checkpoint_every_batches} images")
             processed_since_checkpoint = 0
             try:
                 for visible_path, missing_methods in iterator:
@@ -738,7 +672,10 @@ def evaluate_fusion_methods_on_dataset(
             # _drain_futures_with_checkpoints.
             pending_specs = list(pending_by_image.items())
             spec_batches = _batched(pending_specs, task_chunksize)
-            log(f"Evaluation batching: batch_size={max(1, int(task_chunksize))} total_batches={len(spec_batches)}")
+            # 5% of batches with an absolute cap of 25.
+            checkpoint_every_batches = max(1, min(len(spec_batches) // 20, 25))
+            log(f"Evaluation batching: batch_size={max(1, int(task_chunksize))} "
+                f"total_batches={len(spec_batches)} checkpoint_every={checkpoint_every_batches}")
 
             if execution_mode == "process":
                 executor_cls = ProcessPoolExecutor

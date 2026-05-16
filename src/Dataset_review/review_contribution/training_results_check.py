@@ -19,23 +19,6 @@ DEFAULT_CSV_PATH = Path(__file__).parent / "raw_data" / "raw_training_data.csv"
 # Training metrics we track (matches CSV column names).
 TRAINING_METRICS = ["P", "R", "mAP50", "mAP50-95"]
 
-# Map fusion-method names as produced by the contribution pipeline to the
-# simpler type tags found in the training CSV.  When a method has no entry in
-# the CSV (e.g. vths_v2 not yet trained), it is silently skipped when plotting.
-_METHOD_NAME_TO_CSV_TYPE = {
-    "sobel_weighted": "sobel",
-    "ssim_v2": "ssim",
-    "rgbt_v2": "rgbt",
-    "curvelet_max": "curvelet",
-    "wavelet_max": "wavelet",
-}
-
-
-def _canonical_type(method_name: str) -> str:
-    """Return the CSV ``Type`` tag that corresponds to *method_name*."""
-    return _METHOD_NAME_TO_CSV_TYPE.get(method_name, method_name)
-
-
 def load_training_results(
     csv_path: str | Path = DEFAULT_CSV_PATH,
     target_class: str = "person",
@@ -67,28 +50,32 @@ def get_runs(
     fusion_type: str,
     condition: str,
     equalization: str,
+    dataset: str,
 ) -> pd.DataFrame:
     """Return all runs matching ``(fusion_type, condition, equalization)``."""
-    return df[
+    filtered = df[
         (df["Type"] == fusion_type)
         & (df["Condition"] == condition)
         & (df["Group Key"] == equalization)
+        & (df["Dataset"] == dataset)
     ]
-
+    print(f"Filtering training results for fusion_type={fusion_type}, condition={condition}, equalization={equalization}, dataset={dataset}. Found {len(filtered)} matching runs.")
+    return filtered
 
 def build_method_metrics(
     df: pd.DataFrame,
     method_name: str,
     condition: str,
     equalization: str,
+    dataset: str,
 ) -> dict | None:
     """Summarise training metrics for one fusion method × condition × equalization.
 
     Returns a dict with per-metric ``values`` list (all runs) and ``mean``/``std``,
     or ``None`` if no matching runs were found.
     """
-    csv_type = _canonical_type(method_name)
-    runs = get_runs(df, csv_type, condition, equalization)
+    csv_type = method_name
+    runs = get_runs(df, csv_type, condition, equalization, dataset)
     if runs.empty:
         return None
     info = {"method_name": method_name, "csv_type": csv_type, "n_runs": len(runs),
@@ -111,11 +98,13 @@ def build_dataset_metrics(
     method_names: list[str],
     condition: str,
     equalization: str,
+    dataset: str,
 ) -> dict[str, dict]:
     """Return a mapping ``{method_name -> metrics dict}`` for a given slice."""
     out = {}
+    dataset_tag_csv = "llvip_80_20" if dataset == "llvip" else "kaist_80_20"
     for name in method_names:
-        entry = build_method_metrics(df, name, condition, equalization)
+        entry = build_method_metrics(df, name, condition, equalization, dataset_tag_csv)
         if entry is not None:
             out[name] = entry
     return out

@@ -37,6 +37,34 @@ DEFAULT_SETTINGS = ReviewContributionSettings(
 )
 
 
+# Proxies that contribute to ``cont_vis`` aggregation, calibration fit, IVW
+# weighting and best-fit calibration selection.  Order matters only for
+# reproducibility of the cache key (which hashes this tuple).
+#
+# Full reference list (do not edit unless adding a new proxy upstream):
+#     "cont_vis_reg"            — per-channel NNLS V-share (calibration-portable;
+#                                 blind to cross-channel mixing → underestimates
+#                                 PCA / hsvt families).
+#     "cont_vis_mi"             — per-channel unique-MI V-share.
+#     "cont_vis_ssim"           — multichannel SSIM-based V-share.
+#     "cont_vis_grad_combined"  — gradient magnitude + orientation (1/2 each).
+#     "cont_vis_spectral"       — inter-channel correlation independence.
+#     "cont_vis_freq"           — FFT magnitude-spectrum correlation.
+#
+# To experiment (e.g. drop a low-portability proxy), comment out the relevant
+# line below.  The calibration cache key includes a hash of this tuple, so
+# flipping it auto-invalidates only what depends on the proxy set — no manual
+# CALIBRATION_FIT_VERSION bump required.
+ENABLED_PROXIES: tuple[str, ...] = (
+    "cont_vis_reg",
+    "cont_vis_mi",
+    "cont_vis_ssim",
+    "cont_vis_grad_combined",
+    "cont_vis_spectral",
+    "cont_vis_freq",
+)
+
+
 PRESET_SETTINGS: dict[str, ReviewContributionSettings] = {
     "test": ReviewContributionSettings(
         calibration_images=None,
