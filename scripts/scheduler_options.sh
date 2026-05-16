@@ -145,6 +145,7 @@ function eeha_update_current_cache() {
 function rsync_cache() {
     rsync -avz --delete arvc@arvc-gpu:/home/arvc/.cache/eeha_gui_cache ~/.cache/
 }
+
 # rsync -avz -e "ssh" --exclude='*.jpg' --exclude='*.png' --exclude='*.tar.gz' --exclude='*.pt' --exclude='*/labels/' \
 #   arvc@arvc-gpu:/home/arvc/eeha/kaist-cvpr15/runs/detect/ \
 #   arvc@arvc-gpu:/home/arvc/eeha/yolo_test_utils/runs/detect/ \

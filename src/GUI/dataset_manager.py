@@ -17,17 +17,20 @@ import re
 from datetime import datetime
 
 import threading
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import concurrent.futures
 import traceback
 
 import csv
+from tqdm import tqdm
 
 if __name__ == "__main__":
     import sys
     sys.path.append('./src')
-    
-from argument_parser import yolo_output_path, yolo_output_path_2
+
+# Import paths from centralized config (single source of truth)
+from config import yolo_output_path, yolo_output_path_2
+
 from GUI.compute_plot_data import compute_plot_data
 from utils import parseYaml, dumpYaml
 from utils import log, bcolors
@@ -90,25 +93,53 @@ def getArgsYamlData(dataset):
 # Wrap function to be paralelized
 def background_load_data(dataset_key_tuple):
     key, dataset, update_cache, load_from_cache = dataset_key_tuple
-    filename = f"{cache_path}/{key}{cache_extension}"
     
-    if (os.path.exists(filename) and not update_cache) or load_from_cache:
-        data = parseYaml(filename)
-        # log(f"Loaded data from cache file in {filename}")
+    # When loading from cache, use the actual path found by find_cache_file
+    # instead of reconstructing from key (avoids key↔path mismatches)
+    if load_from_cache and 'path' in dataset and dataset['path'].endswith(cache_extension):
+        filename = dataset['path']
     else:
-        data = getResultsYamlData(dataset)
-        if data is {}:
-            log(f"Detected error in data loader for {key} dataset")
-            return data
-        data.update(getCSVData(dataset))
-        data.update(getArgsYamlData(dataset))
-        log(f"Reloaded data from RAW data for {key} dataset")
+        filename = f"{cache_path}/{key}{cache_extension}".replace('//', '/')
+    
+    cache_exists = os.path.exists(filename)
+    data = None
+    
+    # Use cache if: (exists and not forcing update) OR (load_from_cache mode and exists)
+    if (cache_exists and not update_cache) or (load_from_cache and cache_exists):
+        data = parseYaml(filename)
+        # Handle corrupted or empty cache files
+        if data is None or data == {}:
+            if load_from_cache:
+                log(f"Cache file corrupted or empty for {key}, skipping", bcolors.WARNING)
+                return None
+            else:
+                # Try to regenerate from raw data
+                log(f"Cache file corrupted for {key}, regenerating from raw data", bcolors.WARNING)
+                data = None  # Force regeneration below
+        # log(f"Loaded data from cache file in {filename}")
+    
+    if data is None:
+        if load_from_cache and not cache_exists:
+            # Cache requested but doesn't exist - skip this dataset
+            log(f"Cache file not found for {key}, skipping (use --force_update_cache to regenerate)", bcolors.WARNING)
+            return None
+        elif load_from_cache:
+            # Already logged above as corrupted
+            return None
+        else:
+            data = getResultsYamlData(dataset)
+            if data is None or data == {}:
+                log(f"Detected error in data loader for {key} dataset")
+                return None
+            data.update(getCSVData(dataset))
+            data.update(getArgsYamlData(dataset))
+            log(f"Reloaded data from RAW data for {key} dataset")
 
-    # log(f"\t· Parsed {dataset['key']} data")
-    ## Update cache data from data currently parsed
-    cache_key_path = f'{cache_path}/{"/".join(key.split("/")[:-1])}'
-    os.makedirs(cache_key_path, exist_ok=True)
-    dumpYaml(filename, data)
+    # Update cache data from data currently parsed (skip when only reading cache)
+    if not load_from_cache and data is not None and data != {}:
+        cache_key_path = os.path.dirname(filename)
+        os.makedirs(cache_key_path, exist_ok=True)
+        dumpYaml(filename, data)
     
     return data
 
@@ -169,16 +200,16 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
         for file in files:
             if file_name in file:
                 abs_path = os.path.join(root, file)
-                key_name = abs_path.replace(file_name, "").replace(search_path, "")
+                key_name = abs_path.replace(file_name, "").replace(search_path, "").strip('/')
                 name = key_name.split("/")[-1]
                 title = key_name.split("/")[-1]
                 model = key_name.split("/")[-2]
-                group_path = "" if len(key_name.split("/")) < 3 else key_name.split("/")[:-3]
+                group_path = [] if len(key_name.split("/")) < 3 else key_name.split("/")[:-2]
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
-                key = f"{'/'.join(group_path)}/{model}/{name}".replace('//','/')
+                key = '/'.join([*group_path, model, name])
                 info = title.split('_')
                 ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
                 dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
@@ -188,119 +219,353 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
     dataset_info = {i: dataset_info[i] for i in myKeys}
     return dataset_info
 
-class DataSetHandler:
-    def __init__(self, update_cache = True, search_path_list = [yolo_output_path,yolo_output_path_2]):
-        self.new(update_cache, search_path_list)
 
-    def new(self, update_cache = True, search_path_list = [yolo_output_path], load_from_cache = False):
-        global cache_path
+from enum import Enum
+from queue import PriorityQueue
+from dataclasses import dataclass, field
+from typing import Any
+
+class LoadState(Enum):
+    NOT_LOADED = 0
+    QUEUED = 1  
+    LOADING = 2
+    LOADED = 3
+    FAILED = 4
+
+@dataclass(order=True)
+class LoadJob:
+    priority: int
+    key: str = field(compare=False)
+    info: dict = field(compare=False)
+
+
+class DataSetHandler:
+    """
+    Lazy-loading dataset handler with background cache generation.
+    
+    - Discovery is instant (just finds paths)
+    - Data is loaded on-demand when __getitem__ is called
+    - Background worker generates caches with low priority
+    - Priority queue ensures requested datasets load first
+    """
+    
+    PRIORITY_HIGH = 0    # User requested this dataset
+    PRIORITY_NORMAL = 10 # Background generation
+    
+    def __init__(self, update_cache=True, search_path_list=[yolo_output_path, yolo_output_path_2], 
+                 load_from_cache=False, lazy_load=True):
         self.update_cache = update_cache
         self.load_from_cache = load_from_cache
+        self.lazy_load = lazy_load
         
+        # Discovery phase (fast)
+        t_discovery = time.time()
         if load_from_cache:
             self.dataset_info = find_cache_file()
         else:
-            # Prepares different cache path for Dataset Handler from different location than default
-            # if search_path != yolo_output_path:
-            #     cache_path = cache_path + "_extra"
-            #     log(f"Loading data from different directory: {search_path}")
-            #     log(f"Redirecting cache to {cache_path}")
-
+            global cache_path
             if update_cache and os.path.exists(cache_path):
                 shutil.rmtree(cache_path)
-                log(f"Cleared previous cache files to be recached.")
-            # Ensure cache dir exists if cleared or firs execution in machine or...
+                log(f"[{self.__class__.__name__}] Cleared previous cache files to be recached.")
             os.makedirs(cache_path, exist_ok=True)
-
             self.dataset_info = find_results_file(search_path_list)
-
-        self.parsed_data = {}
+        log(f"[{self.__class__.__name__}]Discovery completed: {len(self.dataset_info)} datasets found in {time.time() - t_discovery:.2f}s.")
+        
+        # State tracking
+        self._cache = {}  # key -> loaded data
+        self._state = {key: LoadState.NOT_LOADED for key in self.dataset_info}
+        self._futures = {}  # key -> Future
+        self._lock = threading.RLock()
+        self._condition = threading.Condition(self._lock)
+        
+        # Work queue with priority
+        self._job_queue = PriorityQueue()
+        
+        # For lazy loading use ThreadPoolExecutor (avoids fork+Qt deadlock)
+        # For blocking mode use ProcessPoolExecutor (better for CPU-intensive parsing)
+        max_workers = min(4, os.cpu_count() or 2)
+        self._executor = None  # Created lazily based on mode
+        self._max_workers = max_workers
+        
+        # Track incomplete datasets
         self.incomplete_dataset = {}
-
-        self.access_data_lock = threading.Lock()
-
-        self._load_data(self.dataset_info)
         
-    def _load_data(self, dataset_dict, update_cache = None):
-        if update_cache:
-            self.update_cache = update_cache
-
-        # Load data in background
-        self.futures_result = {}
-        self.executor_load = ProcessPoolExecutor()
-        self.futures_load = {key: self.executor_load.submit(background_load_data, (key,info,self.update_cache, self.load_from_cache)) for key, info in dataset_dict.items()}
+        # Stats
+        self._loaded_count = 0
+        self._failed_count = 0
         
-        thread = threading.Thread(target=self._monitor_futures_load)
-        thread.daemon = True
-        thread.start()
-
-    def _monitor_futures_load(self):
-            with self.access_data_lock:
-                while self.futures_load:
-                    time.sleep(1)  # Esperar un segundo antes de comprobar de nuevo
-
-                    for key, future in list(self.futures_load.items()):
-                        if future.done():
-                            try:
-                                self.futures_result[key] = future.result()
-                            except Exception as e:
-                                log(f"Exception catched processing future {key}: {e}", bcolors.ERROR)
-                                log(traceback.format_exc(), bcolors.ERROR)
-                            finally:
-                                del self.futures_load[key]
-            self.executor_load.shutdown() # Clear executor
-            os.system('notify-send "GUI - Dataset manager" "Data loading is completed"')
-            os.system('paplay /usr/share/sounds/freedesktop/stereo/complete.oga')
-            log(f"All executors finished loading data.")
+        if lazy_load:
+            # Start background generation (low priority)
+            self._start_background_generation()
+            log(f"Lazy loading enabled: {len(self.dataset_info)} datasets discovered, loading on demand.")
+        else:
+            # Legacy mode: load everything at startup
+            self._load_all_blocking()
+    
+    def _start_background_generation(self):
+        """Queue all datasets for background loading with low priority."""
+        for key, info in self.dataset_info.items():
+            self._job_queue.put(LoadJob(self.PRIORITY_NORMAL, key, info))
+            with self._lock:
+                if self._state[key] == LoadState.NOT_LOADED:
+                    self._state[key] = LoadState.QUEUED
         
-
-    def reloadIncomplete(self):
-        log(f"Reload incomplete datasets: {self.incomplete_dataset.keys()}")
-        if self.incomplete_dataset:
-            self._load_data(self.incomplete_dataset, update_cache=True)
-
+        # Start worker threads
+        n_workers = 2
+        log(f"[{self.__class__.__name__}] Starting {n_workers} background worker threads for {self._job_queue.qsize()} queued datasets.")
+        for i in range(n_workers):
+            thread = threading.Thread(target=self._background_worker, name=f"bg-loader-{i}", daemon=True)
+            thread.start()
+    
+    def _background_worker(self):
+        """Process jobs from the priority queue."""
+        worker_name = threading.current_thread().name
+        worker_count = 0
+        t_worker_start = time.time()
+        
+        while True:
+            try:
+                job = self._job_queue.get(timeout=1.0)
+            except:
+                # Check if there's still work to do
+                with self._lock:
+                    pending = [k for k, s in self._state.items() 
+                              if s in (LoadState.NOT_LOADED, LoadState.QUEUED)]
+                if not pending:
+                    break
+                continue
+            
+            key = job.key
+            info = job.info
+            
+            with self._lock:
+                # Skip if already loaded or being loaded
+                if self._state[key] in (LoadState.LOADED, LoadState.LOADING, LoadState.FAILED):
+                    self._job_queue.task_done()
+                    continue
+                self._state[key] = LoadState.LOADING
+            
+            t_start = time.time()
+            try:
+                # Load directly in worker thread (avoids fork+Qt deadlock)
+                result = background_load_data((key, info, self.update_cache, self.load_from_cache))
+                
+                with self._lock:
+                    if result is not None:
+                        self._cache[key] = result
+                        self._state[key] = LoadState.LOADED
+                        self._loaded_count += 1
+                        worker_count += 1
+                    else:
+                        self._state[key] = LoadState.FAILED
+                        self._failed_count += 1
+                        # Remove from dataset_info
+                        if key in self.dataset_info:
+                            del self.dataset_info[key]
+                    
+                    total_done = self._loaded_count + self._failed_count
+                    total = total_done + sum(1 for s in self._state.values() 
+                                             if s in (LoadState.NOT_LOADED, LoadState.QUEUED, LoadState.LOADING))
+                    
+                    # Notify any waiting threads
+                    self._condition.notify_all()
+                
+                # Log progress every 50 datasets or on slow loads (>2s)
+                elapsed = time.time() - t_start
+                if worker_count % 50 == 0 or elapsed > 2.0:
+                    log(f"[{self.__class__.__name__}] [{worker_name}] Progress: {total_done}/{total} datasets loaded ({self._failed_count} failed) - last: {key} ({elapsed:.1f}s)")
+                    
+            except Exception as e:
+                log(f"[{self.__class__.__name__}] [{worker_name}] Error loading {key}: {e}", bcolors.ERROR)
+                with self._lock:
+                    self._state[key] = LoadState.FAILED
+                    self._failed_count += 1
+                    self._condition.notify_all()
+            
+            finally:
+                self._job_queue.task_done()
+        
+        elapsed_total = time.time() - t_worker_start
+        log(f"[{self.__class__.__name__}] [{worker_name}] Finished: processed {worker_count} datasets in {elapsed_total:.1f}s.")
+    
+    def _load_single(self, key: str) -> Any:
+        """Load a single dataset with high priority. Blocks until loaded."""
+        with self._lock:
+            state = self._state.get(key)
+            
+            # Already loaded
+            if state == LoadState.LOADED:
+                return self._cache[key]
+            
+            # Failed previously
+            if state == LoadState.FAILED:
+                return None
+            
+            # Already loading - wait for it
+            if state == LoadState.LOADING:
+                log(f"[{self.__class__.__name__}] [on-demand] Waiting for {key} (already being loaded by background worker)...")
+                t_wait = time.time()
+                while self._state[key] == LoadState.LOADING:
+                    self._condition.wait()
+                log(f"[{self.__class__.__name__}] [on-demand] {key} ready after {time.time() - t_wait:.2f}s wait.")
+                return self._cache.get(key)
+            
+            # Not yet loading - submit with high priority
+            info = self.dataset_info.get(key)
+            if not info:
+                log(f"[{self.__class__.__name__}] [on-demand] Key not found in dataset_info: {key}", bcolors.WARNING)
+                return None
+            
+            self._state[key] = LoadState.LOADING
+        
+        # Load synchronously (high priority = block and wait)
+        log(f"[{self.__class__.__name__}] [on-demand] Loading {key} synchronously (high priority)...")
+        t_start = time.time()
+        try:
+            result = background_load_data((key, info, self.update_cache, self.load_from_cache))
+            elapsed = time.time() - t_start
+            
+            with self._lock:
+                if result is not None:
+                    self._cache[key] = result
+                    self._state[key] = LoadState.LOADED
+                    self._loaded_count += 1
+                    log(f"[{self.__class__.__name__}] [on-demand] Loaded {key} in {elapsed:.2f}s.")
+                else:
+                    self._state[key] = LoadState.FAILED
+                    self._failed_count += 1
+                    log(f"[{self.__class__.__name__}] [on-demand] Failed to load {key} after {elapsed:.2f}s.", bcolors.WARNING)
+                self._condition.notify_all()
+            
+            return result
+            
+        except Exception as e:
+            log(f"[{self.__class__.__name__}] [on-demand] Error loading {key}: {e}", bcolors.ERROR)
+            with self._lock:
+                self._state[key] = LoadState.FAILED
+                self._failed_count += 1
+                self._condition.notify_all()
+            return None
+    
+    def _load_all_blocking(self):
+        """Legacy mode: load all datasets at startup with progress bar."""
+        total = len(self.dataset_info)
+        log(f"Loading {total} datasets...")
+        
+        # Use ProcessPoolExecutor for blocking mode (better parallelism for CPU-bound parsing)
+        self._executor = ProcessPoolExecutor(max_workers=self._max_workers)
+        
+        with tqdm(total=total, desc="Loading datasets", unit="dataset") as pbar:
+            futures = {}
+            for key, info in self.dataset_info.items():
+                futures[key] = self._executor.submit(
+                    background_load_data,
+                    (key, info, self.update_cache, self.load_from_cache)
+                )
+            
+            for key, future in futures.items():
+                try:
+                    result = future.result()
+                    if result is not None:
+                        self._cache[key] = result
+                        self._state[key] = LoadState.LOADED
+                        self._loaded_count += 1
+                    else:
+                        self._state[key] = LoadState.FAILED
+                        self._failed_count += 1
+                        if key in self.dataset_info:
+                            del self.dataset_info[key]
+                except Exception as e:
+                    log(f"Error loading {key}: {e}", bcolors.ERROR)
+                    self._state[key] = LoadState.FAILED
+                    self._failed_count += 1
+                finally:
+                    pbar.update(1)
+        
+        log(f"[{self.__class__.__name__}] Blocking load completed: {self._loaded_count} datasets loaded, {self._failed_count} failed.")
+        os.system('notify-send "GUI - Dataset manager" "Data loading completed"')
+    
+    def get_load_status(self) -> dict:
+        """Return loading statistics."""
+        with self._lock:
+            counts = {}
+            for state in LoadState:
+                counts[state.name] = sum(1 for s in self._state.values() if s == state)
+            return counts
+    
+    def is_fully_loaded(self) -> bool:
+        """Check if all datasets are loaded."""
+        with self._lock:
+            return all(s in (LoadState.LOADED, LoadState.FAILED) 
+                      for s in self._state.values())
+    
+    def wait_for_all(self, timeout=None):
+        """Wait for all datasets to finish loading."""
+        start = time.time()
+        with self._lock:
+            while not self.is_fully_loaded():
+                remaining = None
+                if timeout:
+                    elapsed = time.time() - start
+                    if elapsed >= timeout:
+                        return False
+                    remaining = timeout - elapsed
+                self._condition.wait(remaining)
+        return True
+    
+    # ===== Public API (compatible with old interface) =====
+    
     def getInfo(self):
         return self.dataset_info
 
     def keys(self):
         return self.dataset_info.keys()
     
-    # Remove dataset from execution as it is giving problems
     def markAsIncomplete(self, key):
-        incomplete_data = self.__delitem__(key)
-        log(f"[{self.__class__.__name__}] Incomplete dataset data {key}. Won't be taken into account. Test data in: {incomplete_data['path'].replace('results.yaml', '')}", bcolors.WARNING)
-        self.incomplete_dataset[key] = incomplete_data
+        """Mark dataset as incomplete (has issues)."""
+        if key in self._cache:
+            self.incomplete_dataset[key] = self.dataset_info.pop(key, None)
+            del self._cache[key]
+            log(f"[{self.__class__.__name__}] Marked {key} as incomplete.", bcolors.WARNING)
 
-    def __delitem__(self, key):
-        if key in self.parsed_data:
-            dataset_info = self.dataset_info.pop(key)
-            eliminate = self.parsed_data.pop(key)
-            return dataset_info
-        else:
-            raise KeyError(f'[{self.__class__.__name__}] Key {key} is not in parsed_data dict.')
-        
+    def reloadIncomplete(self):
+        """Reload datasets marked as incomplete."""
+        for key, info in self.incomplete_dataset.items():
+            self.dataset_info[key] = info
+            self._state[key] = LoadState.NOT_LOADED
+            self._job_queue.put(LoadJob(self.PRIORITY_HIGH, key, info))
+        self.incomplete_dataset.clear()
+    
     def __getitem__(self, key):
+        """Get dataset data. Loads on-demand if not cached."""
         if key in self.incomplete_dataset:
             return None
         
-        if not key in self.parsed_data:
-            with self.access_data_lock:
-                self.parsed_data = self.futures_result
-
-        return self.parsed_data[key]
-
+        with self._lock:
+            if key in self._cache:
+                return self._cache[key]
+        
+        # Load on demand
+        return self._load_single(key)
+    
+    def __contains__(self, key):
+        return key in self.dataset_info
+    
     def __len__(self):
         return len(self.dataset_info)
     
+    def __delitem__(self, key):
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
+            if key in self.dataset_info:
+                info = self.dataset_info.pop(key)
+                return info
+        raise KeyError(f'Key {key} not found.')
+    
     def __del__(self):
-        # Destructor can be called before executed object is created if somth fails :(
-        if hasattr(self, 'executor') and self.executor:
-            # Cancelar todas las futuras que aún no han terminado
-            for future in self.futures.values():
-                future.cancel()
-
-            # Apagar el pool de procesos
-            self.executor.shutdown()
+        if hasattr(self, '_executor') and self._executor:
+            self._executor.shutdown(wait=False)
 
     def get_training_data_summary(self):
         summary = "Training Data Summary:\n\n"

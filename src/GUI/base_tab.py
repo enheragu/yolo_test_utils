@@ -15,7 +15,7 @@ from utils import log, bcolors
 from .Widgets import PlotTabWidget
 
 class BaseClassPlotter(QWidget):
-    def __init__(self, dataset_handler, tab_keys):
+    def __init__(self, dataset_handler, tab_keys, tab_id: str = ""):
         super().__init__()
 
         self.dataset_handler = dataset_handler
@@ -41,7 +41,7 @@ class BaseClassPlotter(QWidget):
         self.cursor = {}
         if tab_keys:
             self.tab_keys = tab_keys
-            self.figure_tab_widget = PlotTabWidget(self.tab_keys)        
+            self.figure_tab_widget = PlotTabWidget(self.tab_keys, tab_id=tab_id)        
             self.layout.addWidget(self.figure_tab_widget,3)
         
         self.plot_background_img = True # Plots image with formula as background of each graph (if any)
@@ -92,7 +92,18 @@ class BaseClassPlotter(QWidget):
             self.edit_xlabels_action.triggered.connect(self.figure_tab_widget.edit_xlabels)
             edit_menu.addAction(self.edit_xlabels_action)
 
+        if hasattr(self, 'csv_tab'):
+            self.configure_columns_action = QAction("Configure export columns", self)
+            self.configure_columns_action.triggered.connect(self.csv_tab.configure_export_columns)
+            edit_menu.addAction(self.configure_columns_action)
+
+        if hasattr(self, 'figure_tab_widget'):
+            self.configure_plots_action = QAction("Configure export plots", self)
+            self.configure_plots_action.triggered.connect(self.figure_tab_widget.configure_export_plots)
+            edit_menu.addAction(self.configure_plots_action)
+
         self.update_checkbox()
+        
 
     def update_checkbox(self):
         raise NotImplementedError(f"This method has to be reimplemented in child {type(self).__name__} class")

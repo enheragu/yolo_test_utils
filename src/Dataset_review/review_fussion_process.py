@@ -259,18 +259,18 @@ if __name__ == '__main__':
                             combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
                             ]
 
-        ## Train day
+        # Train day
         splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path)
-        
-        ## Test day
+
+        # Test day
         # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
-                        #  img_path='/home/arvc/eeha/kaist-cvpr15/images/set06/V004/lwir/I02137.jpg')
-        ## Train night
+        #                  img_path='/home/arvc/eeha/kaist-cvpr15/images/set06/V004/lwir/I02137.jpg')
+        # # Train night
         # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
-        #                  img_path='/home/arvc/eeha/kaist-cvpr15/images/set05/V000/lwir/I00959.jpg')
-        ## Test night
+        #                  img_path='/home/arvc/eeha/kaist-cvpr15/images/set02/V004/lwir/I00451.jpg')
+        # # Test night
         # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
-                        #  img_path='/home/arvc/eeha/kaist-cvpr15/images/set03/V000/lwir/I00947.jpg')
+        #                  img_path='/home/arvc/eeha/kaist-cvpr15/images/set03/V000/lwir/I00947.jpg')
         
         # white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
         # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, store_path=kaist_store_path)

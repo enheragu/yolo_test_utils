@@ -10,6 +10,7 @@ import numpy as np
 import inspect
 
 from utils import log, bcolors
+from GUI.gui_config import should_cache_data
 
 # Extracted from https://github.com/Cartucho/mAP/blob/3605865a350859e60c7b711838d09c4e0012c774/main.py#L80
 def log_average_miss_rate(mr, fppi):
@@ -92,42 +93,36 @@ def compute_plot_data(data, dataset):
     try:
         last_fit_tag, last_val_tag = getBestTag(data)
         
-        mr_plot = []
-        for r_plot in data[last_fit_tag]['r_plot']:
-            mr_plot.append((1-np.array(r_plot)).tolist())
-        data[last_fit_tag]['mr_plot'] = mr_plot
+        # Only compute MR/FPPI/LAMR data if enabled in config
+        if should_cache_data('mr_plot'):
+            mr_plot = []
+            for r_plot in data[last_fit_tag]['r_plot']:
+                mr_plot.append((1-np.array(r_plot)).tolist())
+            data[last_fit_tag]['mr_plot'] = mr_plot
+            data[last_fit_tag]['mr'] = [(1-data[last_fit_tag]['r'][0])]
 
-        # print(f"[{dataset['key']}] recall: {data[last_fit_tag]['r']}")
-        # print(f"[{dataset['key']}] Previous mr: {data[last_fit_tag]['mr']}")
-        data[last_fit_tag]['mr'] = [(1-data[last_fit_tag]['r'][0])]
-        # print(f"[{dataset['key']}] Computed new mr: {data[last_fit_tag]['mr']}")
+        if should_cache_data('fppi_plot'):
+            if not 'fppi' in data[last_fit_tag]:
+                max_f1_index = data[last_fit_tag]['max_f1_index']
+                fppi_data = data[last_fit_tag]['fppi_plot'][0]
+                fppi_f1max = fppi_data[max_f1_index]
+                data[last_fit_tag]['fppi'] = [fppi_f1max]
 
-        ## TBD data will be updated in the metrics function
-        if not 'fppi' in data[last_fit_tag]:
-            max_f1_index = data[last_fit_tag]['max_f1_index']
-            fppi_data = data[last_fit_tag]['fppi_plot'][0]
-            fppi_f1max = fppi_data[max_f1_index]
-            data[last_fit_tag]['fppi'] = [fppi_f1max]
-
-        if True: # Recompute LAMR for all cases
-        # if not 'lamr' in data[last_fit_tag] \
-        #     or isinstance(data[last_fit_tag]['lamr'], float) and math.isnan(data[last_fit_tag]['lamr']) \
-        #     or isinstance(data[last_fit_tag]['lamr'], float) and data[last_fit_tag]['lamr'] < 0.001 \
-        #     or isinstance(data[last_fit_tag]['lamr'], list) and data[last_fit_tag]['lamr'][0] < 0.001:
+        if should_cache_data('lamr') and should_cache_data('mr_plot') and should_cache_data('fppi_plot'):
             lamr = compute_lamr(np.array(data[last_fit_tag]['mr_plot']).flatten(),
                                 np.array(data[last_fit_tag]['fppi_plot']).flatten())
             lamr = lamr.tolist()
             data[last_fit_tag]['lamr'] = [lamr]
 
-
-
-        validation_data_filtered = {k: v for k, v in data[last_val_tag].items() if k not in ['confusion_matrix']}
+        # Filter data for caching
+        exclude_from_validation = ['confusion_matrix'] if not should_cache_data('confusion_matrix') else []
+        validation_data_filtered = {k: v for k, v in data[last_val_tag].items() if k not in exclude_from_validation}
         pr_data_filtered = {k: v for k, v in data[last_fit_tag].items() if k not in ['data_store']}
         data_filtered = {'validation_best': validation_data_filtered, 
                          'pr_data_best': pr_data_filtered,
-                        'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],
-                        'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag'],
-                        'device_type': data['system_data']['device_type']
+                         'train_data': data['train_data'],'n_images': data['n_images'], 'pretrained': data['pretrained'],
+                         'n_classes': data['dataset_info']['nc'], 'dataset_tag': data['dataset_tag'],
+                         'device_type': data['system_data']['device_type']
                         }
     except KeyError as e:
         log(f"[{inspect.currentframe().f_code.co_name}] Missing key in results data dict({dataset['key']}): {e}", bcolors.ERROR)

@@ -15,12 +15,8 @@ from argparse import ArgumentParser, ArgumentTypeError
 from utils import log, bcolors
 from Dataset import dataset_tags_default, option_list_default, model_list_default, condition_list_default
 
-home = Path.home()
-repo_path = f"{home}/eeha/yolo_test_utils"
-
-yolo_output_path = f"{repo_path}/runs/detect"
-yolo_output_path_2 = f"{os.getenv('HOME')}/eeha/kaist-cvpr15/runs/detect"
-yolo_output_log_path = f"{repo_path}/runs/exec_log"
+# Import paths from centralized config (single source of truth)
+from config import yolo_output_path, yolo_output_path_2, yolo_output_log_path, repo_path, home
 
 
 ###################################

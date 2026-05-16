@@ -23,12 +23,13 @@ import seaborn as sns
 
 from utils import parseYaml
 from utils import log, bcolors
+from GUI.gui_config import get_plot_labels, get_train_compare_tab_keys
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, TrainCSVDataTable, DialogWithCheckbox, BestGroupCheckBoxWidget
 
-tab_keys = ['PR Curve', 'P Curve', 'R Curve', 'F1 Curve', #'MR Curve', 'MRFPPI Curve',
-            'mAP50', 'mAP50-95', 'precision', 'recall', 'F1', #'MissRate', 'FPPI', 'LAMR'
-           ]
+# Tab keys loaded from centralized config (config/features.py)
+tab_keys = get_train_compare_tab_keys()
+
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -39,31 +40,21 @@ equations = {
 
 class TrainComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
-        super().__init__(dataset_handler, tab_keys)
+        super().__init__(dataset_handler, tab_keys, tab_id="train_compare")
 
         ## CLASS selector
         combobox_layout = QHBoxLayout()
         label = QLabel("Class:")
         
-        det_classes = set([str('all')])
-        for key in self.dataset_handler.keys():
-            if self.dataset_handler[key] is not None and 'validation_best' in self.dataset_handler[key]:
-                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
-                    det_classes.add(class_key)
-            elif self.dataset_handler[key] is None:
-                log(f"[{self.__class__.__name__}] dataset_handler[{key}] is None :(", bcolors.WARNING)
-        # Sorted with 'all' at the beginning
-        det_classes = sorted(det_classes)
-        if 'all' in det_classes:
-            det_classes.remove('all')
-            det_classes.insert(0, 'all')
-        
         self.plot_all_checkbox = QCheckBox("Plot All")
         
-        self.plot_classes_list = det_classes
+        # Start with 'all' - will be dynamically updated when data is loaded
+        self._classes_loaded = False
+        self.plot_classes_list = ['all']
         self.combobox = QComboBox()
-        self.combobox.addItems(list(det_classes))
+        self.combobox.addItems(['all'])
         self.combobox.setCurrentIndex(0)
+        self.combobox.setToolTip("Classes will be populated when data is loaded")
 
         combobox_layout.addWidget(label)
         combobox_layout.addWidget(self.plot_all_checkbox)
@@ -92,23 +83,18 @@ class TrainComparePlotter(BaseClassPlotter):
         self.select_all_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.select_all_all_button.clicked.connect(lambda: self.dataset_checkboxes.select_cond('all'))
 
-        ## --- Adds window selector to be able to add manually individual tests from variance_ stuff
-        self.dataset_checkboxes_extra = DatasetCheckBoxWidget(self.options_widget, dataset_handler, exclude = None, include="variance_", title_filter=["train_based_"], max_rows = 8)
-        self.dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.extra_dataset_dialog = DialogWithCheckbox(title="Extra dataset selector", checkbox_widget=self.dataset_checkboxes_extra, render_func = self.render_data)
-        # self.select_extra_button = QPushButton(" Select extra ")
-        # self.select_extra_button.setToolTip('Allows to choose single variance tests instead of plotting them as a group')
-        # self.select_extra_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)        
-        # self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
+        ## --- Extra selector (created lazily to avoid ~6s startup cost of 502 checkboxes)
+        self._dataset_checkboxes_extra = None
+        self._extra_dataset_dialog = None
         ## ---
 
         self.select_all_button = QPushButton(" Select All ", self)
         self.select_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self.dataset_checkboxes_extra.select_all(), self.dataset_variance_checkboxes.select_all()))
+        self.select_all_button.clicked.connect(lambda: (self.dataset_checkboxes.select_all(), self._select_all_extra(), self.dataset_variance_checkboxes.select_all()))
 
         self.deselect_all_button = QPushButton(" Deselect All ", self)
         self.deselect_all_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self.dataset_checkboxes_extra.deselect_all(), self.dataset_variance_checkboxes.deselect_all()))
+        self.deselect_all_button.clicked.connect(lambda: (self.dataset_checkboxes.deselect_all(), self._deselect_all_extra(), self.dataset_variance_checkboxes.deselect_all()))
         
         self.plot_button = QPushButton(" Generate Plot ", self)
         self.plot_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -128,10 +114,42 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.save_button, 4, 0, 1, 3)
         # self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
                
-        # Tab for CSV data
-        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_checkboxes_extra, self.dataset_variance_checkboxes])
+        # Tab for CSV data — dataset_checkboxes_extra excluded since it's lazy (only used via extra dialog)
+        self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_checkboxes, self.dataset_variance_checkboxes])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
-    
+
+        log(f"[{self.__class__.__name__}] Initialized.")
+
+    @property
+    def dataset_checkboxes_extra(self):
+        """Lazy-create the extra checkbox widget (502 checkboxes) on first access."""
+        if self._dataset_checkboxes_extra is None:
+            import time as _time
+            t0 = _time.time()
+            self._dataset_checkboxes_extra = DatasetCheckBoxWidget(
+                self.options_widget, self.dataset_handler, exclude=None,
+                include="variance_", title_filter=["train_based_"], max_rows=8)
+            self._dataset_checkboxes_extra.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            log(f"[{self.__class__.__name__}] Extra checkbox widget created lazily in {_time.time() - t0:.2f}s.")
+        return self._dataset_checkboxes_extra
+
+    @property
+    def extra_dataset_dialog(self):
+        """Lazy-create the extra dataset dialog on first access."""
+        if self._extra_dataset_dialog is None:
+            self._extra_dataset_dialog = DialogWithCheckbox(
+                title="Extra dataset selector",
+                checkbox_widget=self.dataset_checkboxes_extra,
+                render_func=self.render_data)
+        return self._extra_dataset_dialog
+
+    def _select_all_extra(self):
+        if self._dataset_checkboxes_extra is not None:
+            self._dataset_checkboxes_extra.select_all()
+
+    def _deselect_all_extra(self):
+        if self._dataset_checkboxes_extra is not None:
+            self._dataset_checkboxes_extra.deselect_all()
 
     def update_view_and_menu(self, menu_list):
         archive_menu, view_menu, tools_menu, edit_menu = menu_list
@@ -145,7 +163,8 @@ class TrainComparePlotter(BaseClassPlotter):
         
     def update_checkbox(self):
         self.dataset_checkboxes.update_checkboxes()
-        self.dataset_checkboxes_extra.update_checkboxes()
+        if self._dataset_checkboxes_extra is not None:
+            self._dataset_checkboxes_extra.update_checkboxes()
         self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
@@ -156,9 +175,44 @@ class TrainComparePlotter(BaseClassPlotter):
             self.figure_tab_widget.saveFigures(file_name)
             self.csv_tab.save_data(file_name)
 
+    def _update_class_combobox(self, checked_list):
+        """Update class combobox with classes found in loaded datasets."""
+        if self._classes_loaded:
+            return  # Already populated
+        
+        det_classes = set(['all'])
+        for key in checked_list:
+            data = self.dataset_handler[key]
+            if data is not None and 'validation_best' in data:
+                for class_key in data['validation_best']['data'].keys():
+                    det_classes.add(class_key)
+        
+        if len(det_classes) > 1:  # Found new classes beyond 'all'
+            # Sort with 'all' first
+            det_classes = sorted(det_classes)
+            if 'all' in det_classes:
+                det_classes.remove('all')
+                det_classes.insert(0, 'all')
+            
+            current = self.combobox.currentText()
+            self.combobox.clear()
+            self.combobox.addItems(det_classes)
+            self.plot_classes_list = det_classes
+            
+            # Restore selection if possible
+            idx = self.combobox.findText(current)
+            self.combobox.setCurrentIndex(idx if idx >= 0 else 0)
+            self.combobox.setToolTip("Select detection class to plot")
+            self._classes_loaded = True
+
     def render_data(self):
 
-        checked = self.dataset_checkboxes_extra.getChecked() + self.dataset_checkboxes.getChecked() + self.dataset_variance_checkboxes.getChecked()
+        extra_checked = self.dataset_checkboxes_extra.getChecked() if self._dataset_checkboxes_extra is not None else []
+        checked = extra_checked + self.dataset_checkboxes.getChecked() + self.dataset_variance_checkboxes.getChecked()
+        
+        # Update class combobox with classes from loaded data
+        self._update_class_combobox(checked)
+        
         self.plot_p_r_f1_data(checked)
         self.csv_tab.load_table_data()
         log(f"[{self.__class__.__name__}] Plot and table updated")
@@ -355,8 +409,13 @@ class TrainComparePlotter(BaseClassPlotter):
                     bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='lightgrey', alpha=0.7)
                 ))
 
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
+            # Apply i18n translations for axis labels
+            i18n_labels = get_plot_labels()
+            xlabel_translated = i18n_labels['xlabel'].get(xlabel, xlabel)
+            ylabel_translated = i18n_labels['ylabel'].get(ylabel, ylabel)
+            
+            ax.set_xlabel(xlabel_translated)
+            ax.set_ylabel(ylabel_translated)
             
             self.figure_tab_widget[canvas_key].ax.append(ax)
                 

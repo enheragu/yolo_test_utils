@@ -53,9 +53,26 @@ def represent_list(dumper, data):
         return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=False)
 
 def dumpYaml(file_path, data, mode = "w+"):
-    with open(file_path, mode) as file:
-        # Add custom representation functions to the YAML dumper
-        yaml.add_representer(list, represent_list)
-        yaml.add_representer(dict, represent_dict)
-        yaml.dump(data, file, encoding='utf-8', width=float(5000))
+    import os, tempfile
+    # Atomic write: write to temp file first, then rename.
+    # Prevents corrupted YAML if the process is killed mid-write.
+    dir_name = os.path.dirname(file_path) or '.'
+    try:
+        with tempfile.NamedTemporaryFile(mode=mode, dir=dir_name, suffix='.tmp',
+                                          delete=False) as tmp_file:
+            # Add custom representation functions to the YAML dumper
+            yaml.add_representer(list, represent_list)
+            yaml.add_representer(dict, represent_dict)
+            yaml.dump(data, tmp_file, encoding='utf-8', width=float(5000))
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+            tmp_path = tmp_file.name
+        os.replace(tmp_path, file_path)  # Atomic on POSIX
+    except Exception:
+        # Clean up temp file on failure
+        try:
+            os.unlink(tmp_path)
+        except (OSError, UnboundLocalError):
+            pass
+        raise
 

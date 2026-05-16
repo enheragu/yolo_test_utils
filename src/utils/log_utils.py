@@ -173,7 +173,7 @@ def logTable(row_data, output_path, filename, colalign = None, screen=True, show
         log(f"\n{table_str}")
     file_name = os.path.join(output_path, filename.lower().replace(' ','_'))
     log(f"Stored data in {file_name}")
-    with open(f"{file_name}.txt", 'w') as file:
+    with open(f"/{file_name}.txt", 'w+') as file:
         file.write(f'{filename}\n')
         file.write(table_str)
 

@@ -19,12 +19,13 @@ from PyQt6.QtWidgets import QPushButton, QFileDialog, QSizePolicy, QComboBox, QL
 import mplcursors
 
 from utils import log, bcolors
+from GUI.gui_config import get_plot_labels, get_variance_compare_tab_keys
 from GUI.base_tab import BaseClassPlotter
 from GUI.Widgets import DatasetCheckBoxWidget, GroupCheckBoxWidget, TrainCSVDataTable
 
-tab_keys = [#'PR Curve', 'P Curve', 'R Curve', 'F1 Curve', 'MR Curve', 
-            'mAP50', 'mAP50-95', 'P', 'R', #'MR','FPPI','LAMR'
-           ]
+# Tab keys loaded from centralized config (config/features.py)
+tab_keys = get_variance_compare_tab_keys()
+
 equations = {
         'P': r'$P(c) = \dfrac{TP(c)}{TP(c) + FP(c)}$',
         'R': r'$R(c) = \dfrac{TP(c)}{TP(c) + FN(c)}$',
@@ -35,7 +36,7 @@ equations = {
 
 class VarianceComparePlotter(BaseClassPlotter):
     def __init__(self, dataset_handler):
-        super().__init__(dataset_handler, tab_keys)
+        super().__init__(dataset_handler, tab_keys, tab_id="variance_compare")
 
         self.dataset_variance_checkboxes = GroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"Variance analysis sets:", title_filter=["variance_"])
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
@@ -58,25 +59,15 @@ class VarianceComparePlotter(BaseClassPlotter):
         combobox_layout = QHBoxLayout()
         label = QLabel("Class:")
         
-        det_classes = set([str('all')])
-        for key in self.dataset_handler.keys():
-            if self.dataset_handler[key] is not None and  'validation_best' in self.dataset_handler[key]:
-                for class_key in self.dataset_handler[key]['validation_best']['data'].keys():
-                    det_classes.add(class_key)
-            elif self.dataset_handler[key] is None:
-                log(f"[{self.__class__.__name__}] dataset_handler[{key}] is None :(", bcolors.WARNING)
-        # Sorted with 'all' at the beginning
-        det_classes = sorted(det_classes)
-        if 'all' in det_classes:
-            det_classes.remove('all')
-            det_classes.insert(0, 'all')
-
         self.plot_all_checkbox = QCheckBox("Plot All")
 
-        self.plot_classes_list = det_classes
+        # Start with 'all' - will be dynamically updated when data is loaded
+        self._classes_loaded = False
+        self.plot_classes_list = ['all']
         self.combobox = QComboBox()
-        self.combobox.addItems(list(det_classes))
+        self.combobox.addItems(['all'])
         self.combobox.setCurrentIndex(0)
+        self.combobox.setToolTip("Classes will be populated when data is loaded")
 
         combobox_layout.addWidget(label)
         combobox_layout.addWidget(self.plot_all_checkbox)
@@ -96,7 +87,9 @@ class VarianceComparePlotter(BaseClassPlotter):
         # Tab for CSV data
         self.csv_tab = TrainCSVDataTable(dataset_handler, [self.dataset_train_checkboxes,self.dataset_variance_checkboxes])
         self.figure_tab_widget.addTab(self.csv_tab, "Table")
-    
+
+        log(f"[{self.__class__.__name__}] Initialized.")
+
     def update_checkbox(self):
         self.dataset_train_checkboxes.update_checkboxes()
         self.dataset_variance_checkboxes.update_checkboxes()
@@ -109,7 +102,44 @@ class VarianceComparePlotter(BaseClassPlotter):
             self.figure_tab_widget.saveFigures(file_name)
             self.csv_tab.save_data(file_name)
 
+    def _update_class_combobox(self):
+        """Update class combobox with classes found in loaded datasets."""
+        if self._classes_loaded:
+            return  # Already populated
+        
+        det_classes = set(['all'])
+        # Gather classes from checked variance groups
+        for group in self.dataset_variance_checkboxes.getChecked():
+            keys = [key for key in self.dataset_handler.keys() if key.startswith(f"{group}/")]
+            for key in keys[:3]:  # Sample first 3 to avoid loading too many
+                data = self.dataset_handler[key]
+                if data is not None and 'validation_best' in data:
+                    for class_key in data['validation_best']['data'].keys():
+                        det_classes.add(class_key)
+                    break  # One is enough to get classes
+        
+        if len(det_classes) > 1:  # Found new classes beyond 'all'
+            # Sort with 'all' first
+            det_classes = sorted(det_classes)
+            if 'all' in det_classes:
+                det_classes.remove('all')
+                det_classes.insert(0, 'all')
+            
+            current = self.combobox.currentText()
+            self.combobox.clear()
+            self.combobox.addItems(det_classes)
+            self.plot_classes_list = det_classes
+            
+            # Restore selection if possible
+            idx = self.combobox.findText(current)
+            self.combobox.setCurrentIndex(idx if idx >= 0 else 0)
+            self.combobox.setToolTip("Select detection class to plot")
+            self._classes_loaded = True
+
     def render_data(self):
+        # Update class combobox with classes from loaded data
+        self._update_class_combobox()
+        
         self.plot_loss_metrics_data()
         self.csv_tab.load_table_data()
         log(f"[{self.__class__.__name__}] Plot and table updated")
@@ -148,7 +178,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 bin_size = 9
                 y_max_values = []
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
-                    keys = [key for key in self.dataset_handler.keys() if group in key]
+                    keys = [key for key in self.dataset_handler.keys() if key.startswith(f"{group}/")]
                     data_y = np.array([])
                     bestfit_epoch_vec = []
                     train_duration_vec = []
@@ -267,7 +297,7 @@ class VarianceComparePlotter(BaseClassPlotter):
                 ## Plot each variance group
                 # number_std = self.std_plot_widget.value
                 for index, group in enumerate(self.dataset_variance_checkboxes.getChecked()):
-                    keys = [key for key in self.dataset_handler.keys() if group in key]
+                    keys = [key for key in self.dataset_handler.keys() if key.startswith(f"{group}/")]
                     bestfit_epoch_vec = []
                     train_duration_vec = []
                     py_vec = []
@@ -360,8 +390,13 @@ class VarianceComparePlotter(BaseClassPlotter):
                 # self.ax.legend(bbox_to_anchor=(1.04, 1), loc='upper left')
                 ax.set_title(f'{ylabel}-{xlabel} Curve')
 
-                ax.set_xlabel(xlabel)
-                ax.set_ylabel(ylabel)
+                # Apply i18n translations for axis labels
+                i18n_labels = get_plot_labels()
+                xlabel_translated = i18n_labels['xlabel'].get(xlabel, xlabel)
+                ylabel_translated = i18n_labels['ylabel'].get(ylabel, ylabel)
+                
+                ax.set_xlabel(xlabel_translated)
+                ax.set_ylabel(ylabel_translated)
             
                 # Use a Cursor to interactively display the label for a selected line.
                 self.cursor[canvas_key] = mplcursors.cursor(ax, hover=True)

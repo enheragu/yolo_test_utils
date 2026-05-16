@@ -56,7 +56,8 @@ class DatasetCheckBoxWidget(QScrollArea):
         group_dict = {}
         last_group = ""
         iter = 0
-        for key, dataset_info in self.dataset_handler.getInfo().items():
+        # Make a copy to avoid "dictionary changed size during iteration"
+        for key, dataset_info in list(self.dataset_handler.getInfo().items()):
             group_name = dataset_info['model']
             if (self.include and self.include not in group_name) or \
                (self.exclude and self.exclude in group_name): 
@@ -163,7 +164,8 @@ class GroupCheckBoxWidget(QScrollArea):
         groups = {'': {'parent': None, 'group': mainLabelGroup, 'extra': None, 'iter': 0}}
 
         visible_groups = set()
-        for key, dataset_info in self.dataset_handler.getInfo().items():
+        # Make a copy to avoid "dictionary changed size during iteration"
+        for key, dataset_info in list(self.dataset_handler.getInfo().items()):
             group_name = '/'.join(dataset_info['group_path'])
             check_exclusions = f"{group_name}/{dataset_info['model']}"
             if ((self.include and self.include not in check_exclusions) or
@@ -172,7 +174,7 @@ class GroupCheckBoxWidget(QScrollArea):
                 continue
             visible_groups.add(group_name)
 
-        print(f"{visible_groups = }")
+        # print(f"{visible_groups = }")
 
         for group_name in visible_groups:
             parts = group_name.split('/')
@@ -196,7 +198,8 @@ class GroupCheckBoxWidget(QScrollArea):
             parent.layout().addWidget(checboxLabelGroup)
             groups[group_name] = {'parent': parent, 'group': checboxLabelGroup, 'extra': None, 'iter': 0}
 
-        for key, dataset_info in self.dataset_handler.getInfo().items():
+        # Make a copy to avoid "dictionary changed size during iteration"
+        for key, dataset_info in list(self.dataset_handler.getInfo().items()):
             group_name = '/'.join(dataset_info['group_path'])
             item_name = f"{group_name}/{dataset_info['model']}"
             if group_name not in visible_groups:
@@ -271,7 +274,7 @@ class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
         best_metric_group = {}
         for group, checkbox in self.check_box_dict.items():
             if checkbox.isChecked():
-                keys = [key for key in self.dataset_handler.keys() if group in key]
+                keys = [key for key in self.dataset_handler.keys() if key.startswith(f"{group}/")]
                 for key in keys:
                     data = self.dataset_handler[key]
                     if not 'validation_best' in data:
