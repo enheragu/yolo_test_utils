@@ -111,7 +111,13 @@ dataset_options = {
                     'vths_v3' : {'merge': combine_vths_v3, 'extension': '.png' },
 
                     '4ch_visible': {'merge': combine_4ch_visible, 'extension': '.npz' },
-                    '4ch_lwir': {'merge': combine_4ch_lwir, 'extension': '.npz' }
+                    '4ch_lwir': {'merge': combine_4ch_lwir, 'extension': '.npz' },
+
+                    # Alias for easyer clasification of results
+                    'early_4ch': {'merge': combine_4ch, 'extension': '.npz' },
+                    'middle_4ch': {'merge': combine_4ch, 'extension': '.npz' },
+                    'late_4ch': {'merge': combine_4ch, 'extension': '.npz' },
+                    'split_late_4ch': {'merge': combine_4ch, 'extension': '.npz' }
                   }
 
 fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
@@ -192,6 +198,7 @@ dataset_keys = list(class_data.keys())
 condition_list_default = ['day','night','all']
 option_list_default = dataset_options_keys
 model_list_default = ['yoloNoTrained.pt','yoloCh1m.yaml','yoloCh2m.yaml','yoloCh3m.yaml','yoloCh4m.yaml','yolov8x.pt'] #['yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+model_list_default += ['yoloCh4_early_v1m.yaml','yoloCh4_middle_v1m.yaml','yoloCh4_late_v1m.yaml','yoloCh4_late_split_v1m.yaml']
 dataset_tags_default = dataset_keys   # Just list of availables :)
 
 dataset_generated_cache = f'{repo_path}/.dataset_generation_options.cache'

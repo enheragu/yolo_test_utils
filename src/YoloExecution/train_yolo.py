@@ -22,6 +22,8 @@ from utils import parseYaml, dumpYaml, log, bcolors
 from utils.plot_backpropagation import generateBackpropagationGraph
 
 from Dataset import dataset_config_path
+from Dataset.constants import get_fusion_method_metadata
+from Dataset.constants import dataset_options
 
 from compress_label_folder import compress_output_labels
 
@@ -40,7 +42,17 @@ def set_seed(seed=42):
 
     return seed
 
-def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
+
+def _opts_to_plain_dict(opts):
+    """Serialize argparse.Namespace-like options without Python object YAML tags."""
+    if isinstance(opts, dict):
+        return dict(opts)
+    if hasattr(opts, '__dict__'):
+        return dict(vars(opts))
+    return opts
+
+
+def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
     start_time = datetime.now()
 
 
@@ -88,7 +100,15 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     args['deterministic'] = opts.deterministic
 
     args['device'] = opts.device
-    args['cache'] = opts.cache
+
+    # Cache mode is deduced from the fusion option extension: .npz/.npy need disk, rest fit in ram
+    ext = dataset_options.get(option, {}).get('extension', '')
+    if ext in ['.npz', '.npy']:
+        log(f"Option '{option}' uses extension '{ext}', cache set to 'disk'.")
+        args['cache'] = 'disk'
+    else:
+        args['cache'] = 'ram'
+
     args['pretrained'] = opts.pretrained
     args['resume'] = opts.resume
     yaml_data['seed'] = random.randint(0, 300) #42
@@ -100,13 +120,21 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path):
     yaml_data['rgb_equalization'] = opts.rgb_eq
     yaml_data['resume'] = opts.resume
 
+    fusion_meta = get_fusion_method_metadata(option)
+    yaml_data['fusion_metadata'] = {}
+    yaml_data['fusion_metadata']['method'] = fusion_meta['method']
+    yaml_data['fusion_metadata']['method_version'] = fusion_meta['version']
+    yaml_data['fusion_metadata']['method_symbol'] = fusion_meta['merge_symbol']
+    yaml_data['fusion_metadata']['method_module'] = fusion_meta['merge_module']
+
     yaml_data['output_log_file'] = log_file_path
     
     trainer = yolo_detc.DetectionTrainer(overrides=args)
     try:
         trainer.train()
         dumpYaml(Path(trainer.save_dir) / f'results.yaml', yaml_data, 'a')
-        dumpYaml(Path(trainer.save_dir) / f'run_opts.yaml', opts, 'a')
+        run_opts_data = _opts_to_plain_dict(opts)
+        dumpYaml(Path(trainer.save_dir) / f'run_opts.yaml', run_opts_data, 'w')
 
     except Exception as e:
         log(f'Exception caught: {e}')

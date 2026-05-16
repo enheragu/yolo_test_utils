@@ -13,8 +13,19 @@ from ultralytics import YOLO
 
 
 from utils import parseYaml, dumpYaml, log, bcolors
+from Dataset.constants import get_fusion_method_metadata
 
-def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path):
+
+def _opts_to_plain_dict(opts):
+    """Serialize argparse.Namespace-like options without Python object YAML tags."""
+    if isinstance(opts, dict):
+        return dict(opts)
+    if hasattr(opts, '__dict__'):
+        return dict(vars(opts))
+    return opts
+
+
+def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
     start_time = datetime.now()
 
     log("-------------------------------------")
@@ -39,6 +50,13 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path):
     yaml_data['dataset_tag'] = opts.dformat
     yaml_data['thermal_equalization'] = opts.thermal_eq
     yaml_data['rgb_equalization'] = opts.rgb_eq
+
+    fusion_meta = get_fusion_method_metadata(option)
+    yaml_data['fusion_metadata'] = {}
+    yaml_data['fusion_metadata']['method'] = fusion_meta['method']
+    yaml_data['fusion_metadata']['method_version'] = fusion_meta['version']
+    yaml_data['fusion_metadata']['method_symbol'] = fusion_meta['merge_symbol']
+    yaml_data['fusion_metadata']['method_module'] = fusion_meta['merge_module']
 
     args = {} 
     # args['project'] = 'detection'
@@ -65,7 +83,8 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path):
     validator(model=args.model)
 
     dumpYaml(Path(validator.save_dir) / f'results.yaml', yaml_data, 'a')
-    dumpYaml(Path(validator.save_dir) / f'run_opts.yaml', opts, 'a')
+    run_opts_data = _opts_to_plain_dict(opts)
+    dumpYaml(Path(validator.save_dir) / f'run_opts.yaml', run_opts_data, 'w')
 
     log(f"[{yolo_model}] - Dataset processing took {datetime.now() - start_time} (h/min/s)")
     log("-------------------------------------")

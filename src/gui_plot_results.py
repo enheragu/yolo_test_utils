@@ -15,7 +15,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QMenu, QFileDialog
 
 from utils import log, bcolors
-from GUI import DataSetHandler, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
+from GUI import DataSetHandler, TrainDataSummary, TrainComparePlotter, TrainEvalPlotter, VarianceComparePlotter, CSVTablePlotter, SchedulerHandlerPlotter
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
@@ -41,6 +41,9 @@ class GUIPlotter(QMainWindow):
         self.layout.addWidget(self.tab_widget)
         
         self.dataset_handler = DataSetHandler(update_cache)
+
+        # train_data_summary_tab = TrainDataSummary(self.dataset_handler)
+        # self.tab_widget.addTab(train_data_summary_tab, f"Training data summary")
 
         train_compare_tab = TrainComparePlotter(self.dataset_handler)
         self.tab_widget.addTab(train_compare_tab, f"Compare training data")
@@ -73,7 +76,7 @@ class GUIPlotter(QMainWindow):
         search_path = QFileDialog.getExistingDirectory(self, "Select path")
         if search_path:
             log(f"Reloading data from path: {search_path}")
-            self.dataset_handler.new(update_cache = True, search_path = search_path)
+            self.dataset_handler.new(update_cache = True, search_path_list = [search_path])
         
 
     def update_view_and_menu(self):

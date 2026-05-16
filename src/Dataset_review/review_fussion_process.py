@@ -243,36 +243,50 @@ def splitSingleImage(fusion_functions, store_path=store_path,
     print(f"Stored fusion data in {os.path.join(store_path)}")
 
 if __name__ == '__main__':
+    evaluate_kaist = True
+    evaluate_llvip = False
 
-    kaist_store_path = os.path.join(store_path, 'fusion')
-    if not os.path.exists(kaist_store_path):
-        os.makedirs(kaist_store_path)
+    if evaluate_kaist:
+        kaist_store_path = os.path.join(store_path, 'fusion')
+        if not os.path.exists(kaist_store_path):
+            os.makedirs(kaist_store_path)
 
-    evaluate_functions = [combine_hsvt, combine_rgbt, combine_vt, combine_vths,
-                          combine_rgbt_v2, combine_vths_v2, combine_vths_v3,
-                          combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, 
-                        #   combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch,
-                          combine_rgbt_wavelet, combine_rgbt_curvelet, combine_rgbt_wavelet_max, combine_rgbt_curvelet_max,
-                          combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
-                         ]
+        evaluate_functions = [combine_hsvt, combine_rgbt, combine_vt, combine_vths,
+                            combine_rgbt_v2, combine_vths_v2, combine_vths_v3,
+                            combine_rgbt_fa_to3ch, combine_rgbt_pca_to3ch, 
+                            #   combine_rgbt_fa_to1ch, combine_rgbt_pca_to1ch,
+                            combine_rgbt_wavelet, combine_rgbt_curvelet, combine_rgbt_wavelet_max, combine_rgbt_curvelet_max,
+                            combine_rgbt_ssim, combine_rgbt_superpixel, combine_rgbt_sobel_weighted
+                            ]
 
-    # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path)
-
-    # print("\nCase 80-20:")
-    # white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
-    # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, store_path=kaist_store_path)
+        ## Train day
+        splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path)
+        
+        ## Test day
+        # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
+                        #  img_path='/home/arvc/eeha/kaist-cvpr15/images/set06/V004/lwir/I02137.jpg')
+        ## Train night
+        # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
+        #                  img_path='/home/arvc/eeha/kaist-cvpr15/images/set05/V000/lwir/I00959.jpg')
+        ## Test night
+        # splitSingleImage(fusion_functions=evaluate_functions, store_path=kaist_store_path,
+                        #  img_path='/home/arvc/eeha/kaist-cvpr15/images/set03/V000/lwir/I00947.jpg')
+        
+        # white_list=['test-day-80_20','train-day-80_20','test-night-80_20','train-night-80_20']
+        # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, store_path=kaist_store_path)
 
 
     ## For LLVIP dataset
-    from Dataset_review.review_dataset_llvip import store_path
-    
-    llvip_store_path = os.path.join(store_path, 'fusion')
-    if not os.path.exists(llvip_store_path):
-        os.makedirs(llvip_store_path)
+    if evaluate_llvip:
+        from Dataset_review.review_dataset_llvip import store_path
+        
+        llvip_store_path = os.path.join(store_path, 'fusion')
+        if not os.path.exists(llvip_store_path):
+            os.makedirs(llvip_store_path)
 
-    splitSingleImage(fusion_functions=evaluate_functions, store_path=llvip_store_path,
-                     img_path='/home/arvc/eeha/LLVIP/lwir/test/210263.jpg')
+        splitSingleImage(fusion_functions=evaluate_functions, store_path=llvip_store_path,
+                        img_path='/home/arvc/eeha/LLVIP/lwir/test/210263.jpg')
 
-    # print("\nCase 80-20:")
-    # white_list=['test-night-80_20','train-night-80_20']
-    # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, root=llvip_yolo_dataset_path, store_path=llvip_store_path)
+        # print("\nCase 80-20:")
+        # white_list=['test-night-80_20','train-night-80_20']
+        # evaluateFussion(fusion_functions=evaluate_functions,dataset_whitelist=white_list, root=llvip_yolo_dataset_path, store_path=llvip_store_path)

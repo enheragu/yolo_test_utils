@@ -41,6 +41,7 @@ Optionally install in editable mode YOLO code (in case you need to edit further 
 
 Check in Dataset/constants.py to setup the paths to your convinience.
 
+
 ### Execute from repo
 
 The best way to run different tests is checking `scripts/scheduler_options.sh` file. This script includes a set of functions that run tests, load new tests and run GUI. Also to stop and handle logging options. These functions already activate the venv so nothing else is needed.

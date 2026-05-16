@@ -416,6 +416,8 @@ function rsync_cache() {
 
 ## Variance RGBT with KAIST
 # EXEC # eeha_schedule_new_test -c 'day' -o 'rgbt_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_day_rgbt" --iterations 10
+# eeha_schedule_new_test -c 'day' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_day_vths_v2" --iterations 10
+# eeha_schedule_new_test -c 'day' -o 'hsvt' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "variance_day_hsvt" --iterations 10
 ## Variance VT (th eq) with LLVIP
 # EXEC # eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_llvip_night_vt" --th_equalization 'clahe' --iterations 10
 # EXEC # eeha_schedule_new_test -c 'night' -o '4ch' -m 'yoloCh4_v3m.yaml' --dataset-format "llvip_80_20"  --test-name "yoloCh4v3" --cache "disk" --path-name "variance_llvip_night_yoloCh4v3" --iterations 10
@@ -426,3 +428,22 @@ function rsync_cache() {
 # eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe' --iterations 10
 # eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_rgb_equalization" --rgb_equalization 'clahe' --iterations 10
 # eeha_schedule_new_test -c 'night' -o 'vths_v2' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vths_llvip_th_equalization" --th_equalization 'clahe' --iterations 10
+# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vt_llvip_no_equalization" --iterations 5
+# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vt_llvip_rgb_th_equalization" --th_equalization 'clahe' --rgb_equalization 'clahe' --iterations 5
+# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vt_llvip_rgb_equalization" --rgb_equalization 'clahe' --iterations 5
+# eeha_schedule_new_test -c 'night' -o 'vt' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "variance_vt_llvip_th_equalization" --th_equalization 'clahe' --iterations 5
+
+
+# eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "llvip_80_20" --path-name "no_equalization/variance_llvip_visible" --iterations 5
+# eeha_schedule_new_test -c 'night' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization/variance_kaist_visible_night" --iterations 5
+# eeha_schedule_new_test -c 'day' -o 'visible' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization/variance_kaist_visible_day" --iterations 5
+# eeha_schedule_new_test -c 'night' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization/variance_kaist_lwir_night" --iterations 5
+# eeha_schedule_new_test -c 'day' -o 'lwir' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "no_equalization/variance_kaist_lwir_day" --iterations 5
+
+
+
+
+
+
+
+# eeha_schedule_new_test -c 'day' -o 'ssim_v2' -m 'yoloCh3m.yaml' --dataset-format "kaist_80_20" --path-name "rgb_th_equalization/variance_kaist_ssim_v2_day" --iterations 1 --th_equalization 'clahe' --rgb_equalization 'clahe'

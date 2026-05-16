@@ -88,14 +88,16 @@ if __name__ == '__main__':
             condition_list, option_list, model_list, opts = handleArguments(next_test)
 
             if not opts.dataset:
-                checkDataset(options=option_list, dataset_format=opts.dformat, 
-                             rgb_eq=opts.rgb_eq, thermal_eq=opts.thermal_eq, 
-                             distortion_correct=opts.distortion_correct, 
+                checkDataset(options=option_list, dataset_format=opts.dformat,
+                             rgb_eq=opts.rgb_eq, thermal_eq=opts.thermal_eq,
+                             distortion_correct=opts.distortion_correct,
                              relabeling=opts.relabeling)
-                
+
                 dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
             else:
-                dataset_config_list = [opts.dataset]
+                fallback_option = option_list[0] if option_list else 'unknown_option'
+                fallback_condition = condition_list[0] if condition_list else None
+                dataset_config_list = [(opts.dataset, fallback_condition, fallback_option)]
 
         except Exception as e:
             log(f"Problem generating dataset or configuration files for {next_test}.", bcolors.ERROR)
@@ -114,8 +116,8 @@ if __name__ == '__main__':
             sys.stdout.retagOutputFile("exception")
             dataset_config_list = [] # Set to empty to avoid loop
 
-        try:    
-            for dataset in dataset_config_list:
+        try:
+            for dataset, condition, option in dataset_config_list:
                 for yolo_model in model_list:
                     for index in range(opts.iterations):
                         log("--------------------------------------------------------------------------")
@@ -157,11 +159,11 @@ if __name__ == '__main__':
                             # code
                             if mode == 'val':
                                 from YoloExecution.validation_yolo import TestValidateYolo
-                                TestValidateYolo(dataset, yolo_model, path_name, opts, logger.log_file_name)
-                                
+                                TestValidateYolo(dataset, yolo_model, path_name, opts, logger.log_file_name, option)
+
                             elif mode == 'train':
                                 from YoloExecution.train_yolo import TestTrainYolo
-                                TestTrainYolo(dataset, yolo_model, path_name, opts, logger.log_file_name)
+                                TestTrainYolo(dataset, yolo_model, path_name, opts, logger.log_file_name, option)
                         
                         # If stop is requested, pending iterations are added to queue, then
                         # queu handler will handle the stop not providing next test in queu e

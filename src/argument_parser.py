@@ -14,7 +14,6 @@ from argparse import ArgumentParser, ArgumentTypeError
 
 from utils import log, bcolors
 from Dataset import dataset_tags_default, option_list_default, model_list_default, condition_list_default
-from Dataset.constants import dataset_options
 
 home = Path.home()
 repo_path = f"{home}/eeha/yolo_test_utils"
@@ -37,15 +36,15 @@ def configArgParser():
                         type=str, nargs='*', default=None, choices=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
-                        type=str, nargs='*', default=model_list_default, # choices=model_list_default,
+                        type=str, nargs='*', default=model_list_default, choices=model_list_default,
                         help=f"Model to be used. Available options are {model_list_default}. Usage: -m item1 item2, -c item3")
     # Commented for now as it is called using env var. Is set in handleArguments to None by default
     #  parser.add_argument('-d', '--device', dest='device',
                         # default=None, choices=['cpu', '0', '1', 'None'],
                         # help="Device to run on, i.e. cuda --device '0' or --device '0,1,2,3' or --device 'cpu'.")
-    parser.add_argument('-ca', '--cache', dest='cache',
-                        type=str, default="ram", choices=['ram','disk'], # Disk needed to load npy images
-                        help="True/ram, disk or False. Use cache for data loading. To load '.npy' or '.npz' files disk option is needed.")
+    # parser.add_argument('-ca', '--cache', dest='cache',
+    #                     type=str, default="ram", choices=['ram','disk'], # Disk needed to load npy images
+    #                     help="True/ram, disk or False. Use cache for data loading. To load '.npy' or '.npz' files disk option is needed.")
     parser.add_argument('-p', '--pretrained', dest='pretrained',
                         type=bool, default=False, 
                         help="Whether to use a pretrained model.")
@@ -102,16 +101,6 @@ def handleArguments(argument_list = sys.argv[1:]):
     option_list = None if opts.olist is None else list(opts.olist)
     model_list = None if opts.mlist is None else list(opts.mlist)
     run_modes = None if opts.run_mode is None else list(opts.run_mode)
-
-    # Auto-configure cache to 'disk' if any selected option uses .npz or .npy extension
-    if option_list and opts.cache == 'ram':
-        for opt in option_list:
-            if opt in dataset_options:
-                ext = dataset_options[opt].get('extension', '')
-                if ext in ['.npz', '.npy']:
-                    log(f"Option '{opt}' uses extension '{ext}', switching cache from 'ram' to 'disk'.")
-                    opts.cache = 'disk'
-                    break
 
     if not opts.dataset:
         if opts.dformat not in dataset_tags_default:

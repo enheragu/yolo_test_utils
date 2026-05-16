@@ -163,6 +163,9 @@ def printDictKeys(diccionario, nivel=0):
 
 
 def logTable(row_data, output_path, filename, colalign = None, screen=True, showindex=False):
+    if not row_data:
+        log(f"[logTable] No rows available for {filename}; skipping table export.", bcolors.WARNING)
+        return
 
     table_str = tabulate.tabulate(row_data, headers="firstrow", tablefmt="fancy_grid", colalign = colalign, showindex=showindex)
     table_latex = tabulate.tabulate(row_data, headers="firstrow", tablefmt="latex", colalign = colalign, showindex=showindex)

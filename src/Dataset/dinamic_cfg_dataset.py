@@ -32,16 +32,16 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
     option_list = option_list_in if option_list_in is not None else option_list_default
     data_path = data_path_in if data_path_in is not None else dataset_yolo_path
     
-    cfg_generated_files = []
-    
+    cfg_generated_entries = []  # list of (file_path, condition, option)
+
     id = getGPUTestID()
 
     tmp_cfg_path = os.getcwd() + f"/tmp_cfg{id}"
     if os.path.exists(tmp_cfg_path):
         shutil.rmtree(tmp_cfg_path)
     Path(tmp_cfg_path).mkdir(parents=True, exist_ok=True)
-    
-    
+
+
     with open(templates_cfg[dataset_tag]['template']) as file:
         template = Template(file.read())
         log(f"[ConfigUtils::generateCFGFiles] Generate GCF files with template from {templates_cfg[dataset_tag]['template']}")
@@ -53,20 +53,21 @@ def generateCFGFiles(condition_list_in = None, option_list_in = None, data_path_
                 data = template.render(condition=condition, option=option, data_path=data_path, **extra_arguments)
             else:
                 data = template.render(condition=condition, option=option, data_path=data_path)
-                
+
             file_path = f"{tmp_cfg_path}/dataset_{condition}_{option}.yaml"
             with open(file_path, mode='w') as f:
                 f.write(data)
-            cfg_generated_files.append(file_path)
+            cfg_generated_entries.append((file_path, condition, option))
 
-    return cfg_generated_files
-    
-def clearCFGFIles(cfg_generated_files):
+    return cfg_generated_entries
+
+def clearCFGFIles(cfg_generated_entries):
     # Note that if files are not cleared, rmdir will not work as folder would not be empty
-    
-    for file in cfg_generated_files:
-        if os.path.isfile(file):
-            os.remove(file)
+
+    for entry in cfg_generated_entries:
+        file_path = entry[0] if isinstance(entry, tuple) else entry
+        if os.path.isfile(file_path):
+            os.remove(file_path)
     
     try:
         id = getGPUTestID()
