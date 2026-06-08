@@ -1,0 +1,87 @@
+# KAIST day — fusion method comparison
+# Methods: curvelet (+ max), wavelet (+ max), ssim, fa, pca, sobel_weighted, superpixel
+# Note: stored as a list to indicate both modes are intended for batch export (Phase 3 CLI).
+# The GUI Load preset will pick the first mode (best). Change the combobox to p90
+# manually to test the percentile rendering.
+
+version: 1
+tab: train_compare
+mode: [best, p90]
+class: all
+
+selection:
+  datasets: []
+  variance_groups:
+    - no_equalization/variance_kaist_curvelet_day
+    - no_equalization/variance_kaist_curvelet_max_day
+    - no_equalization/variance_kaist_wavelet_day
+    - no_equalization/variance_kaist_wavelet_max_day
+    - no_equalization/variance_kaist_ssim_v2_day
+    - no_equalization/variance_kaist_fa_day
+    - no_equalization/variance_kaist_pca_day
+    - no_equalization/variance_kaist_sobel_weighted_day
+    - no_equalization/variance_kaist_superpixel_day
+
+    - rgb_equalization/variance_kaist_curvelet_day
+    - rgb_equalization/variance_kaist_curvelet_max_day
+    - rgb_equalization/variance_kaist_wavelet_day
+    - rgb_equalization/variance_kaist_wavelet_max_day
+    - rgb_equalization/variance_kaist_ssim_v2_day
+    - rgb_equalization/variance_kaist_fa_day
+    - rgb_equalization/variance_kaist_pca_day
+    - rgb_equalization/variance_kaist_sobel_weighted_day
+    - rgb_equalization/variance_kaist_superpixel_day
+
+    - th_equalization/variance_kaist_curvelet_day
+    - th_equalization/variance_kaist_curvelet_max_day
+    - th_equalization/variance_kaist_wavelet_day
+    - th_equalization/variance_kaist_wavelet_max_day
+    - th_equalization/variance_kaist_ssim_v2_day
+    - th_equalization/variance_kaist_fa_day
+    - th_equalization/variance_kaist_pca_day
+    - th_equalization/variance_kaist_sobel_weighted_day
+    - th_equalization/variance_kaist_superpixel_day
+
+    - rgb_th_equalization/variance_kaist_curvelet_day
+    - rgb_th_equalization/variance_kaist_curvelet_max_day
+    - rgb_th_equalization/variance_kaist_wavelet_day
+    - rgb_th_equalization/variance_kaist_wavelet_max_day
+    - rgb_th_equalization/variance_kaist_ssim_v2_day
+    - rgb_th_equalization/variance_kaist_fa_day
+    - rgb_th_equalization/variance_kaist_pca_day
+    - rgb_th_equalization/variance_kaist_sobel_weighted_day
+    - rgb_th_equalization/variance_kaist_superpixel_day
+    
+export:
+  # Tab-qualified plot names: <tab_id>/<plot_name>. Names without prefix
+  # are interpreted as belonging to the preset's top-level tab.
+  plots:
+    # - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    - train_compare/mAP50          # scatter: methods on X, mAP50 on Y
+    - train_compare/mAP50-95
+    - train_compare/precision
+    - train_compare/recall
+
+  # CSV column subset. Omit/empty = all columns.
+  # The 'mean'/'std' rows for variance groups are always appended automatically.
+  columns:
+    - Label
+    - Group Key
+    - P
+    - R
+    - mAP50
+    - mAP50-95
+    - Best epoch (index)  # en p90 esta celda sale '-' (no aplica como percentil)
+
+  # Table formats. Subset of {csv, txt, tex, html}. [] = no tables, missing = all four.
+  table_formats: [tex]
+
+  # Plot formats. Subset of {png, pdf}. [] = no plots, missing = png only.
+  plot_formats: [pdf]
+
+  # Languages for CSV header/label translation. Omit = use GUI config default.
+  languages: [en] # [es, en]
+
+  # Base output path (no extension). GUI pre-fills the Save dialog with this.
+  # CLI uses it directly + appends "_<mode>" suffix.
+  filename: kaist_day_all

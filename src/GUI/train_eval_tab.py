@@ -28,7 +28,7 @@ class TrainEvalPlotter(BaseClassPlotter):
         self._dataset_checkboxes_extra = None
         self._extra_dataset_dialog = None
 
-        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector = None)
+        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include="variance_", title="(Best) Variance analysis sets:", title_filter=["variance_"], class_selector=None)
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
         # self.select_extra_button.clicked.connect(self.extra_dataset_dialog.show)
@@ -106,7 +106,6 @@ class TrainEvalPlotter(BaseClassPlotter):
         self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
-        # Open a file dialog to select the saving location
         file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)")
 
         if file_name:
@@ -167,6 +166,8 @@ class TrainEvalPlotter(BaseClassPlotter):
 
             self.figure_tab_widget[canvas_key].subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9)
             self.figure_tab_widget[canvas_key].tight_layout()
+
+        self._apply_common_suptitle(checked_list)
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()

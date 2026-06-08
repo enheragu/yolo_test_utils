@@ -1,0 +1,87 @@
+# KAIST night — fusion method comparison
+# Methods: curvelet (+ max), wavelet (+ max), ssim, fa, pca, sobel_weighted, superpixel
+# Note: stored as a list to indicate both modes are intended for batch export (Phase 3 CLI).
+# The GUI Load preset will pick the first mode (best). Change the combobox to p90
+# manually to test the percentile rendering.
+
+version: 1
+tab: train_compare
+mode: [best, p90]
+class: all
+
+selection:
+  datasets: []
+  variance_groups:
+    - no_equalization/variance_llvip_curvelet_night
+    - no_equalization/variance_llvip_curvelet_max_night
+    - no_equalization/variance_llvip_wavelet_night
+    - no_equalization/variance_llvip_wavelet_max_night
+    - no_equalization/variance_llvip_ssim_v2_night
+    - no_equalization/variance_llvip_fa_night
+    - no_equalization/variance_kaist_pca_night
+    - no_equalization/variance_kaist_sobel_weighted_night
+    - no_equalization/variance_kaist_superpixel_night
+
+    - rgb_equalization/variance_kaist_curvelet_night
+    - rgb_equalization/variance_kaist_curvelet_max_night
+    - rgb_equalization/variance_kaist_wavelet_night
+    - rgb_equalization/variance_kaist_wavelet_max_night
+    - rgb_equalization/variance_kaist_ssim_v2_night
+    - rgb_equalization/variance_kaist_fa_night
+    - rgb_equalization/variance_kaist_pca_night
+    - rgb_equalization/variance_kaist_sobel_weighted_night
+    - rgb_equalization/variance_kaist_superpixel_night
+
+    - th_equalization/variance_kaist_curvelet_night
+    - th_equalization/variance_kaist_curvelet_max_night
+    - th_equalization/variance_kaist_wavelet_night
+    - th_equalization/variance_kaist_wavelet_max_night
+    - th_equalization/variance_kaist_ssim_v2_night
+    - th_equalization/variance_kaist_fa_night
+    - th_equalization/variance_kaist_pca_night
+    - th_equalization/variance_kaist_sobel_weighted_night
+    - th_equalization/variance_kaist_superpixel_night
+
+    - rgb_th_equalization/variance_kaist_curvelet_night
+    - rgb_th_equalization/variance_kaist_curvelet_max_night
+    - rgb_th_equalization/variance_kaist_wavelet_night
+    - rgb_th_equalization/variance_kaist_wavelet_max_night
+    - rgb_th_equalization/variance_kaist_ssim_v2_night
+    - rgb_th_equalization/variance_kaist_fa_night
+    - rgb_th_equalization/variance_kaist_pca_night
+    - rgb_th_equalization/variance_kaist_sobel_weighted_night
+    - rgb_th_equalization/variance_kaist_superpixel_night
+    
+export:
+  # Tab-qualified plot names: <tab_id>/<plot_name>. Names without prefix
+  # are interpreted as belonging to the preset's top-level tab.
+  plots:
+    # - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    - train_compare/mAP50          # scatter: methods on X, mAP50 on Y
+    - train_compare/mAP50-95
+    - train_compare/precision
+    - train_compare/recall
+
+  # CSV column subset. Omit/empty = all columns.
+  # The 'mean'/'std' rows for variance groups are always appended automatically.
+  columns:
+    - Label
+    - Group Key
+    - P
+    - R
+    - mAP50
+    - mAP50-95
+    - Best epoch (index)  # en p90 esta celda sale '-' (no aplica como percentil)
+
+  # Table formats. Subset of {csv, txt, tex, html}. [] = no tables, missing = all four.
+  table_formats: [tex]
+
+  # Plot formats. Subset of {png, pdf}. [] = no plots, missing = png only.
+  plot_formats: [pdf]
+
+  # Languages for CSV header/label translation. Omit = use GUI config default.
+  languages: [en] # [es, en]
+
+  # Base output path (no extension). GUI pre-fills the Save dialog with this.
+  # CLI uses it directly + appends "_<mode>" suffix.
+  filename: kaist_night_all

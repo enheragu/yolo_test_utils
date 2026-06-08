@@ -9,6 +9,8 @@ from copy import copy, deepcopy
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QGridLayout, QWidget, QCheckBox, QGroupBox, QScrollArea, QSizePolicy, QDialog
 
+from utils import log, bcolors
+
 max_rows_checkboxes = 4
 
 # Remove machine tag
@@ -111,6 +113,19 @@ class DatasetCheckBoxWidget(QScrollArea):
         for checkbox in self.check_box_dict.values():
             checkbox.setChecked(False)
 
+    def setCheckedKeys(self, keys, clear_others=True):
+        """Check exactly the given keys (and uncheck the rest if clear_others).
+        Logs a warning for any requested keys that don't exist in this widget.
+        """
+        keys_set = set(keys)
+        for key, checkbox in self.check_box_dict.items():
+            if key in keys_set:
+                checkbox.setChecked(True)
+            elif clear_others:
+                checkbox.setChecked(False)
+        missing = keys_set - set(self.check_box_dict.keys())
+        if missing:
+            log(f"[{self.__class__.__name__}] setCheckedKeys: {len(missing)} key(s) not found in widget: {sorted(missing)}", bcolors.WARNING)
 
 
 class GroupCheckBoxWidget(QScrollArea):
@@ -260,38 +275,71 @@ class GroupCheckBoxWidget(QScrollArea):
         for checkbox in self.check_box_dict.values():
             checkbox.setChecked(False)
 
+    def setCheckedKeys(self, keys, clear_others=True):
+        """Check exactly the given group keys (and uncheck the rest if clear_others).
+        Logs a warning for any requested keys that don't exist in this widget.
+        """
+        keys_set = set(keys)
+        for key, checkbox in self.check_box_dict.items():
+            if key in keys_set:
+                checkbox.setChecked(True)
+            elif clear_others:
+                checkbox.setChecked(False)
+        missing = keys_set - set(self.check_box_dict.keys())
+        if missing:
+            log(f"[{self.__class__.__name__}] setCheckedKeys: {len(missing)} group key(s) not found in widget: {sorted(missing)}", bcolors.WARNING)
+
 class BestGroupCheckBoxWidget(GroupCheckBoxWidget):
     """
-        Makes use fo mAP50 by default to filter for best trial
+    Variance-group checkbox widget.
+
+    getChecked()       → best trial key per checked group (for "best" mode plots)
+    getMode()          → current mode string: "best" | "p50" | "p75" | "p90" | "p95"
+    getCheckedGroups() → {group: [all_trial_keys]} for all checked groups
+                         (used by PercentileManager for non-best modes)
     """
-    def __init__(self, widget, dataset_handler, include = None, exclude = None, title = "", max_rows = max_rows_checkboxes, title_filter = [], class_selector = None):
+    def __init__(self, widget, dataset_handler, include=None, exclude=None, title="",
+                 max_rows=max_rows_checkboxes, title_filter=[], class_selector=None,
+                 mode_selector=None):
         super().__init__(widget, dataset_handler, include, exclude, title, max_rows, title_filter)
 
         self.class_selector = class_selector
+        self.mode_selector  = mode_selector  # QComboBox: "best" | "p50" | "p75" | "p90" | "p95"
+
+    def getMode(self):
+        if self.mode_selector is None:
+            return "best"
+        return self.mode_selector.currentText()
 
     def getChecked(self):
-        best_item_group = {}
+        best_item_group  = {}
         best_metric_group = {}
         for group, checkbox in self.check_box_dict.items():
-            if checkbox.isChecked():
-                keys = [key for key in self.dataset_handler.keys() if key.startswith(f"{group}/")]
-                for key in keys:
-                    data = self.dataset_handler[key]
-                    if not 'validation_best' in data:
-                        continue
-                    # print(data.keys())
-                    if self.class_selector:
-                        plot_class = self.class_selector.currentText() if  self.class_selector.currentText() in data['validation_best']['data'] else 'all'
-                    else:
-                        plot_class = 'all'
-
-                    map_value = data['validation_best']['data'][plot_class]['mAP50']
-                         
-                    if not group in best_item_group or map_value > best_metric_group[group]:
-                        best_item_group[group] = key
-                        best_metric_group[group] = map_value
-            
-            # if group in best_item_group:
-            #     print(f"[BestGroupCheckBoxWidget::getChecked] Best items selected: {best_item_group[group]} with metric {best_metric_group[group]}")
-        # print(f"[BestGroupCheckBoxWidget::getChecked] Final best items selected: {best_item_group}")
+            if not checkbox.isChecked():
+                continue
+            keys = [k for k in self.dataset_handler.keys() if k.startswith(f"{group}/")]
+            for key in keys:
+                data = self.dataset_handler[key]
+                if not data or 'validation_best' not in data:
+                    continue
+                if self.class_selector:
+                    plot_class = self.class_selector.currentText() \
+                        if self.class_selector.currentText() in data['validation_best']['data'] else 'all'
+                else:
+                    plot_class = 'all'
+                map_value = data['validation_best']['data'][plot_class]['mAP50']
+                if group not in best_item_group or map_value > best_metric_group[group]:
+                    best_item_group[group]  = key
+                    best_metric_group[group] = map_value
         return list(best_item_group.values())
+
+    def getCheckedGroups(self):
+        """Return {group: [all trial keys]} for all checked groups."""
+        groups = {}
+        for group, checkbox in self.check_box_dict.items():
+            if not checkbox.isChecked():
+                continue
+            keys = [k for k in self.dataset_handler.keys() if k.startswith(f"{group}/")]
+            if keys:
+                groups[group] = keys
+        return groups

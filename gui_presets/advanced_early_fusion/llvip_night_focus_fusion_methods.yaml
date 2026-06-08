@@ -1,0 +1,44 @@
+# LLVIP — top-6 fusion combinations by mAP50 (best mode)
+# Selected from llvip_all_best.tex: max 6 plots in the PR curve.
+
+version: 1
+tab: train_compare
+mode: [best, p90]
+class: all
+
+selection:
+  datasets: []
+
+  # Top 6 by mAP50 (raw, across all equalizations):
+  #   1. rgb_equalization/variance_llvip_pca             mAP50=0.9699
+  #   2. rgb_equalization/variance_llvip_ssim_v2         mAP50=0.9687
+  #   3. rgb_equalization/variance_llvip_wavelet_max     mAP50=0.9679
+  #   4. no_equalization/variance_llvip_superpixel       mAP50=0.9656
+  #   5. th_equalization/variance_llvip_ssim_v2          mAP50=0.9649
+  #   6. no_equalization/variance_llvip_ssim_v2          mAP50=0.9644
+  variance_groups:
+    - rgb_equalization/variance_llvip_pca
+    - rgb_equalization/variance_llvip_ssim_v2
+    - rgb_equalization/variance_llvip_wavelet_max
+    - no_equalization/variance_llvip_superpixel
+    - th_equalization/variance_llvip_ssim_v2
+    - no_equalization/variance_llvip_ssim_v2
+
+export:
+  plots:
+    - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+
+  columns:
+    - Label
+    - Group Key
+    - P
+    - R
+    - mAP50
+    - mAP50-95
+    - Best epoch (index)   # in p90 mode this cell is '-'
+
+  table_formats: [tex]
+  plot_formats: [pdf]
+  languages: [es, en]
+
+  filename: llvip_night_focus

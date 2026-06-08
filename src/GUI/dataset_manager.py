@@ -42,6 +42,88 @@ cache_extension = '.yaml.cache'
 test_key_clean = [r'_4090[0-9]{0,2}', r'_3090[0-9]{0,2}', '_GPU3090', '_A30', r'_[0-9]{8,9}', r'_[0-9]{6}', r'_GPU[0-1]'] # Path tags to be cleared from key (merges tests from different GPUs). Leave empty for no merging
 
 
+_KNOWN_CONDITIONS = ('day', 'night', 'all')
+_KNOWN_DATASETS = ('kaist', 'llvip')
+
+
+def parse_dataset_name(title):
+    """
+    Parse a dataset title like 'kaist_wavelet_max_day' into (dataset, method, condition).
+
+    Heuristic: first token is the dataset (kaist, llvip…); if the last token is a known
+    condition (day/night/all) it's split off; everything else joined by '_' is the method.
+    Falls back gracefully when the format doesn't match.
+
+    Examples:
+        'kaist_wavelet_max_day'   → ('kaist', 'wavelet_max', 'day')
+        'kaist_sobel_weighted_day'→ ('kaist', 'sobel_weighted', 'day')
+        'kaist_pca_day'           → ('kaist', 'pca', 'day')
+        'kaist_split_late_4ch_day'→ ('kaist', 'split_late_4ch', 'day')
+        'kaist_visible'           → ('kaist', 'visible', '')
+    """
+    parts = title.split('_')
+    if not parts:
+        return ('', '', '')
+    dataset = parts[0]
+    if len(parts) >= 2 and parts[-1] in _KNOWN_CONDITIONS:
+        condition = parts[-1]
+        method = '_'.join(parts[1:-1])
+    else:
+        condition = ''
+        method = '_'.join(parts[1:])
+    return (dataset, method, condition)
+
+
+def extract_common_dataset_condition(info_dict, keys):
+    """
+    Return ((dataset, condition), is_mixed) describing the dataset/condition tags
+    shared by every key in `keys`.
+
+    - dataset/condition: the single shared value, or None if no key produced one.
+    - is_mixed: True when at least one of the two saw conflicting values across
+      keys (i.e. the selection is heterogeneous). Callers that want to omit a
+      partial suptitle on mixed selections can check this flag.
+
+    Accepts both leaf trial keys (present in info_dict) and group prefixes
+    (e.g. 'no_equalization/variance_kaist_curvelet_day') used by variance tabs.
+    """
+    datasets, conditions = set(), set()
+    for k in keys:
+        candidates = []
+        info = info_dict.get(k)
+        if info is None:
+            for ik, iinfo in info_dict.items():
+                if ik.startswith(f"{k}/"):
+                    info = iinfo
+                    break
+        if info:
+            candidates.append(info.get('title', ''))
+            candidates += [seg.replace('variance_', '') for seg in info.get('group_path', [])]
+        # Always try the raw key string too — covers synthetic/percentile keys
+        # and bare group prefixes when info_dict has no match.
+        candidates += [seg.replace('variance_', '') for seg in str(k).split('/')]
+
+        ds_found, cond_found = None, None
+        for c in candidates:
+            ds, _, cond = parse_dataset_name(c)
+            if ds in _KNOWN_DATASETS and ds_found is None:
+                ds_found = ds
+            if cond in _KNOWN_CONDITIONS and cond_found is None:
+                cond_found = cond
+            if ds_found and cond_found:
+                break
+
+        if ds_found:
+            datasets.add(ds_found)
+        if cond_found:
+            conditions.add(cond_found)
+
+    is_mixed = len(datasets) > 1 or len(conditions) > 1
+    ds = next(iter(datasets)) if len(datasets) == 1 else None
+    cond = next(iter(conditions)) if len(conditions) == 1 else None
+    return (ds, cond), is_mixed
+
+
 def parseCSV(file_path):
     with open(file_path, 'r', newline='') as csvfile:
         csv_reader = csv.reader(csvfile)
@@ -175,11 +257,10 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
                 key = f"{'/'.join(group_path)}/{model}/{name}".replace('//','/')
-                info = title.split('_')
-                # print(f"[INFO] Version or extra data from label disabled in dataset_manager.py:143")
-                # ax_label = f"{info[0].title()} {info[1].upper()}"+ (' ' + ' '.join(info[2:]) if len(info) > 2 else '') + f"({model})"
-                # print(f"[find_results_file] {info = }; {key = };\n\t{abs_path = };\n\t{group_path = };\n\t{name = }; {title = }; {model = };")
-                ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
+                dataset, method, _ = parse_dataset_name(title)
+                # ax_label = f"{dataset.title()} {method.upper()}".strip() + f" ({model.replace('_sameseed','')})"
+                ## Plot by dataset, so its not needed in label
+                ax_label = f"{method.upper()}".strip() + f" ({model.replace('_sameseed','')})"
                 dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
 
     ## Order dataset by name
@@ -210,8 +291,8 @@ def find_cache_file(search_path = cache_path, file_name = cache_extension):
                     model = re.sub(clear_pattern, "", model)
                     title = re.sub(clear_pattern, "", title)
                 key = '/'.join([*group_path, model, name])
-                info = title.split('_')
-                ax_label = f"{info[0].title()} {'' if len(info) < 2 else info[1].upper()}" + f" ({model.replace('_sameseed','')})"
+                dataset, method, _ = parse_dataset_name(title)
+                ax_label = f"{method.upper()}".strip() + f" ({model.replace('_sameseed','')})"
                 dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
 
     myKeys = list(dataset_info.keys())
@@ -252,11 +333,12 @@ class DataSetHandler:
     PRIORITY_HIGH = 0    # User requested this dataset
     PRIORITY_NORMAL = 10 # Background generation
     
-    def __init__(self, update_cache=True, search_path_list=[yolo_output_path, yolo_output_path_2], 
-                 load_from_cache=False, lazy_load=True):
+    def __init__(self, update_cache=True, search_path_list=[yolo_output_path, yolo_output_path_2],
+                 load_from_cache=False, lazy_load=True, start_background=True):
         self.update_cache = update_cache
         self.load_from_cache = load_from_cache
         self.lazy_load = lazy_load
+        self.start_background = start_background
         
         # Discovery phase (fast)
         t_discovery = time.time()
@@ -295,9 +377,12 @@ class DataSetHandler:
         self._failed_count = 0
         
         if lazy_load:
-            # Start background generation (low priority)
-            self._start_background_generation()
-            log(f"Lazy loading enabled: {len(self.dataset_info)} datasets discovered, loading on demand.")
+            if start_background:
+                # Start background generation (low priority)
+                self._start_background_generation()
+                log(f"Lazy loading enabled: {len(self.dataset_info)} datasets discovered, loading on demand.")
+            else:
+                log(f"Lazy loading enabled (no background): {len(self.dataset_info)} datasets discovered, on-demand only.")
         else:
             # Legacy mode: load everything at startup
             self._load_all_blocking()
@@ -548,6 +633,18 @@ class DataSetHandler:
         # Load on demand
         return self._load_single(key)
     
+    def inject(self, key, data, info):
+        """Inject synthetic computed data (e.g. percentile estimates) into the cache."""
+        with self._lock:
+            self._cache[key] = data
+        self.dataset_info[key] = info
+
+    def eject(self, key):
+        """Remove a previously injected synthetic key."""
+        with self._lock:
+            self._cache.pop(key, None)
+        self.dataset_info.pop(key, None)
+
     def __contains__(self, key):
         return key in self.dataset_info
     

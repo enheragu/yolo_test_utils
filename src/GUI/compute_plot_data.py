@@ -130,3 +130,6 @@ def compute_plot_data(data, dataset):
     
     return data_filtered
 
+
+PERCENTILE_MODES = ["best", "p50", "p75", "p90", "p95"]
+

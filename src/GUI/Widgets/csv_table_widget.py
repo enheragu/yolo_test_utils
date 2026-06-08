@@ -27,6 +27,7 @@ from utils.log_utils import logTable
 from utils.log_utils import printDictKeys
 from .check_box_widget import DatasetCheckBoxWidget, GroupCheckBoxWidget, BestGroupCheckBoxWidget
 from GUI.gui_config import get_export_languages, get_language_suffix, get_language, translate_list, load_column_selection, save_column_selection, get_label_mappings
+from GUI.dataset_manager import parse_dataset_name
 
 
 class ColumnSelectorDialog(QDialog):
@@ -130,17 +131,7 @@ class ColumnSelectorDialog(QDialog):
         return selected
 
 
-from Dataset.constants import dataset_options_keys
-
 TABLE_DECIMAL_PRECISION="{:.5f}"
-
-def getFusionType(dataset_type_str):
-    len_sorted = sorted(dataset_options_keys, key=len, reverse=True)
-    # log(f"[getFusionType] Trying to get fusion type from dataset type string '{dataset_type_str}' using keys: {len_sorted}")
-    for key in len_sorted:
-        if key in dataset_type_str:
-            return key
-    return "not-found"
 
 class TrainCSVDataTable(QWidget):
     """
@@ -173,6 +164,8 @@ class TrainCSVDataTable(QWidget):
         self.csv_data = [] # raw list to be filled with the data which should be stored in csv file
         self.csv_data_averaged = [] # raw list with average and std data
         self.export_columns = load_column_selection()  # Load from session cache
+        self.export_formats = None    # None = all (csv, txt, tex, html); set/list to filter
+        self.export_languages = None  # None = use gui_config; list of lang codes to override
 
     def configure_export_columns(self):
         if not self.csv_data:
@@ -208,49 +201,72 @@ class TrainCSVDataTable(QWidget):
 
         return filtered
 
-    def save_data(self, file_name=None):
-        if not file_name or not self.csv_data:
-            return
+    # Rename map applied to the averaged table header after column filtering.
+    # Keys are the internal column names (same as main table); values are the
+    # display names shown in the exported averaged file.
+    AVERAGED_HEADER_RENAME = {
+        'Label':              'Method',
+        'Type':               'Eq.V/T',
+        'P':                  'P̄ ± σ',
+        'R':                  'R̄ ± σ',
+        'mAP50':              'mAP50̄ ± σ',
+        'mAP50-95':           'mAP50-95̄ ± σ',
+        'Best epoch (index)': 'Best epoch ± σ',
+    }
 
-        filtered_data = self._filter_columns(self.csv_data)
-        export_langs = get_export_languages()
-        label_mappings = get_label_mappings()
+    def _export_table(self, data, base_name, fmts, log_fmts, export_langs, label_mappings, rename_headers=None):
+        """Filter, translate and write one table (csv + tex/txt/html) for each language.
 
+        rename_headers: optional dict {old_col_name: new_col_name} applied after filtering.
+        """
+        filtered = self._filter_columns(data)
+        if rename_headers and filtered:
+            filtered = [filtered[0].copy()] + [row.copy() for row in filtered[1:]]
+            filtered[0] = [rename_headers.get(h, h) for h in filtered[0]]
+        output_path = os.path.dirname(base_name)
+        base_filename = os.path.basename(base_name)
         for lang in export_langs:
             lang_suffix = get_language_suffix(lang)
-            output_file = f'{file_name}{lang_suffix}.csv'
-
-            translated_data = [row.copy() for row in filtered_data]
-            if translated_data:
-                translated_data[0] = translate_list(filtered_data[0], lang)
-                label_col = None
+            translated = [row.copy() for row in filtered]
+            if translated:
+                translated[0] = translate_list(filtered[0], lang)
                 try:
-                    label_col = filtered_data[0].index('Label')
+                    label_col = filtered[0].index(rename_headers.get('Label', 'Label') if rename_headers else 'Label')
                 except ValueError:
-                    pass
+                    label_col = None
                 if label_col is not None:
-                    for row in translated_data[1:]:
+                    for row in translated[1:]:
                         if label_col < len(row):
                             orig = row[label_col]
                             mapping = label_mappings.get(orig)
                             if isinstance(mapping, dict):
                                 row[label_col] = mapping.get(lang, orig)
+            if 'csv' in fmts:
+                out_csv = f'{base_name}{lang_suffix}.csv'
+                with open(out_csv, 'w', newline='') as f:
+                    log(f"[{self.__class__.__name__}] CSV stored in {out_csv} ({len(translated[0])} columns)")
+                    csv.writer(f).writerows(translated)
+            if log_fmts:
+                logTable(translated, output_path, f"{base_filename}{lang_suffix}", formats=log_fmts)
 
-            with open(output_file, 'w', newline='') as file:
-                log(f"[{self.__class__.__name__}] Summary CSV data stored in {output_file} ({len(translated_data[0])} columns)")
-                writer = csv.writer(file)
-                writer.writerows(translated_data)
+    def save_data(self, file_name=None):
+        if not file_name or not self.csv_data:
+            return
 
-            logTable(translated_data, os.path.dirname(file_name), f"{os.path.basename(file_name)}{lang_suffix}")
+        import re as _re
+        fmts = set(self.export_formats) if self.export_formats is not None else {'csv', 'txt', 'tex', 'html'}
+        log_fmts = fmts & {'txt', 'tex', 'html'} or None
+        export_langs = self.export_languages if self.export_languages else get_export_languages()
+        label_mappings = get_label_mappings()
 
-        if self.csv_data_averaged:
-            output_path = os.path.dirname(file_name)
-            filename = os.path.basename(file_name)
-            with open(f'{file_name}_averaged.csv', 'w', newline='') as file:
-                log(f"[{self.__class__.__name__}] Summary averaged CSV data stored in {file_name}_averaged.csv")
-                writer = csv.writer(file)
-                writer.writerows(self.csv_data_averaged)
-            logTable(self.csv_data_averaged, output_path, f"{filename}_averaged")
+        self._export_table(self.csv_data, file_name, fmts, log_fmts, export_langs, label_mappings)
+
+        if len(self.csv_data_averaged) > 1:  # more than just the header row
+            # Strip mode suffix so averaged tables are mode-independent
+            avg_base = _re.sub(r'_(best|p\d+)$', '', file_name)
+            avg_base = f'{avg_base}_averaged'
+            self._export_table(self.csv_data_averaged, avg_base, fmts, log_fmts, export_langs, label_mappings,
+                               rename_headers=self.AVERAGED_HEADER_RENAME)
 
     ## Overloadable function :)
     def getDataDictToPlot(self):
@@ -258,7 +274,11 @@ class TrainCSVDataTable(QWidget):
         
         for checkbox_list in self.dataset_checkboxes:
             if isinstance(checkbox_list, DatasetCheckBoxWidget):
-                for key in checkbox_list.getChecked():           
+                for key in checkbox_list.getChecked():
+                    data[key] = self.dataset_handler[key]
+            elif isinstance(checkbox_list, BestGroupCheckBoxWidget):
+                # getChecked() returns leaf trial keys (best per group), not group prefixes
+                for key in checkbox_list.getChecked():
                     data[key] = self.dataset_handler[key]
             elif isinstance(checkbox_list, GroupCheckBoxWidget):
                 for group in checkbox_list.getChecked():
@@ -275,9 +295,9 @@ class TrainCSVDataTable(QWidget):
             if isinstance(checkbox_list, DatasetCheckBoxWidget):
                 pass
             elif isinstance(checkbox_list, BestGroupCheckBoxWidget):
-                pass
+                data += list(checkbox_list.getCheckedGroups().keys())
             elif isinstance(checkbox_list, GroupCheckBoxWidget):
-                data += checkbox_list.getChecked()  
+                data += checkbox_list.getChecked()
             else:
                 log(f"[{self.__class__.__name__}] CheckBox object instanced not recogniced.", bcolors.ERROR)
         return data
@@ -286,10 +306,10 @@ class TrainCSVDataTable(QWidget):
         # Limpiar la tabla antes de cargar nuevos datos
 
         row_list = [['Label', 'Model', 'Condition', 'Type', 'P', 'R', 'mAP50', 'mAP50-95', 'MR', 'LAMR', 'FPPI',
-                     'Class', 'Dataset', 'Best epoch (index)', 'Train Duration (h)',
-                     'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img', 
+                     'Class', 'Best epoch (index)', 'Train Duration (h)',
+                     'Pretrained', 'Deterministic', 'Batch Size', 'Train Img', 'Val Img',
                      'Instances', 'Num Classes', 'Dataset', 'Device', 'Date', 'Title', 'Group Key']]
-        row_list_averaged = [[]] # Empty line, no title needed here
+        row_list_averaged = [row_list[0]]  # Same header so _filter_columns works with preset column names
 
         info_dict = self.dataset_handler.getInfo()
         label_mappings = get_label_mappings()
@@ -300,33 +320,37 @@ class TrainCSVDataTable(QWidget):
             try:
                 model = data['validation_best']['model'].split("/")[-1]
                 dataset = data['validation_best']['name'].split("/")[-1]
-                dataset_type = dataset.split("_")
-                
+                _ds_name, method_type, parsed_condition = parse_dataset_name(dataset)
+
                 end_date_tag = data['train_data']['train_end_time']
                 for class_type, data_class in data['validation_best']['data'].items():
                     if 'all' in class_type:
                         continue
 
-                    # log(f"\t {data}")
                     date_tag = datetime.fromisoformat(end_date_tag).strftime('%Y-%m-%d_%H:%M:%S')
                     test_title = f'{model}_{dataset}_{date_tag}_{class_type}'
-                    if 'night' in dataset_type[0]:
-                        condition = 'night'
-                    elif 'day' in dataset_type[0]:
-                        condition = 'day'
-                    elif 'all' in dataset_type[0]:
-                        condition = 'all'
+                    # Prefer parsed condition; fall back to legacy substring match in first token
+                    if parsed_condition:
+                        condition = parsed_condition
                     else:
-                        condition = "Unknown"
+                        first = dataset.split('_')[0]
+                        if 'night' in first:   condition = 'night'
+                        elif 'day' in first:   condition = 'day'
+                        elif 'all' in first:   condition = 'all'
+                        else:                  condition = "Unknown"
                     
                     # Get plot label and apply mapping
                     plot_label = info_dict.get(key, {}).get('label', model)
                     mapping = label_mappings.get(plot_label)
                     if isinstance(mapping, dict):
                         plot_label = mapping.get(get_language(), plot_label)
+                    if '/' in key:
+                        group = key.rsplit('/', 1)[0]
+                        n = sum(1 for k in self.dataset_handler.keys() if k.startswith(f"{group}/"))
+                        if n > 1:
+                            plot_label = f"{plot_label} (N={n})"
 
-                    # printDictKeys(data)
-                    row_list.append([plot_label, model, condition, dataset_type[1],
+                    row_list.append([plot_label, model, condition, method_type,
                                     TABLE_DECIMAL_PRECISION.format(data_class.get('P', data_class.get(f"mP"))), 
                                     TABLE_DECIMAL_PRECISION.format(data_class.get('R', data_class.get(f"mR"))), 
                                     TABLE_DECIMAL_PRECISION.format(data_class['mAP50']), 
@@ -392,7 +416,7 @@ class TrainCSVDataTable(QWidget):
 
             model = data['validation_best']['model'].split("/")[-1]
             dataset = data['validation_best']['name'].split("/")[-1]
-            dataset_type = dataset.split("_")
+            _ds_name, method_type, parsed_condition = parse_dataset_name(dataset)
 
             for class_type, data_class in data['validation_best']['data'].items():
                 if 'all' in class_type:
@@ -400,40 +424,52 @@ class TrainCSVDataTable(QWidget):
 
                 date_tag = "-"
                 test_title = f'{model}_{dataset}_{class_type}'
-                if 'night' in dataset_type[0]:
-                    condition = 'night'
-                elif 'day' in dataset_type[0]:
-                    condition = 'day'
-                elif 'all' in dataset_type[0]:
-                    condition = 'all'
+                if parsed_condition:
+                    condition = parsed_condition
                 else:
-                    condition = "Unknown"
+                    first = dataset.split('_')[0]
+                    if 'night' in first:   condition = 'night'
+                    elif 'day' in first:   condition = 'day'
+                    elif 'all' in first:   condition = 'all'
+                    else:                  condition = "Unknown"
 
-                for tag, function in [("mean", np.mean), ("std", np.std)]:
-                    group_label = group.replace("train_based_variance_", "").replace(".yaml", "")
-                    row_list_averaged.append([f"{group_label} ({tag})", model, condition, dataset_type[1],
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(p_vec_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(r_vec_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mAP50_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mAP50_95_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(mr_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(lamr_vec, axis = 0))}", 
-                                f"({tag}) {TABLE_DECIMAL_PRECISION.format(function(fppi_vec, axis = 0))}", 
-                                class_type, 
-                                f"({tag}) {function(bestfit_epoch_vec, axis = 0):.2f}",
-                                f"({tag}) {function(train_duration_vec, axis = 0):.2f}",
-                                data['pretrained'],
-                                data['deterministic'],
-                                data['batch'],
-                                int(data['n_images']['train']),
-                                int(data['n_images']['val']), 
-                                f"({tag}) {function(instances_vec, axis = 0):.2f}", 
-                                data['n_classes'],
-                                data['dataset_tag'],
-                                data['device_type'],
-                                date_tag,
-                                f"{test_title}_{tag}",
-                                f"{(keys[0].split('/')[0] if keys else group)}/{tag}"])
+                def _pm(vec):
+                    return f"{np.mean(vec):.5f} ± {np.std(vec):.5f}"
+                def _pm2(vec):
+                    return f"{np.mean(vec):.2f} ± {np.std(vec):.2f}"
+
+                eq_map = {'rgb_equalization': 'RGB', 'th_equalization': 'TH', 'no_equalization': '-'}
+                eq_label = eq_map.get(group.split('/')[0], group.split('/')[0])
+
+                plot_label = info_dict.get(keys[0] if keys else group, {}).get('label', group.split('/')[-1])
+                mapping = label_mappings.get(plot_label)
+                if isinstance(mapping, dict):
+                    plot_label = mapping.get(get_language(), plot_label)
+                plot_label = f"{plot_label} (N={len(keys)})"
+
+                row_list_averaged.append([plot_label, model, condition, eq_label,
+                            _pm(p_vec_vec),
+                            _pm(r_vec_vec),
+                            _pm(mAP50_vec),
+                            _pm(mAP50_95_vec),
+                            _pm(mr_vec),
+                            _pm(lamr_vec),
+                            _pm(fppi_vec),
+                            class_type,
+                            _pm2(bestfit_epoch_vec),
+                            _pm2(train_duration_vec),
+                            data['pretrained'],
+                            data['deterministic'],
+                            data['batch'],
+                            int(data['n_images']['train']),
+                            int(data['n_images']['val']),
+                            _pm2(instances_vec),
+                            data['n_classes'],
+                            data['dataset_tag'],
+                            data['device_type'],
+                            date_tag,
+                            test_title,
+                            keys[0].split('/')[0] if keys else group])
                 
 
         self.csv_table.clear()
@@ -475,7 +511,7 @@ class TrainCSVDataTable(QWidget):
 
         addRowsColored(row_list)
         addRowsColored(row_list_averaged, alpha_value=150)
-        self.csv_data = row_list + [r for r in row_list_averaged if r]
+        self.csv_data = row_list
         self.csv_data_averaged = row_list_averaged
         # Actualizar la vista de la tabla
         self.csv_table.resizeColumnsToContents()

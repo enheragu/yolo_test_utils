@@ -1,0 +1,57 @@
+# KAIST day — fusion method comparison (focus subset, no_equalization only)
+# Methods: curvelet (+ max), wavelet (+ max), ssim_v2, fa, pca, sobel_weighted, superpixel
+# Note: 'mode' as a list signals batch export of both best and p90 (Phase 3 CLI).
+# The GUI Load preset will pick the first mode (best). Change the combobox to p90
+# manually to test the percentile rendering, then Save Output again for the p90 set.
+
+version: 1
+tab: train_compare
+mode: [best, p90]
+class: all
+
+selection:
+  # 'datasets' = individual training runs (non-variance). Empty here — all data lives in variance groups.
+  datasets: []
+
+  # 'variance_groups' = N-repetition variance groups (BestGroupCheckBoxWidget).
+  variance_groups:
+    - no_equalization/variance_kaist_curvelet_day
+    - no_equalization/variance_kaist_curvelet_max_day
+    - no_equalization/variance_kaist_wavelet_day
+    - no_equalization/variance_kaist_wavelet_max_day
+    - no_equalization/variance_kaist_ssim_v2_day
+    - no_equalization/variance_kaist_fa_day
+    - no_equalization/variance_kaist_pca_day
+    - no_equalization/variance_kaist_sobel_weighted_day
+    - no_equalization/variance_kaist_superpixel_day
+
+export:
+  # Tab-qualified plot names: <tab_id>/<plot_name>. Names without prefix
+  # are interpreted as belonging to the preset's top-level tab.
+  plots:
+    - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    
+
+  # CSV column subset. Omit/empty = all columns.
+  # The 'mean'/'std' rows for variance groups are always appended automatically.
+  columns:
+    - Label
+    - Group
+    - P
+    - R
+    - mAP50
+    - mAP50-95
+    - Best epoch (index)   # in p90 mode this cell is '-' (no meaningful percentile)
+
+  # Table formats. Subset of {csv, txt, tex, html}. [] = no tables, missing = all four.
+  table_formats: [tex]
+
+  # Plot formats. Subset of {png, pdf}. [] = no plots, missing = png only.
+  plot_formats: [pdf]
+
+  # Languages for CSV header/label translation. Omit = use GUI config default.
+  languages: [es, en]
+
+  # Base output path (no extension). GUI pre-fills the Save dialog with this.
+  # CLI uses it directly + appends "_<mode>" suffix.
+  filename: kaist_day_focus

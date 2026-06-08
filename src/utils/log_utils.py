@@ -3,6 +3,7 @@
 
 import sys
 import os
+import re
 
 from tqdm import tqdm
 import tabulate
@@ -162,33 +163,71 @@ def printDictKeys(diccionario, nivel=0):
             printDictKeys(value, nivel + 1)
 
 
-def logTable(row_data, output_path, filename, colalign = None, screen=True, showindex=False):
+def logTable(row_data, output_path, filename, colalign = None, screen=True, showindex=False, formats=None):
+    """
+    formats: iterable of {'txt','tex','html'} to write. None = all three.
+    """
     if not row_data:
         log(f"[logTable] No rows available for {filename}; skipping table export.", bcolors.WARNING)
         return
 
+    fmts = set(formats) if formats is not None else {'txt', 'tex', 'html'}
+
     table_str = tabulate.tabulate(row_data, headers="firstrow", tablefmt="fancy_grid", colalign = colalign, showindex=showindex)
-    table_latex = tabulate.tabulate(row_data, headers="firstrow", tablefmt="latex", colalign = colalign, showindex=showindex)
     if screen:
         log(f"\n{table_str}")
+
     file_name = os.path.join(output_path, filename.lower().replace(' ','_'))
-    log(f"Stored data in {file_name}")
-    with open(f"/{file_name}.txt", 'w+') as file:
-        file.write(f'{filename}\n')
-        file.write(table_str)
+    log(f"Stored data in {file_name} (formats: {sorted(fmts)})")
 
-    headers = row_data[0]
-    for i in range(len(headers)):
-        table_latex = table_latex.replace(f"headers[i]", f"\\textbf{{{headers[i]}}}")
+    if 'txt' in fmts:
+        with open(f"/{file_name}.txt", 'w+') as file:
+            file.write(f'{filename}\n')
+            file.write(table_str)
 
-    caption = f"{filename}"
-    label = f"tab:{filename.lower().replace(' ','_')}"
-    table_latex_with_caption = f"\\begin{{table}}[ht]\n\\centering\n{table_latex}\n\\captionsetup{{justification=centering}}\n\\caption{{{caption}}}\n\\label{{{label}}}\n\\end{{table}}"
+    if 'tex' in fmts:
+        table_latex = tabulate.tabulate(row_data, headers="firstrow", tablefmt="latex", colalign = colalign, showindex=showindex)
+        headers = row_data[0]
+        # Bold only the header row by wrapping each cell as a whole. A naive
+        # str.replace bolds inner letters too (SUPERPIXEL → SU\textbf{P}E\textbf{R}\textbf{P}IXEL,
+        # mAP50 → mA\textbf{P}50) because single-letter headers like 'P'/'R' match
+        # everywhere. Splitting on '&' avoids substring substitution entirely.
+        lines = table_latex.split('\n')
+        hline_idxs = [i for i, ln in enumerate(lines) if r'\hline' in ln]
+        if len(hline_idxs) >= 2:
+            for i in range(hline_idxs[0] + 1, hline_idxs[1]):
+                line = lines[i]
+                if line.rstrip().endswith(r'\\'):
+                    body, tail = line.rstrip()[:-2], r' \\'
+                else:
+                    body, tail = line, ''
+                new_cells = []
+                for cell in body.split('&'):
+                    stripped = cell.strip()
+                    if not stripped:
+                        new_cells.append(cell)
+                        continue
+                    lead  = cell[:len(cell) - len(cell.lstrip())]
+                    trail = cell[len(cell.rstrip()):]
+                    new_cells.append(f"{lead}\\textbf{{{stripped}}}{trail}")
+                lines[i] = '&'.join(new_cells) + tail
+            table_latex = '\n'.join(lines)
+        
+        table_latex = re.sub(
+            r'\\begin\{tabular\}\{[^}]*\}',
+            r'\\begin{tabular}{|l|' + 'c' * (len(headers) - 1) + '|}',
+            table_latex,
+            count=1
+        )
+        caption = f"{filename}"
+        label = f"tab:{filename.lower().replace(' ','_')}"
+        table_latex_with_caption = f"\\begin{{table}}[ht]\n\\centering\n{table_latex}\n\\captionsetup{{justification=centering}}\n\\caption{{{caption}}}\n\\label{{{label}}}\n\\end{{table}}"
 
-    with open(f"{file_name}.tex", 'w') as file:
-        file.write(table_latex_with_caption)
+        with open(f"{file_name}.tex", 'w') as file:
+            file.write(table_latex_with_caption)
 
-    table_to_html(row_data[1:], row_data[0], output_path, filename, showindex)
+    if 'html' in fmts:
+        table_to_html(row_data[1:], row_data[0], output_path, filename, showindex)
 
 def table_to_html(table, headers, output_path, filename, showindex=False):
 

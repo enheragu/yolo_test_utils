@@ -35,6 +35,8 @@ equations = {
 }
 
 class VarianceComparePlotter(BaseClassPlotter):
+    TAB_ID = 'variance_compare'
+
     def __init__(self, dataset_handler):
         super().__init__(dataset_handler, tab_keys, tab_id="variance_compare")
 
@@ -95,12 +97,32 @@ class VarianceComparePlotter(BaseClassPlotter):
         self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
-        # Open a file dialog to select the saving location
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)")
+        initial = getattr(self, '_preset_output_filename', '') or ''
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", initial, "PNG Images (*.png);;All Files (*)")
 
         if file_name:
             self.figure_tab_widget.saveFigures(file_name)
             self.csv_tab.save_data(file_name)
+
+    def _collect_tab_state(self):
+        return {
+            'mode':                None,  # variance_compare always shows mean + min/max envelope
+            'class_key':           self.combobox.currentText(),
+            'dataset_keys':        self.dataset_train_checkboxes.getChecked(),
+            'variance_group_keys': self.dataset_variance_checkboxes.getChecked(),
+        }
+
+    def _apply_tab_state(self, preset):
+        # Class
+        class_key = preset.get('class', 'all')
+        idx = self.combobox.findText(class_key)
+        if idx >= 0:
+            self.combobox.setCurrentIndex(idx)
+
+        # Selection
+        sel = preset.get('selection', {}) or {}
+        self.dataset_train_checkboxes.setCheckedKeys(sel.get('datasets', []))
+        self.dataset_variance_checkboxes.setCheckedKeys(sel.get('variance_groups', []))
 
     def _update_class_combobox(self):
         """Update class combobox with classes found in loaded datasets."""
@@ -419,6 +441,10 @@ class VarianceComparePlotter(BaseClassPlotter):
 
             else:
                 print(f"{background_eq_tag} not set.")
+
+        suptitle_keys = (self.dataset_variance_checkboxes.getChecked()
+                         + self.dataset_train_checkboxes.getChecked())
+        self._apply_common_suptitle(suptitle_keys)
 
         # Actualizar los gráfico
         self.figure_tab_widget.draw()

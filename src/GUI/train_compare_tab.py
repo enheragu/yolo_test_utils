@@ -39,6 +39,8 @@ equations = {
 }
 
 class TrainComparePlotter(BaseClassPlotter):
+    TAB_ID = 'train_compare'
+
     def __init__(self, dataset_handler):
         super().__init__(dataset_handler, tab_keys, tab_id="train_compare")
 
@@ -69,7 +71,17 @@ class TrainComparePlotter(BaseClassPlotter):
         self.dataset_checkboxes = DatasetCheckBoxWidget(self.options_widget, dataset_handler, title_filter=["train_based_"])
         self.options_layout.insertWidget(0, self.dataset_checkboxes,3)
 
-        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include = "variance_", title = f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector = self.combobox)
+        ## PERCENTILE mode selector
+        from GUI.compute_plot_data import PERCENTILE_MODES
+        percentile_layout = QHBoxLayout()
+        percentile_layout.addWidget(QLabel("Variance mode:"))
+        self.percentile_combobox = QComboBox()
+        self.percentile_combobox.addItems(PERCENTILE_MODES)
+        self.percentile_combobox.setCurrentIndex(0)
+        self.percentile_combobox.setToolTip("Select 'best' to pick the best trial, or a percentile computed from a normal fit across all N trials")
+        percentile_layout.addWidget(self.percentile_combobox)
+
+        self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include="variance_", title=f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector=self.combobox, mode_selector=self.percentile_combobox)
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
 
         ## Create a button to select all checkboxes from a given condition
@@ -110,8 +122,9 @@ class TrainComparePlotter(BaseClassPlotter):
         self.buttons_layout.addWidget(self.select_all_button, 1, 1, 1, 1)
         self.buttons_layout.addWidget(self.deselect_all_button, 0, 2, 2, 1)
         self.buttons_layout.addLayout(combobox_layout, 2, 0, 1, 3)
-        self.buttons_layout.addWidget(self.plot_button, 3, 0, 1, 3)
-        self.buttons_layout.addWidget(self.save_button, 4, 0, 1, 3)
+        self.buttons_layout.addLayout(percentile_layout, 3, 0, 1, 3)
+        self.buttons_layout.addWidget(self.plot_button, 4, 0, 1, 3)
+        self.buttons_layout.addWidget(self.save_button, 5, 0, 1, 3)
         # self.buttons_layout.addWidget(self.select_extra_button, 4, 0, 1, 3)
                
         # Tab for CSV data — dataset_checkboxes_extra excluded since it's lazy (only used via extra dialog)
@@ -168,12 +181,45 @@ class TrainComparePlotter(BaseClassPlotter):
         self.dataset_variance_checkboxes.update_checkboxes()
 
     def save_plot(self):
-        # Open a file dialog to select the saving location
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", "", "PNG Images (*.png);;All Files (*)")
+        initial = getattr(self, '_preset_output_filename', '') or ''
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Plots as PNG Images", initial, "PNG Images (*.png);;All Files (*)")
 
         if file_name:
-            self.figure_tab_widget.saveFigures(file_name)
-            self.csv_tab.save_data(file_name)
+            mode = self.percentile_combobox.currentText()
+            base = os.path.splitext(file_name)[0]
+            suffixed = f"{base}_{mode}"
+            self.figure_tab_widget.saveFigures(suffixed)
+            self.csv_tab.save_data(suffixed)
+
+    def _collect_tab_state(self):
+        return {
+            'mode':                self.percentile_combobox.currentText(),
+            'class_key':           self.combobox.currentText(),
+            'dataset_keys':        self.dataset_checkboxes.getChecked(),
+            'variance_group_keys': list(self.dataset_variance_checkboxes.getCheckedGroups().keys()),
+        }
+
+    def _apply_tab_state(self, preset):
+        # Mode (accepts string or list; uses first if list)
+        mode = preset.get('mode', 'best')
+        if isinstance(mode, list):
+            mode = mode[0] if mode else 'best'
+        idx = self.percentile_combobox.findText(mode)
+        if idx >= 0:
+            self.percentile_combobox.setCurrentIndex(idx)
+
+        # Class
+        class_key = preset.get('class', 'all')
+        idx = self.combobox.findText(class_key)
+        if idx >= 0:
+            self.combobox.setCurrentIndex(idx)
+
+        # Selection
+        sel = preset.get('selection', {}) or {}
+        self.dataset_checkboxes.setCheckedKeys(sel.get('datasets', []))
+        self.dataset_variance_checkboxes.setCheckedKeys(sel.get('variance_groups', []))
+        if self._dataset_checkboxes_extra is not None:
+            self._dataset_checkboxes_extra.setCheckedKeys(sel.get('datasets', []))
 
     def _update_class_combobox(self, checked_list):
         """Update class combobox with classes found in loaded datasets."""
@@ -206,16 +252,32 @@ class TrainComparePlotter(BaseClassPlotter):
             self._classes_loaded = True
 
     def render_data(self):
+        from GUI.percentile_manager import PercentileManager
 
-        extra_checked = self.dataset_checkboxes_extra.getChecked() if self._dataset_checkboxes_extra is not None else []
-        checked = extra_checked + self.dataset_checkboxes.getChecked() + self.dataset_variance_checkboxes.getChecked()
-        
-        # Update class combobox with classes from loaded data
+        extra_checked  = self.dataset_checkboxes_extra.getChecked() if self._dataset_checkboxes_extra is not None else []
+        regular_checked = extra_checked + self.dataset_checkboxes.getChecked()
+
+        mode = self.dataset_variance_checkboxes.getMode()
+        if mode == "best":
+            variance_checked = self.dataset_variance_checkboxes.getChecked()
+            mgr = None
+        else:
+            percentile = int(mode[1:])
+            class_key  = self.combobox.currentText() or None
+            groups = self.dataset_variance_checkboxes.getCheckedGroups()
+            mgr = PercentileManager()
+            variance_checked = mgr.inject_groups(groups, self.dataset_handler, percentile, class_key)
+
+        checked = regular_checked + variance_checked
+
         self._update_class_combobox(checked)
-        
         self.plot_p_r_f1_data(checked)
         self.csv_tab.load_table_data()
-        log(f"[{self.__class__.__name__}] Plot and table updated")
+
+        if mgr:
+            mgr.cleanup(self.dataset_handler)
+
+        log(f"[{self.__class__.__name__}] Plot and table updated ({mode})")
 
     # Plots PR, P, R and F1 curve from each dataset involved
     def plot_p_r_f1_data(self, checked_list):
@@ -279,7 +341,12 @@ class TrainComparePlotter(BaseClassPlotter):
                             values[group_name].append(y_data[0])
                         
                         label = self.dataset_handler.getInfo()[key]['label']
-                        label = label.split("(")[0] # Remove group name, they are to be grouped and diferentiated by color
+                        label = label.split("(")[0].strip()  # Remove group name, they are to be grouped and diferentiated by color
+                        if '/' in key:
+                            group_k = key.rsplit('/', 1)[0]
+                            n = sum(1 for k in self.dataset_handler.keys() if k.startswith(f"{group_k}/"))
+                            if n > 1:
+                                label = f"{label} (N={n})"
                         labels[group_name].append(label)
                         
                     except KeyError as e:
@@ -333,7 +400,7 @@ class TrainComparePlotter(BaseClassPlotter):
                 
                 labels = ax.get_xticklabels()
                 ax.set_xticks(np.arange(len(labels)))
-                ax.set_xticklabels(labels, rotation=20, ha='right')
+                ax.set_xticklabels(labels, rotation=55, ha='right')
 
                 ax.grid(True, linestyle='--', linewidth=0.5)
                 ax.set_title(f'{ylabel}')
@@ -357,7 +424,9 @@ class TrainComparePlotter(BaseClassPlotter):
                     py_tag = plot_data[canvas_key]['py']
 
                     try:
-                        best_epoch = str(data['train_data']['epoch_best_fit_index'] + 1)
+                        # epoch_best_fit_index is '-' for synthetic percentile entries
+                        _epoch_raw = data['train_data']['epoch_best_fit_index']
+                        best_epoch = str(_epoch_raw + 1) if isinstance(_epoch_raw, int) else str(_epoch_raw)
                         px = np.linspace(0, 1, 1000).tolist()
                         py = data['pr_data_best'].get(f'{py_tag}_plot', data['pr_data_best'].get(py_tag))
                             
@@ -373,7 +442,14 @@ class TrainComparePlotter(BaseClassPlotter):
                                 y = y[:index_max] + [np.nan] * (len(y) - index_max)
                             
                             # ax.plot(px, y, linewidth=2, label=f"{self.dataset_handler.getInfo()[key]['name']} ({model}) {names[i]} (best epoch: {best_epoch})")  # plot(confidence, metric)
-                            ax_label = self.dataset_handler.getInfo()[key]['label']
+                            label = self.dataset_handler.getInfo()[key]['label']
+                            label = label.split("(")[0].strip()  # Remove group name, they are to be grouped and diferentiated by color
+                            if '/' in key:
+                                group = key.rsplit('/', 1)[0]
+                                n = sum(1 for k in self.dataset_handler.keys() if k.startswith(f"{group}/"))
+                                if n > 1:
+                                    label = f"{label} (N={n})"
+                            ax_label = label
                             sns.lineplot(x=px, y=y, linewidth=2, label=ax_label, ax = ax)
 
                             
@@ -418,7 +494,9 @@ class TrainComparePlotter(BaseClassPlotter):
             ax.set_ylabel(ylabel_translated)
             
             self.figure_tab_widget[canvas_key].ax.append(ax)
-                
+
+        self._apply_common_suptitle(checked_list)
+
         # Actualizar los gráfico
         self.figure_tab_widget.draw()
 

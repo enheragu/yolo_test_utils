@@ -206,6 +206,7 @@ class PlotTabWidget(QTabWidget):
         self.label_mappings = load_label_mappings()  # Load from session cache
         self.tab_id = tab_id  # Used as key for persisting plot selection
         self.export_plots: Optional[list] = load_plot_selection(tab_id) if tab_id else None
+        self.export_formats: Optional[list] = None  # None = default ['png']; set to filter (e.g. ['pdf'])
         
         plt.rc('font', size=14)
 
@@ -269,10 +270,16 @@ class PlotTabWidget(QTabWidget):
 
     def saveFigures(self, path):
         """
-        Save selected figures to PNG files.
+        Save selected figures to image files (PNG and/or PDF).
         If export mode is 'all', saves in all languages with suffixes.
         Respects self.export_plots selection (None = export all).
+        Respects self.export_formats (None = default ['png']; e.g. ['pdf'] for vector output).
         """
+        formats = list(self.export_formats) if self.export_formats is not None else ['png']
+        formats = [f for f in formats if f in ('png', 'pdf')]
+        if not formats:
+            return  # nothing to save
+
         export_langs = get_export_languages()
         original_lang = get_language()
 
@@ -281,23 +288,22 @@ class PlotTabWidget(QTabWidget):
             if self.export_plots is not None
             else list(self.figure.keys())
         )
-        
+
         for lang in export_langs:
-            # Set language for this export iteration
             set_language(lang)
             lang_suffix = get_language_suffix(lang)
-            
-            # Update axis labels and legend mappings for this language
+
             self._apply_language_to_axes(lang)
             self.apply_label_mappings(lang)
-            
+
             for key in keys_to_export:
                 self.figure[key].set_size_inches(8, 8)
                 self.figure[key].tight_layout()
-                
-                plot_name = f"{path}_{key.replace(' ', '_')}{lang_suffix}.png"
-                self.figure[key].savefig(plot_name, format='png')
-                print(f"Plot saved to {plot_name}")
+
+                for fmt in formats:
+                    plot_name = f"{path}_{key.replace(' ', '_')}{lang_suffix}.{fmt}"
+                    self.figure[key].savefig(plot_name, format=fmt)
+                    print(f"Plot saved to {plot_name}")
         
         # Restore original language
         set_language(original_lang)
