@@ -338,14 +338,24 @@ class PlotTabWidget(QTabWidget):
 
         use_lang = lang or get_language()
 
+        _n_suffix_re = re.compile(r'^(.*?)\s*(\(N=\d+\))\s*$')
+
         for figure in self.figure.values():
             for ax in figure.ax:
                 handles, labels = ax.get_legend_handles_labels()
                 updated_labels = []
                 for label in labels:
                     mapping = self.label_mappings.get(label)
+                    n_suffix = ''
+                    if mapping is None:
+                        # Also try base label without the "(N=X)" suffix that is
+                        # appended at render time — so the preset key stays clean.
+                        m = _n_suffix_re.match(label)
+                        if m:
+                            n_suffix = f' {m.group(2)}'
+                            mapping = self.label_mappings.get(m.group(1))
                     if isinstance(mapping, dict):
-                        updated_labels.append(mapping.get(use_lang, label))
+                        updated_labels.append(mapping.get(use_lang, label) + n_suffix)
                     else:
                         updated_labels.append(label)
                 if labels != updated_labels:

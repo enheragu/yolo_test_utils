@@ -4,6 +4,7 @@
 version: 1
 tab: train_compare
 mode: [best, p90]
+show_trials: true
 class: all
 
 selection:
@@ -27,6 +28,7 @@ selection:
 export:
   plots:
     - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    - variance_compare/PR Curve
 
   columns:
     - Label
@@ -42,3 +44,12 @@ export:
   languages: [es, en]
 
   filename: llvip_night_focus
+
+  labels:
+    "SSIM_V2": "SSIM"
+    "CURVELET": "Curvelet"
+    "CURVELET_MAX": "Curvelet Max"
+    "WAVELET": "Wavelet"
+    "WAVELET_MAX": "Wavelet Max"
+    "SOBEL_WEIGHTED": "Sobel Weighted"
+    "SUPERPIXEL": "Superpixel"

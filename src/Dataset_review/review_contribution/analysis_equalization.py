@@ -16,7 +16,7 @@ Outputs (under ``~/.cache/eeha_review_fusion_contribution/reports/equalization/`
     method:equalization``.
     - ``anova_grouped_<tag>.csv`` — two-way ANOVA with fusion families:
         ``metric ~ fusion_group + equalization + fusion_group:equalization``.
-  - ``heatmap_<tag>.png`` — method × equalization mean heatmap.
+    - ``heatmap_<tag>.pdf`` — method × equalization mean heatmap.
   - ``delta_<tag>.png`` — stacked bar of Δmetric per method / equalization.
   - ``strip_<tag>.png`` — per-equalization strip-plot of all runs, all methods.
 
@@ -81,6 +81,7 @@ _FAMILY_SPECS = [
 _GROUP_ORDER = {group: idx for idx, (group, _) in enumerate(_FAMILY_SPECS)}
 _METHOD_GROUP = {method: group for group, methods in _FAMILY_SPECS for method in methods}
 _GROUP_METHOD_ORDER = {group: methods for group, methods in _FAMILY_SPECS}
+_UNKNOWN_GROUP = "__unknown__"
 
 
 def _method_key(method: str) -> str:
@@ -88,20 +89,17 @@ def _method_key(method: str) -> str:
 
 
 def _fusion_group(method: str) -> str:
-    return _METHOD_GROUP.get(_method_key(method), "other")
+    return _METHOD_GROUP.get(_method_key(method), _UNKNOWN_GROUP)
 
 
 def _method_rank_tuple(method: str) -> tuple[int, int, str]:
     key = _method_key(method)
     group = _fusion_group(key)
-    try:
-        group_rank = _GROUP_ORDER[group]
-    except KeyError:
-        group_rank = _GROUP_ORDER["other"]
-    try:
-        within_group = _GROUP_METHOD_ORDER[group].index(key)
-    except (KeyError, ValueError):
-        within_group = 999
+    group_rank = _GROUP_ORDER.get(group, len(_GROUP_ORDER))
+    if group == _UNKNOWN_GROUP:
+        return (group_rank, 999, key)
+
+    within_group = _GROUP_METHOD_ORDER[group].index(key) if key in _GROUP_METHOD_ORDER[group] else 999
     return (group_rank, within_group, key)
 
 
@@ -185,6 +183,7 @@ def build_pivot(runs: pd.DataFrame, reducer: str) -> pd.DataFrame:
     reducers = {
         "mean":   lambda v: float(v.mean()),
         "median": lambda v: float(np.median(v)),
+        "best":   lambda v: float(v.max()),
         "p90":    _p90,
     }
     pick = reducers[reducer]
@@ -203,6 +202,7 @@ def build_pivot(runs: pd.DataFrame, reducer: str) -> pd.DataFrame:
             "std": float(values.std(ddof=1)) if values.size > 1 else 0.0,
             "median": float(np.median(values)),
             "p90": _p90(values),
+            "best": float(values.max()),
             "value": pick(values),
         })
     return pd.DataFrame(records)
@@ -317,27 +317,41 @@ def _group_boundaries(methods: list[str]) -> list[int]:
 
 
 def plot_heatmap(pivot: pd.DataFrame, metric: str, out_path: Path,
-                 title: str, reducer: str, method_order: str = "fixed") -> None:
+                 title: str, reducer: str, method_order: str = "fixed",
+                 include_groups: list[str] | None = None) -> None:
+    if include_groups is not None:
+        pivot = pivot[pivot["fusion_group"].isin(include_groups)].copy()
+        if pivot.empty:
+            raise RuntimeError(
+                f"No methods remain for heatmap after filtering groups: {include_groups}"
+            )
     methods = _order_methods(pivot, method_order)
     mat = pivot.pivot(index="method", columns="equalization", values="value")
     mat = mat.reindex(index=methods, columns=list(EQUALIZATIONS))
+    data = mat.to_numpy(dtype=float)
+    masked = np.ma.masked_invalid(data)
+    mesh = np.arange(masked.shape[1] + 1)
+    mmesh = np.arange(masked.shape[0] + 1)
 
     fig, ax = plt.subplots(figsize=(7.5, 0.35 * len(methods) + 2))
-    im = ax.imshow(mat.to_numpy(dtype=float), aspect="auto", cmap="viridis")
-    ax.set_yticks(range(len(mat.index)))
-    ax.set_yticklabels(mat.index, fontsize=8)
-    ax.set_xticks(range(len(mat.columns)))
+    im = ax.pcolormesh(mesh, mmesh, masked, cmap="viridis", shading="flat")
+    ax.set_yticks(np.arange(len(mat.index)) + 0.5)
+    ax.set_yticklabels(mat.index, fontsize=8, va="center")
+    ax.set_xticks(np.arange(len(mat.columns)) + 0.5)
     ax.set_xticklabels([c.replace("_equalization", "") for c in mat.columns],
-                       rotation=20, ha="right", fontsize=9)
+                       rotation=20, ha="center", fontsize=9)
+    ax.set_xlim(0, len(mat.columns))
+    ax.set_ylim(len(mat.index), 0)
     for boundary in _group_boundaries(methods):
-        ax.hlines(boundary - 0.5, -0.5, len(mat.columns) - 0.5,
+        ax.hlines(boundary, 0, len(mat.columns),
                   colors="black", linewidth=1, alpha=0.8)
+    finite_mean = float(np.nanmean(data)) if np.isfinite(data).any() else float("nan")
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
-            v = mat.iat[i, j]
+            v = data[i, j]
             if np.isfinite(v):
-                ax.text(j, i, f"{v:.3f}", ha="center", va="center",
-                        color="white" if v < np.nanmean(mat.to_numpy()) else "black",
+                ax.text(j + 0.5, i + 0.5, f"{v:.3f}", ha="center", va="center",
+                        color="white" if v < finite_mean else "black",
                         fontsize=7)
     ax.set_title(f"{title}\n{metric} ({reducer})")
     fig.colorbar(im, ax=ax, shrink=0.8, label=metric)
@@ -414,7 +428,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--dataset", choices=["kaist", "llvip"], default="llvip")
     p.add_argument("--condition", choices=["day", "night"], default="night")
     p.add_argument("--metric", choices=TRAINING_METRICS, default="mAP50")
-    p.add_argument("--target-reducer", choices=["mean", "median", "p90"], default="p90")
+    p.add_argument("--target-reducer", choices=["mean", "median", "p90", "best"], default="p90")
     p.add_argument("--min-eqs", type=int, default=1,
                    help="Keep only methods that appear under >= N equalizations "
                         "(default: 1, include all methods present in CSV).")
@@ -481,10 +495,17 @@ def main() -> int:
 
     intragroup_all = pd.concat(intragroup_frames, ignore_index=True) if intragroup_frames else None
 
-    plot_heatmap(pivot, args.metric, report_dir / f"heatmap_{tag}.png",
-                 title=f"{args.dataset}/{args.condition}",
-                 reducer=args.target_reducer,
-                 method_order=args.method_order)
+    for title, heatmap_groups in {"advanced_early_fusion":["reprojection_variance", "reprojection_freq", "alpha"]}.items():
+        plot_heatmap(
+            pivot,
+            args.metric,
+            report_dir / f"heatmap_{tag}_{title}.pdf",
+            title=f"{args.dataset}/{args.condition}",
+            reducer=args.target_reducer,
+            method_order=args.method_order,
+            include_groups=heatmap_groups,
+        )
+        
     if not delta.empty:
         plot_delta(delta, args.metric, report_dir / f"delta_{tag}.png",
                    title=f"{args.dataset}/{args.condition}  "

@@ -80,6 +80,9 @@ class TrainComparePlotter(BaseClassPlotter):
         self.percentile_combobox.setCurrentIndex(0)
         self.percentile_combobox.setToolTip("Select 'best' to pick the best trial, or a percentile computed from a normal fit across all N trials")
         percentile_layout.addWidget(self.percentile_combobox)
+        self.show_trials_checkbox = QCheckBox("Show trials")
+        self.show_trials_checkbox.setToolTip("Overlay individual trial points (×) on percentile scatter plots")
+        percentile_layout.addWidget(self.show_trials_checkbox)
 
         self.dataset_variance_checkboxes = BestGroupCheckBoxWidget(self.options_widget, dataset_handler, include="variance_", title=f"(Best) Variance analysis sets:", title_filter=["variance_"], class_selector=self.combobox, mode_selector=self.percentile_combobox)
         self.options_layout.insertWidget(0, self.dataset_variance_checkboxes,3)
@@ -197,6 +200,7 @@ class TrainComparePlotter(BaseClassPlotter):
             'class_key':           self.combobox.currentText(),
             'dataset_keys':        self.dataset_checkboxes.getChecked(),
             'variance_group_keys': list(self.dataset_variance_checkboxes.getCheckedGroups().keys()),
+            'show_trials':         self.show_trials_checkbox.isChecked(),
         }
 
     def _apply_tab_state(self, preset):
@@ -220,6 +224,9 @@ class TrainComparePlotter(BaseClassPlotter):
         self.dataset_variance_checkboxes.setCheckedKeys(sel.get('variance_groups', []))
         if self._dataset_checkboxes_extra is not None:
             self._dataset_checkboxes_extra.setCheckedKeys(sel.get('datasets', []))
+
+        # Show trials overlay
+        self.show_trials_checkbox.setChecked(preset.get('show_trials', False))
 
     def _update_class_combobox(self, checked_list):
         """Update class combobox with classes found in loaded datasets."""
@@ -258,6 +265,7 @@ class TrainComparePlotter(BaseClassPlotter):
         regular_checked = extra_checked + self.dataset_checkboxes.getChecked()
 
         mode = self.dataset_variance_checkboxes.getMode()
+        trial_groups = None
         if mode == "best":
             variance_checked = self.dataset_variance_checkboxes.getChecked()
             mgr = None
@@ -267,11 +275,13 @@ class TrainComparePlotter(BaseClassPlotter):
             groups = self.dataset_variance_checkboxes.getCheckedGroups()
             mgr = PercentileManager()
             variance_checked = mgr.inject_groups(groups, self.dataset_handler, percentile, class_key)
+            if self.show_trials_checkbox.isChecked():
+                trial_groups = groups
 
         checked = regular_checked + variance_checked
 
         self._update_class_combobox(checked)
-        self.plot_p_r_f1_data(checked)
+        self.plot_p_r_f1_data(checked, trial_groups=trial_groups)
         self.csv_tab.load_table_data()
 
         if mgr:
@@ -280,7 +290,7 @@ class TrainComparePlotter(BaseClassPlotter):
         log(f"[{self.__class__.__name__}] Plot and table updated ({mode})")
 
     # Plots PR, P, R and F1 curve from each dataset involved
-    def plot_p_r_f1_data(self, checked_list):
+    def plot_p_r_f1_data(self, checked_list, trial_groups=None):
         # PY is an interpolated versino to plot it with a consistent px value<
         plot_data = {'PR Curve': {'py': 'py', 'xlabel': "Recall", "ylabel": 'Precision'}, # at mAP@0.5'},
                      'P Curve': {'py': 'p', 'xlabel': "Confidence", "ylabel": 'Precision'},
@@ -321,7 +331,7 @@ class TrainComparePlotter(BaseClassPlotter):
                     if not data:
                         print(f"Data for {key} is None, skipping")
                         continue
-                    
+
                     try:
                         group_name = data['validation_best']['name'].split('/')[0]
                         if not group_name in labels:
@@ -332,29 +342,26 @@ class TrainComparePlotter(BaseClassPlotter):
                             data_tag = plot_data[canvas_key]['py']
                             plot_class = self.combobox.currentText() if  self.combobox.currentText() in data['validation_best']['data'] else 'all'
                             values[group_name].append(data['validation_best']['data'][plot_class].get(f"m{data_tag}", data['validation_best']['data'][plot_class].get(data_tag)))
-                            
+
                         else:
                             data_tag = plot_data[canvas_key]['py']
                             y_data = data['pr_data_best'].get(data_tag)
                             if y_data is None:
                                 print(f'{y_data = }; {canvas_key = } for {key}, tagged as {data_tag}')
                             values[group_name].append(y_data[0])
-                        
+
+                        # N suffix omitted: it varies across equalization groups for the same method,
+                        # which would create duplicate X positions (e.g. "CURVELET (N=3)" vs "CURVELET (N=5)").
                         label = self.dataset_handler.getInfo()[key]['label']
-                        label = label.split("(")[0].strip()  # Remove group name, they are to be grouped and diferentiated by color
-                        if '/' in key:
-                            group_k = key.rsplit('/', 1)[0]
-                            n = sum(1 for k in self.dataset_handler.keys() if k.startswith(f"{group_k}/"))
-                            if n > 1:
-                                label = f"{label} (N={n})"
+                        label = label.split("(")[0].strip()
                         labels[group_name].append(label)
-                        
+
                     except KeyError as e:
                         log(f"[{self.__class__.__name__}] KeyError problem generating curve for {key} for {data_tag} plot. It wont be generated. Missing key in data dict: {e}", bcolors.ERROR)
                         self.dataset_handler.markAsIncomplete(key)
                     except TypeError as e:
                         log(f"[{self.__class__.__name__}] TypeError problem generating curve for {key} for {data_tag} plot. It wont be generated. {e}", bcolors.ERROR)
-                
+
                 # Default sort lower to upper
                 reverse = False
                 order_function = max
@@ -362,7 +369,7 @@ class TrainComparePlotter(BaseClassPlotter):
                     # sort upper to lower :)
                     reverse = True
                     order_function = min
-                    
+
 
                 ## Sort lower to upper
                 max_values = {} # max value for each label
@@ -386,18 +393,60 @@ class TrainComparePlotter(BaseClassPlotter):
                         else:
                             sorted_values[group].append(np.nan)
 
-                for (group, value), label in zip(sorted_values.items(), sorted_labels):
-                    # sorted_pairs = sorted(zip(values, labels))
-                    # sorted_values, sorted_labels = zip(*sorted_pairs)
-                    # sns.scatterplot(x=sorted_labels, y=sorted_values, ax = ax, label=f'{group}')
-                    sns.scatterplot(x=sorted_labels, y=value, ax = ax, label=f'{group.replace("_sameseed","")}')
-                    # ax.set_xticks(np.arange(len(labels)))
-                    # ax.set_xticklabels(labels, rotation=45, ha='right')
-                
-                # for i, y in enumerate(sorted_values):
-                #     ax.axhline(y=y, color='gray', linestyle='--', linewidth=0.5)
-                #     ax.axvline(x=i, color='gray', linestyle='--', linewidth=0.5)
-                
+                colors_list = sns.color_palette()
+                color_iter = iter(colors_list)
+                group_colors = {}
+                for group, value in sorted_values.items():
+                    next_color = next(color_iter)
+                    group_colors[group] = next_color
+                    sns.scatterplot(x=sorted_labels, y=value, ax=ax,
+                                   label=f'{group.replace("_sameseed","")}', color=next_color)
+
+                # Overlay individual trial points as × markers (same color, subtle).
+                # Iterate trial_groups directly so every (equalization × method) combination
+                # gets its own set of markers at the correct X position and colour.
+                if trial_groups:
+                    all_info = self.dataset_handler.getInfo()
+                    for var_group, t_keys in trial_groups.items():
+                        ref_data = next((self.dataset_handler[k] for k in t_keys if self.dataset_handler[k]), None)
+                        ref_info = next((all_info.get(k) for k in t_keys if all_info.get(k)), None)
+                        if ref_data is None or ref_info is None:
+                            continue
+                        scatter_group = ref_data['validation_best']['name'].split('/')[0]
+                        color = group_colors.get(scatter_group)
+                        if color is None:
+                            continue
+                        x_label = ref_info['label'].split('(')[0].strip()
+                        if x_label not in sorted_labels:
+                            continue
+                        x_pos = sorted_labels.index(x_label)
+
+                        trial_vals = []
+                        for t_key in t_keys:
+                            t_data = self.dataset_handler[t_key]
+                            if not t_data:
+                                continue
+                            try:
+                                if canvas_key in ['mAP50-95', 'mAP50']:
+                                    t_data_tag = plot_data[canvas_key]['py']
+                                    t_plot_class = self.combobox.currentText() if self.combobox.currentText() in t_data['validation_best']['data'] else 'all'
+                                    val = t_data['validation_best']['data'][t_plot_class].get(f"m{t_data_tag}", t_data['validation_best']['data'][t_plot_class].get(t_data_tag))
+                                else:
+                                    t_data_tag = plot_data[canvas_key]['py']
+                                    t_y = t_data['pr_data_best'].get(t_data_tag)
+                                    val = t_y[0] if t_y else None
+                                if val is not None:
+                                    trial_vals.append(float(val))
+                            except (KeyError, TypeError, IndexError):
+                                continue
+
+                        if trial_vals:
+                            n = len(trial_vals)
+                            jitter = np.random.uniform(-0.35, 0.35, n)
+                            ax.scatter(np.full(n, x_pos) + jitter, trial_vals,
+                                      color=color, alpha=0.4, marker='x', s=35,
+                                      linewidths=1.2, zorder=3, label='_nolegend_')
+
                 labels = ax.get_xticklabels()
                 ax.set_xticks(np.arange(len(labels)))
                 ax.set_xticklabels(labels, rotation=55, ha='right')

@@ -7,6 +7,7 @@
 version: 1
 tab: train_compare
 mode: [best, p90]
+show_trials: true
 class: all
 
 selection:
@@ -56,11 +57,12 @@ export:
   # Tab-qualified plot names: <tab_id>/<plot_name>. Names without prefix
   # are interpreted as belonging to the preset's top-level tab.
   plots:
-    # - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    - train_compare/PR Curve
     - train_compare/mAP50          # scatter: methods on X, mAP50 on Y
     - train_compare/mAP50-95
     - train_compare/precision
     - train_compare/recall
+    - variance_compare/PR Curve
 
   # CSV column subset. Omit/empty = all columns.
   # The 'mean'/'std' rows for variance groups are always appended automatically.
@@ -85,3 +87,12 @@ export:
   # Base output path (no extension). GUI pre-fills the Save dialog with this.
   # CLI uses it directly + appends "_<mode>" suffix.
   filename: kaist_night_all
+
+  labels:
+    "SSIM_V2": "SSIM"
+    "CURVELET": "Curvelet"
+    "CURVELET_MAX": "Curvelet Max"
+    "WAVELET": "Wavelet"
+    "WAVELET_MAX": "Wavelet Max"
+    "SOBEL_WEIGHTED": "Sobel Weighted"
+    "SUPERPIXEL": "Superpixel"

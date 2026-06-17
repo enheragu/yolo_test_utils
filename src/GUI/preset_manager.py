@@ -30,6 +30,9 @@ YAML schema (v1):
                                                  # [] = save no plots; missing = png only
       languages:     [es, en]                    # missing = use GUI config default
       filename:      outputs/paper_v1/kaist_day_methods
+      labels:                                    # legend label overrides (all languages)
+        "original legend text": "Display name"  # flat string → applied to all langs
+        "another label": "Other name"
                                                  # optional base path (no extension);
                                                  # GUI pre-fills Save dialog; CLI uses directly
 """

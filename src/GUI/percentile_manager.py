@@ -32,7 +32,11 @@ def _ppf_scalar(values, p):
         return 0.0
     if len(values) < 2:
         return float(values[0])
-    return float(scipy_norm.ppf(p, np.mean(values), np.std(values, ddof=1)))
+    mean = np.mean(values)
+    std  = np.std(values, ddof=1)
+    if std == 0:
+        return float(mean)
+    return float(scipy_norm.ppf(p, mean, std))
 
 
 def _ppf_curve(trial_curves, p):
@@ -55,7 +59,9 @@ def _ppf_curve(trial_curves, p):
             # with 0 so norm.ppf(p, mean, 0) = mean (no spread to estimate).
             # Points with all-NaN means stay NaN and propagate as expected.
             stds = np.where(np.isnan(stds), 0.0, stds)
-            ppf  = scipy_norm.ppf(p, means, stds)
+            # Where std=0 the distribution is a delta — ppf collapses to mean.
+            # Calling scipy with scale=0 triggers "-inf * 0 = NaN" internally.
+            ppf  = np.where(stds == 0, means, scipy_norm.ppf(p, means, stds))
         result.append(ppf.tolist())
     return result
 

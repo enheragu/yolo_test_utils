@@ -231,6 +231,13 @@ class BaseClassPlotter(QWidget):
             self.figure_tab_widget.export_formats = list(export['plot_formats'])
         if 'filename' in export:
             self._preset_output_filename = export['filename'] or None
+        if 'labels' in export and hasattr(self, 'figure_tab_widget'):
+            raw = export['labels'] or {}
+            normalized = {
+                orig: ({lang: disp for lang in ('en', 'es')} if isinstance(disp, str) else disp)
+                for orig, disp in raw.items()
+            }
+            self.figure_tab_widget.label_mappings.update(normalized)
 
     def save_preset(self):
         from GUI.preset_manager import save_preset as _save

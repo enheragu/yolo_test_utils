@@ -47,7 +47,7 @@ TRAIN_COMPARE_METRICS = {
 # VARIANCE COMPARE TAB - Statistical comparison plots
 # =============================================================================
 VARIANCE_COMPARE_PLOTS = {
-    'PR Curve': False,          # Disabled for variance
+    'PR Curve': True,
     'P Curve': False,
     'R Curve': False,
     'F1 Curve': False,

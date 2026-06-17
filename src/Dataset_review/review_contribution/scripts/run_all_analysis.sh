@@ -27,8 +27,8 @@ PRESET="test"
 # Equalization slice used by regression + HTML report.
 # One of: no_equalization | rgb_equalization | th_equalization | rgb_th_equalization
 EQUALIZATION="no_equalization"
-# Target reducer for regression and equalization: mean | median | p90
-TARGET_REDUCER="p90"
+# Target reducer for regression and equalization: mean | median | p90 | best
+TARGET_REDUCER="best"
 # Detection metrics for the equalization analysis.
 EQUALIZATION_METRICS=(P R mAP50 mAP50-95)
 
@@ -44,8 +44,18 @@ METHODS=(
     hsvt rgbt_v2
 )
 
-# Python interpreter (venv).
-PYTHON="/home/arvc/eeha/venv/bin/python"
+# Python interpreter.  Override with PYTHON=/path/to/python when needed.
+PYTHON="${PYTHON:-}"
+if [[ -z "${PYTHON}" ]]; then
+    if command -v python3 >/dev/null 2>&1; then
+        PYTHON="$(command -v python3)"
+    elif command -v python >/dev/null 2>&1; then
+        PYTHON="$(command -v python)"
+    else
+        echo "[toolchain] no Python interpreter found in PATH; set PYTHON explicitly" >&2
+        return 1 2>/dev/null || exit 1
+    fi
+fi
 
 # Where to write the tee'd run log (timestamped).  Set to empty to disable.
 LOG_DIR="${HOME}/.cache/eeha_review_fusion_contribution/logs"
@@ -111,29 +121,29 @@ for dataset in "${DATASETS[@]}"; do
         echo "[toolchain] ${tag}"
         echo "----------------------------------------"
 
-        echo "[toolchain] pipeline (condition=${condition}, preset=${PRESET})"
-        run_py Dataset_review.review_contribution.pipeline \
-            --dataset "${dataset}" --condition "${condition}" --preset "${PRESET}" \
-            "${METHODS_ARG[@]}"
+        # echo "[toolchain] pipeline (condition=${condition}, preset=${PRESET})"
+        # run_py Dataset_review.review_contribution.pipeline \
+        #     --dataset "${dataset}" --condition "${condition}" --preset "${PRESET}" \
+        #     "${METHODS_ARG[@]}"
 
-        echo "[toolchain] pca (${tag})"
-        run_py Dataset_review.review_contribution.analysis_pca \
-            --dataset "${dataset}" --condition "${condition}"
+        # echo "[toolchain] pca (${tag})"
+        # run_py Dataset_review.review_contribution.analysis_pca \
+        #     --dataset "${dataset}" --condition "${condition}"
 
-        echo "[toolchain] pca + channel_redundancy (${tag})"
-        run_py Dataset_review.review_contribution.analysis_pca \
-            --dataset "${dataset}" --condition "${condition}" \
-            --include-channel-redundancy
+        # echo "[toolchain] pca + channel_redundancy (${tag})"
+        # run_py Dataset_review.review_contribution.analysis_pca \
+        #     --dataset "${dataset}" --condition "${condition}" \
+        #     --include-channel-redundancy
 
-        echo "[toolchain] regression (${tag})"
-        run_py Dataset_review.review_contribution.analysis_regression \
-            --dataset "${dataset}" --condition "${condition}" \
-            --equalization "${EQUALIZATION}" --target-reducer "${TARGET_REDUCER}"
+        # echo "[toolchain] regression (${tag})"
+        # run_py Dataset_review.review_contribution.analysis_regression \
+        #     --dataset "${dataset}" --condition "${condition}" \
+        #     --equalization "${EQUALIZATION}" --target-reducer "${TARGET_REDUCER}"
 
-        echo "[toolchain] regression + CR (${tag})"
-        run_py Dataset_review.review_contribution.analysis_regression \
-            --dataset "${dataset}" --condition "${condition}" \
-            --equalization "${EQUALIZATION}" --target-reducer "${TARGET_REDUCER}" --with-cr
+        # echo "[toolchain] regression + CR (${tag})"
+        # run_py Dataset_review.review_contribution.analysis_regression \
+        #     --dataset "${dataset}" --condition "${condition}" \
+        #     --equalization "${EQUALIZATION}" --target-reducer "${TARGET_REDUCER}" --with-cr
 
         echo "[toolchain] equalization (${tag})"
         for metric in "${EQUALIZATION_METRICS[@]}"; do
@@ -142,49 +152,49 @@ for dataset in "${DATASETS[@]}"; do
                 --metric "${metric}" --target-reducer "${TARGET_REDUCER}"
         done
 
-        echo "[toolchain] html report (${tag})"
-        run_py Dataset_review.review_contribution.build_report_html \
-            --dataset "${dataset}" --condition "${condition}" \
-            --equalization "${EQUALIZATION}" \
-            --target-reducer "${TARGET_REDUCER}"
+        # echo "[toolchain] html report (${tag})"
+        # run_py Dataset_review.review_contribution.build_report_html \
+        #     --dataset "${dataset}" --condition "${condition}" \
+        #     --equalization "${EQUALIZATION}" \
+        #     --target-reducer "${TARGET_REDUCER}"
     done
 done
 
-# Cross-slice artifacts and index — must run AFTER all per-slice
-# `*_methods_overview.csv` files exist.
-echo "========================================"
-echo "[toolchain] cross-slice analyses"
-echo "========================================"
-INDEX_SLICES=()
-LATENT2D_SLICES=()
-for dataset in "${DATASETS[@]}"; do
-    for condition in $(conditions_for "${dataset}"); do
-        INDEX_SLICES+=(--slice "${dataset}:${condition}")
-        LATENT2D_SLICES+=("${dataset}:${condition}")
-    done
-done
+# # Cross-slice artifacts and index — must run AFTER all per-slice
+# # `*_methods_overview.csv` files exist.
+# echo "========================================"
+# echo "[toolchain] cross-slice analyses"
+# echo "========================================"
+# INDEX_SLICES=()
+# LATENT2D_SLICES=()
+# for dataset in "${DATASETS[@]}"; do
+#     for condition in $(conditions_for "${dataset}"); do
+#         INDEX_SLICES+=(--slice "${dataset}:${condition}")
+#         LATENT2D_SLICES+=("${dataset}:${condition}")
+#     done
+# done
 
-# Decode the overview CSV equalization tag into the (eq_vis, eq_th) pair the
-# analysis_latent2d filter expects.  The orchestrator uses the overview-tag
-# convention; the analyser uses the original column values.
-case "${EQUALIZATION}" in
-    rgb_equalization)    EQ_VIS=clahe; EQ_TH=none  ;;
-    th_equalization)     EQ_VIS=none;  EQ_TH=clahe ;;
-    rgb_th_equalization) EQ_VIS=clahe; EQ_TH=clahe ;;
-    *)                   EQ_VIS=none;  EQ_TH=none  ;;
-esac
+# # Decode the overview CSV equalization tag into the (eq_vis, eq_th) pair the
+# # analysis_latent2d filter expects.  The orchestrator uses the overview-tag
+# # convention; the analyser uses the original column values.
+# case "${EQUALIZATION}" in
+#     rgb_equalization)    EQ_VIS=clahe; EQ_TH=none  ;;
+#     th_equalization)     EQ_VIS=none;  EQ_TH=clahe ;;
+#     rgb_th_equalization) EQ_VIS=clahe; EQ_TH=clahe ;;
+#     *)                   EQ_VIS=none;  EQ_TH=none  ;;
+# esac
 
-echo "[toolchain] latent2d (joint latent_z × channel_redundancy)"
-run_py Dataset_review.review_contribution.analysis_latent2d \
-    --slices "${LATENT2D_SLICES[@]}" \
-    --equalization-vis "${EQ_VIS}" --equalization-th "${EQ_TH}" \
-    --reducer "${TARGET_REDUCER}"
+# echo "[toolchain] latent2d (joint latent_z × channel_redundancy)"
+# run_py Dataset_review.review_contribution.analysis_latent2d \
+#     --slices "${LATENT2D_SLICES[@]}" \
+#     --equalization-vis "${EQ_VIS}" --equalization-th "${EQ_TH}" \
+#     --reducer "${TARGET_REDUCER}"
 
-echo "[toolchain] building comparison index"
-run_py Dataset_review.review_contribution.build_comparison_html \
-    "${INDEX_SLICES[@]}" \
-    --equalization "${EQUALIZATION}" \
-    --target-reducer "${TARGET_REDUCER}"
+# echo "[toolchain] building comparison index"
+# run_py Dataset_review.review_contribution.build_comparison_html \
+#     "${INDEX_SLICES[@]}" \
+#     --equalization "${EQUALIZATION}" \
+#     --target-reducer "${TARGET_REDUCER}"
 
 echo "========================================"
 echo "[toolchain] done"

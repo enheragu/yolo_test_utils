@@ -127,6 +127,18 @@ def render(preset_path, output_override=None, load_from_cache=False, force_updat
         tab.render_data()
         log(f"[render] Rendered in {time.time() - t0:.2f}s")
 
+        if hasattr(tab, 'figure_tab_widget'):
+            seen = set()
+            label_lines = []
+            for fig in tab.figure_tab_widget.figure.values():
+                for ax in fig.axes:
+                    for lbl in ax.get_legend_handles_labels()[1]:
+                        if lbl and lbl != '_nolegend_' and lbl not in seen:
+                            seen.add(lbl)
+                            label_lines.append(f'    "{lbl}"')
+            if label_lines:
+                log(f"[render] Legend labels (use as keys in export.labels):\n" + "\n".join(label_lines))
+
         out = f"{base_path}{suffix}"
         log(f"[render] Saving to {out}*")
         tab.save_outputs_to(out)

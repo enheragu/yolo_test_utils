@@ -7,6 +7,7 @@
 version: 1
 tab: train_compare
 mode: [best, p90]
+show_trials: true
 class: all
 
 selection:
@@ -30,6 +31,7 @@ export:
   # are interpreted as belonging to the preset's top-level tab.
   plots:
     - train_compare/PR Curve     # precision-recall curve (p90 envelope when mode=p90)
+    - variance_compare/PR Curve
     
 
   # CSV column subset. Omit/empty = all columns.
@@ -55,3 +57,13 @@ export:
   # Base output path (no extension). GUI pre-fills the Save dialog with this.
   # CLI uses it directly + appends "_<mode>" suffix.
   filename: kaist_day_focus
+
+  # Legend label overrides applied at export time (both scatter and PR curve).
+  labels:
+    "SSIM_V2": "SSIM"
+    "CURVELET": "Curvelet"
+    "CURVELET_MAX": "Curvelet Max"
+    "WAVELET": "Wavelet"
+    "WAVELET_MAX": "Wavelet Max"
+    "SOBEL_WEIGHTED": "Sobel Weighted"
+    "SUPERPIXEL": "Superpixel"
