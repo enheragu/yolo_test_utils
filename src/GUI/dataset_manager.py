@@ -150,7 +150,8 @@ def getResultsYamlData(dataset):
                         
 
 def getCSVData(dataset):
-    csv_path = dataset['path'].replace('results.yaml','results.csv')
+    # sibling files derived from the dir (robust to results.yaml or results_reconstructed.yaml)
+    csv_path = os.path.join(os.path.dirname(dataset['path']), 'results.csv')
     if os.path.exists(csv_path):
         data= parseCSV(csv_path)
         return {'csv_data': data}
@@ -159,7 +160,7 @@ def getCSVData(dataset):
         return {}
     
 def getArgsYamlData(dataset):
-    arg_path = dataset['path'].replace('results.yaml','args.yaml')
+    arg_path = os.path.join(os.path.dirname(dataset['path']), 'args.yaml')
     data_filtered = {}
     if os.path.exists(arg_path):
         try:
@@ -243,7 +244,12 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                 continue
 
             if file_name in files:
-                abs_path = os.path.join(root, file_name)
+                # Prefer reconstructed results when present. results.yaml lost its
+                # pr_data_0 block to the dumpYaml bug (~2026-05-16); results_reconstructed.yaml
+                # is a complete superset (original metadata + recomputed pr_data_0).
+                # See scripts/reconstruct_results.py.
+                recon_name = "results_reconstructed.yaml"
+                abs_path = os.path.join(root, recon_name if recon_name in files else file_name)
                 if "validate" in abs_path: # Avoid validation tests, only training
                     log(f"[find_results_file] Validate tests are to be ignored: {abs_path}.", bcolors.WARNING)
                     continue

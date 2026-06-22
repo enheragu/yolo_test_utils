@@ -132,6 +132,13 @@ function eeha_print_test_queue() {
     (cd $EEHA_SCHEDULER_SCRIPT_PATH/.. && python ./src/check_test_queue.py)
 }
 
+# State-of-results matrices (2 tables by model dataset; in-domain npzfix>train + cross rows).
+# Scans all of runs/detect -> slower than the queue print; also (re)generates missing run_opts.yaml.
+function eeha_print_execution_table() {
+    source $EEHA_SCHEDULER_SCRIPT_PATH/../../venv/bin/activate
+    (cd $EEHA_SCHEDULER_SCRIPT_PATH/.. && python ./src/generate_opts_run_yaml.py)
+}
+
 function eeha_update_current_cache() {
     echo "Update arvc@10.1.60.87 remote cache data"
     ssh arvc@10.1.60.87 'source ~/eeha/venv/bin/activate; cd ~/eeha/yolo_test_utils/ && python src/GUI/dataset_manager.py;'

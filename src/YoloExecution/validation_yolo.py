@@ -73,6 +73,13 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path, option
     args['device'] = opts.device
     # args['save_hybrid'] = True -> PROBLEMS WITH TENSOR SIZE
 
+    # Lean output for re-validation / cross-eval (when --result-tag is set): the saved label .txt are
+    # redundant with predictions.json (reconstruct_results.py reads the json), so skip them. Plots stay
+    # ON because the val_batch mosaics are NOT regenerable once the dataset npz are deleted; the curve
+    # PNGs (which ARE reconstructible from pr_data in results.yaml) are pruned later by a post-backup cleanup.
+    if getattr(opts, 'result_tag', None):
+        args['save_txt'] = False
+
     yaml_data['output_log_file'] = log_file_path
 
     args = get_cfg(cfg=DEFAULT_CFG, overrides=args)
@@ -82,7 +89,10 @@ def TestValidateYolo(dataset, yolo_model, path_name, opts, log_file_path, option
     validator = yolo_detc.DetectionValidator(args=args)
     validator(model=args.model)
 
-    dumpYaml(Path(validator.save_dir) / f'results.yaml', yaml_data, 'a')
+    results_path = Path(validator.save_dir) / f'results.yaml'
+    existing = parseYaml(results_path) or {}
+    existing.update(yaml_data)
+    dumpYaml(results_path, existing)
     run_opts_data = _opts_to_plain_dict(opts)
     dumpYaml(Path(validator.save_dir) / f'run_opts.yaml', run_opts_data, 'w')
 

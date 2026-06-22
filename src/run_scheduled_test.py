@@ -3,11 +3,13 @@
 
 import os
 import sys
+import glob
 import traceback
 
 from datetime import datetime
 
 from Dataset.update_datset import checkDataset
+from Dataset.constants import kaist_path
 from test_scheduler import TestQueue, stop_env_var
 from test_scheduler import isTimetableActive, sleep_until
 
@@ -18,6 +20,33 @@ from argument_parser import handleArguments, yolo_output_log_path, yolo_output_p
 
 sys.path.append('.')
 import src # Imports __init__.py defined in paralel to this script
+
+def discover_models(group, tag):
+    """Auto-discovery for `--iterations all`. Glob `group` (relative to runs/detect, or absolute) for every
+    eligible trained model NOT already re-validated for `tag`, and return an ordered dict
+    {abs best.pt path: path_base '<group_rel>/<rep_name>/<tag>'}. Because this runs when the queue entry
+    EXECUTES (not when it was enqueued), models trained by earlier queue entries are included.
+    Eligible = weights/best.pt + (results.yaml|results_reconstructed.yaml) + no EEHA_GUI_IGNORE."""
+    detect = os.path.join(kaist_path, 'runs', 'detect')
+    group = group.rstrip('/')
+    gdir = group if os.path.isabs(group) else os.path.join(detect, group)
+    group_rel = os.path.relpath(gdir, detect)
+    out = {}
+    for rep in sorted(glob.glob(gdir + '/*/')):
+        if os.path.exists(os.path.join(rep, 'EEHA_GUI_IGNORE')):
+            continue
+        bp = os.path.join(rep, 'weights', 'best.pt')
+        if not os.path.exists(bp):
+            continue
+        if not (os.path.exists(os.path.join(rep, 'results.yaml')) or
+                os.path.exists(os.path.join(rep, 'results_reconstructed.yaml'))):
+            continue
+        if tag and glob.glob(os.path.join(rep, tag, '*', 'results.yaml')):
+            continue  # already re-validated for this tag (idempotent on re-runs / resume)
+        rep_name = os.path.basename(rep.rstrip('/'))
+        out[bp] = f"{group_rel}/{rep_name}/{tag}" if tag else f"{group_rel}/{rep_name}"
+    return out
+
 
 def ask_yes_no(question):
     while True:
@@ -42,20 +71,32 @@ import faulthandler
 """
 def monitor_threads_and_processes(terminate_process=False):
     parent = psutil.Process()
-    children = parent.children(recursive=True)
-    
+    try:
+        children = parent.children(recursive=True)
+    except psutil.Error:
+        children = []
+
     log(f"Total child processes: {len(children)}", bcolors.WARNING)
+    # Zombie/already-dead children raise psutil.ZombieProcess / NoSuchProcess on name()/cmdline()/etc.
+    # The validations already finished and wrote results before this cleanup runs, so a dead child here
+    # must NEVER turn a successful run into a "FAILED TEST EXECUTION". Guard every psutil call.
     for child in children:
-        log(f"PID: {child.pid}, Name: {child.name()}, Status: {child.status()}", bcolors.WARNING)
-        log(f"\t· Cmdline: {child.cmdline()}", bcolors.WARNING)
-        log(f"\t· CPU Time: {child.cpu_times()}", bcolors.WARNING)
-        log(f"\t· Memory Info: {child.memory_info()}", bcolors.WARNING)
-        
+        try:
+            log(f"PID: {child.pid}, Name: {child.name()}, Status: {child.status()}", bcolors.WARNING)
+            log(f"\t· Cmdline: {child.cmdline()}", bcolors.WARNING)
+            log(f"\t· CPU Time: {child.cpu_times()}", bcolors.WARNING)
+            log(f"\t· Memory Info: {child.memory_info()}", bcolors.WARNING)
+        except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied) as e:
+            log(f"\t· (skip child {getattr(child, 'pid', '?')}: {e})", bcolors.WARNING)
+
         if terminate_process:
-            log(f"\t· Terminating process {child.pid}...", bcolors.WARNING)
-            child.terminate()
-            child.wait()  
-            log(f"\t· Process {child.pid} terminated.\n", bcolors.WARNING)
+            try:
+                log(f"\t· Terminating process {child.pid}...", bcolors.WARNING)
+                child.terminate()
+                child.wait(timeout=10)
+                log(f"\t· Process {child.pid} terminated.\n", bcolors.WARNING)
+            except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.TimeoutExpired) as e:
+                log(f"\t· (could not terminate {getattr(child, 'pid', '?')}: {e})", bcolors.WARNING)
 
     active_threads = threading.enumerate()
     log(f"Total active threads: {len(active_threads)}", bcolors.WARNING)
@@ -84,14 +125,29 @@ if __name__ == '__main__':
 
         logCoolMessage(f"START TEST EXECUTION")
         index = 0
+        discover_paths = None
         try:
             condition_list, option_list, model_list, opts = handleArguments(next_test)
 
-            if not opts.dataset:
+            # --iterations all -> expand the group given in -m into the trained models present RIGHT NOW.
+            if opts.iterations == 'all':
+                discover_paths = discover_models(model_list[0], getattr(opts, 'result_tag', None))
+                model_list = list(discover_paths.keys())
+                opts.iterations = 1  # each discovered model is validated once
+                log(f"[discover] {len(model_list)} eligible model(s) under '{next_test[next_test.index('-m') + 1]}' "
+                    f"(tag={getattr(opts, 'result_tag', None)})")
+
+            if discover_paths is not None and not model_list:
+                # discover entry but the group is already fully re-validated -> no-op, skip dataset gen
+                # (avoids regenerating test npz for nothing -- matters for slow fa/curvelet).
+                log("[discover] no eligible models to validate right now; skipping dataset generation.")
+                dataset_config_list = []
+            elif not opts.dataset:
                 checkDataset(options=option_list, dataset_format=opts.dformat,
                              rgb_eq=opts.rgb_eq, thermal_eq=opts.thermal_eq,
                              distortion_correct=opts.distortion_correct,
-                             relabeling=opts.relabeling)
+                             relabeling=opts.relabeling,
+                             only_test=('val' in opts.run_mode and 'train' not in opts.run_mode))
 
                 dataset_config_list = generateCFGFiles(condition_list, option_list, dataset_tag = opts.dformat)
             else:
@@ -118,10 +174,11 @@ if __name__ == '__main__':
 
         try:
             for dataset, condition, option in dataset_config_list:
-                for yolo_model in model_list:
+                for _mi, yolo_model in enumerate(model_list):
                     for index in range(opts.iterations):
                         log("--------------------------------------------------------------------------")
                         log(f"Start iteration {index+1}/{opts.iterations}")
+                        iter_start = datetime.now()
                         ret, init_time = isTimetableActive()
                         if not ret:
                             log_ntfy(title="Pause tests", msg=f"Pause requested for tests in {getGPUTestIDTag()}.", tags = "")
@@ -137,13 +194,14 @@ if __name__ == '__main__':
                             else:
                                 test_name = opts.test_name + id
 
-                            if opts.path_name is None:
+                            pn_base = discover_paths.get(yolo_model) if discover_paths else opts.path_name
+                            if pn_base is None:
                                 if 'val' in opts.run_mode:
                                     path_name = "validate_" + yolo_model + "/" + test_name
                                 elif 'train' in opts.run_mode:
                                     path_name = f'train_based_{yolo_model}/{test_name}'
                             else:
-                                path_name = opts.path_name + "/" + test_name
+                                path_name = pn_base + "/" + test_name
                             path_name = path_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
                         else:
                             opts.resume = False
@@ -181,10 +239,23 @@ if __name__ == '__main__':
                             log_ntfy(title="Stop requested", msg=f"Stop requested for tests in {getGPUTestIDTag()}.", tags = "")
                             break
 
-                        log(f"Options executed (iteration: {index+1}/{opts.iterations}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· {model_list = };\n\t· run mode: {opts.run_mode}")
+                        iter_dur = str(datetime.now() - iter_start).split('.')[0]  # h:mm:ss (this single test)
+                        # run type: train, or val tagged by --result-tag when present (e.g. npzfix / cross_llvip)
+                        _tag = getattr(opts, 'result_tag', None)
+                        run_type = 'train' if 'train' in opts.run_mode else (f'{_tag}-val' if _tag else 'val')
+                        # In auto-discovery the discovered models are the units of work, so report "model i/N" and
+                        # only the current model (its rep dir), not the whole list. iter_dur is this model's val time.
+                        if discover_paths:
+                            progress = f"model {_mi+1}/{len(model_list)}"
+                            model_disp = os.path.basename(os.path.dirname(os.path.dirname(yolo_model)))  # <rep> dir
+                        else:
+                            progress = f"it {index+1}/{opts.iterations}"
+                            model_disp = str(model_list)
+                        log(f"Options executed ({progress}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· model: {model_disp};\n\t· run mode: {opts.run_mode} [{run_type}]; took {iter_dur}")
                         theq_msg = f"; with thermal_eq" if opts.thermal_eq != 'none' else ""
                         rgbeq_msg = f"; with rgb_eq" if opts.rgb_eq != 'none' else ""
-                        raw_msg = f"Options executed (iteration: {index+1}/{opts.iterations}) were: dataset = {opts.dformat}; {os.path.basename(dataset)}; {model_list = }{theq_msg}{rgbeq_msg}."
+                        raw_msg = (f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {run_type} ({progress}) took {iter_dur} "
+                                   f"— {opts.dformat}; {os.path.basename(dataset)}; {model_disp}{theq_msg}{rgbeq_msg}.")
                         log_ntfy(raw_msg, success=True)
             monitor_threads_and_processes(terminate_process=True)
             logCoolMessage(f"CLEAN FINISH TEST EXECUTION")

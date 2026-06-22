@@ -23,6 +23,15 @@ from config import yolo_output_path, yolo_output_path_2, yolo_output_log_path, r
 #     Argument input handling     #
 ###################################
 
+def iterations_arg(value):
+    """--iterations accepts an int, or the literal 'all' for run-time auto-discovery:
+    when 'all', -m is treated as a group dir and every eligible trained model found under it
+    AT RUN TIME is validated (so models trained by earlier queue entries get picked up)."""
+    if str(value).strip().lower() == 'all':
+        return 'all'
+    return int(value)
+
+
 def configArgParser():
     parser = ArgumentParser(description="Handle operations with YOLOv8, both Validation and Training. Tests will be executed iteratively from all combinations of the configurations provided (condition, option and model).")
     parser.add_argument('-c', '--condition', action='store', dest='clist', metavar='CONDITION',
@@ -32,8 +41,9 @@ def configArgParser():
                         type=str, nargs='*', default=None, choices=option_list_default,
                         help=f"Option of the dataset to be used. Available options are {option_list_default}. Usage: -c item1 item2, -c item3")
     parser.add_argument('-m', '--model', action='store', dest='mlist', metavar='MODEL',
-                        type=str, nargs='*', default=model_list_default, choices=model_list_default,
-                        help=f"Model to be used. Available options are {model_list_default}. Usage: -m item1 item2, -c item3")
+                        type=str, nargs='*', default=model_list_default,
+                        help=f"Model(s): a config name {model_list_default}, or a path to trained weights (.pt) "
+                             f"for re-validation/cross-eval. Usage: -m item1 item2")  ## EEHA: choices dropped so trained .pt paths are accepted (the model loader validates downstream)
     # Commented for now as it is called using env var. Is set in handleArguments to None by default
     #  parser.add_argument('-d', '--device', dest='device',
                         # default=None, choices=['cpu', '0', '1', 'None'],
@@ -49,13 +59,15 @@ def configArgParser():
                         help="Run as validation or test mode. Available options are ['val', 'train']. Usage: -c item1 item2, -c item3")
     parser.add_argument('-path','--path-name', default=None, type=str, 
                         help="Path in which the results will be stored. If set to None a default path will be generated.")
-    parser.add_argument('-test','--test-name', default=None, type=str, 
+    parser.add_argument('-test','--test-name', default=None, type=str,
                         help="Test name. Implies changes in the path in which it will be stored. Left to 'None' for a default test name.")
+    parser.add_argument('-rt','--result-tag', dest='result_tag', default=None, type=str,
+                        help="Optional tag for re-validation / cross-eval outputs (e.g. 'npzfix', 'cross_llvip'). Labels ntfy logs and the output subfolder; leave None for a normal run.")
     parser.add_argument('-df', '--dataset-format', dest='dformat', type=str, default=dataset_tags_default[1], choices=dataset_tags_default,
                         help=f"Format of the dataset to be generated. One of the following: {dataset_tags_default}")
     parser.add_argument('-d', '--dataset', dest='dataset', type=str, default=None,
                         help=f"YAML file with dataset configuration")
-    parser.add_argument('-it', '--iterations', dest='iterations', type=int, default=1, help='How many repetitions of this test will be performed secuencially.')
+    parser.add_argument('-it', '--iterations', dest='iterations', type=iterations_arg, default=1, help="Repetitions to run sequentially, or 'all' to auto-discover & validate every trained model found under -m (a group dir) at run time.")
     parser.add_argument('-b', '--batch', dest='batch', type=int, default=16, help='Batch size when training.')
     parser.add_argument('-te', '--th_equalization', dest='thermal_eq',
                         type=str, default="none", choices=['none','clahe','expand'], # Equalization to thermal image: clahe, linear, no equalization..

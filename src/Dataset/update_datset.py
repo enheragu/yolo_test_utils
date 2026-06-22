@@ -22,9 +22,9 @@ if __name__ == "__main__":
     sys.path.append('./src/Dataset')
 
 from utils import FileLock
-from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow
+from utils import log, bcolors, parseYaml, dumpYaml, getTimetagNow, updateSymlink
 from Dataset.constants import dataset_options_keys, dataset_keys, kaist_path, kaist_yolo_dataset_path, llvip_yolo_dataset_path, llvip_path, repo_path
-from Dataset.constants import dataset_options, dataset_generated_cache
+from Dataset.constants import dataset_options, dataset_generated_cache, images_folder_name
 from Dataset.KAIST.kaist_to_yolo_annotations import kaistToYolo
 from Dataset.LLVIP.llvip_to_yolo_annotations import llvipToYolo
 from Dataset.rgb_thermal_mix import make_dataset
@@ -102,8 +102,25 @@ def dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct
     
     dumpYaml(dataset_generated_cache, data, mode = "w+")
 
+
+def _option_materialized(dataset_yolo_path, option, only_test):
+    """True if <option>/images is non-empty in every required split (test-* if only_test, else all)."""
+    splits = [f for f in os.scandir(dataset_yolo_path)
+              if f.is_dir() and (not only_test or f.name.startswith('test'))]
+    if not splits:
+        return False
+    for s in splits:
+        imgs = os.path.join(s.path, option, images_folder_name)
+        if not os.path.isdir(imgs):
+            return False
+        with os.scandir(imgs) as it:
+            if next(it, None) is None:
+                return False
+    return True
+
+
 def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none',
-                      distortion_correct = True, relabeling = True):
+                      distortion_correct = True, relabeling = True, only_test = False):
 
     if options is None:
         log(f"[UpdateDataset::checkDataset] No options provided, no checking Kaist dataset", bcolors.WARNING)
@@ -174,16 +191,37 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
         # log(f"[UpdateDataset::checkDataset] {setfolders = };\n{options_found =}\n")
 
 
-        # Check that needed versions exist or create them
+        # Check that needed versions exist or create them (scope = only_test ? test splits : all)
         for option in options:
-            if option not in options_found:
-                log(f"[UpdateDataset::checkDataset] Custom dataset for option {option} requested but not found in dataset folders. Generating it.")
-                if "preprocess" in dataset_options[option]:
-                    dataset_options[option]["preprocess"](dataset_format)
-                make_dataset(option=option, dataset_format=dataset_format, rgb_eq=rgb_eq, thermal_eq=thermal_eq, yolo_version_dataset_path=dataset_yolo_path)
+            # Already materialized for the requested scope -> nothing to do
+            if _option_materialized(dataset_yolo_path, option, only_test):
+                log(f"[UpdateDataset::checkDataset] Option {option} already materialized for the requested scope. Skipping.")
+                continue
+
+            # An equivalent option (same fusion fingerprint) already materialized -> symlink it (same data).
+            # early/middle/late_4ch all use combine_4ch; they differ only in the model, so the data is shared.
+            equiv = next((o for o in dataset_options
+                          if o != option
+                          and dataset_options[o].get('version') == dataset_options[option].get('version')
+                          and dataset_options[o].get('extension') == dataset_options[option].get('extension')
+                          and _option_materialized(dataset_yolo_path, o, only_test)), None)
+            if equiv is not None:
+                log(f"[UpdateDataset::checkDataset] Option {option} is identical to '{equiv}' (same fusion fingerprint). Symlinking for the requested scope instead of regenerating.")
+                for split in os.scandir(dataset_yolo_path):
+                    if not split.is_dir() or (only_test and not split.name.startswith('test')):
+                        continue
+                    equiv_path = os.path.join(split.path, equiv)
+                    if os.path.exists(equiv_path):
+                        updateSymlink(equiv_path, os.path.join(split.path, option))
                 dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
-            else:
-                log(f"[UpdateDataset::checkDataset] Custom dataset for option {option} requested is already in dataset folder.")
+                continue
+
+            # Otherwise (re)generate the missing part (only_test filters splits; make_dataset skips existing)
+            log(f"[UpdateDataset::checkDataset] Generating option {option} (only_test={only_test}).")
+            if "preprocess" in dataset_options[option]:
+                dataset_options[option]["preprocess"](dataset_format)
+            make_dataset(option=option, dataset_format=dataset_format, rgb_eq=rgb_eq, thermal_eq=thermal_eq, yolo_version_dataset_path=dataset_yolo_path, only_test=only_test)
+            dumpCacheFile(option, dataset_format, rgb_eq, thermal_eq, distortion_correct, relabeling)
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Checks if dataset exists in expected location and generates it if not (download, extract, reformat or regenerate).")

@@ -32,10 +32,10 @@ import os
 import csv
 import re
 import shutil
-from click import group
 import yaml
 from pathlib import Path
 import tabulate
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threadedprocess import ThreadedProcessPoolExecutor
 from tqdm import tqdm
@@ -633,6 +633,7 @@ def gather_test_info(root):
     files = [
         p for p in root_path.rglob('run_opts.yaml')
         if not _is_ignored_relative_path(root_path, p)
+        and not (p.parent / 'EEHA_GUI_IGNORE').exists()  # don't count runs marked to ignore
     ]
 
     log(f"Found {len(files)} run_opts.yaml files to analyze.", bcolors.HEADER)
@@ -700,18 +701,28 @@ def gather_test_info(root):
             }:
                 equalization_type = path_name_split[0]
 
-            test_name = f"{equalization_type}/{friendly_name}"
+            # re-validation tag: npzfix / cross_kaist / cross_llvip (TestValidateYolo writes result_tag);
+            # plain trainings/vals have none -> 'train' (treated as in-domain).
+            tag = data.get('result_tag') or 'train'
 
             test_name = str(file_path).replace(str(root_path) + '/', '').replace('/run_opts.yaml', '')
             test_name = "/".join(test_name.split('/')[:-1])
             test_name = _normalize_test_path(test_name)
+
+            # model dataset = where the MODEL was trained (from the variance_* group in the path),
+            # distinct from `dataset` which is the TEST set it was validated ON (dformat). For cross
+            # evals these differ; for in-domain/train they coincide.
+            model_dataset = ('kaist' if 'variance_kaist' in test_name else
+                             ('llvip' if 'variance_llvip' in test_name else 'unknown'))
             # print(f"Final test_name: {test_name}")
             # return_data = data["path_name"], {"condition": condition, "fusion": fusion, "dataset": dataset, 'friendly_name': friendly_name}
             return_data = test_name, {"equalization_type": equalization_type,
-                                      "condition": condition, 
-                                      "fusion": fusion, 
-                                      "dataset": dataset, 
-                                      'friendly_name': friendly_name, 
+                                      "condition": condition,
+                                      "fusion": fusion,
+                                      "dataset": dataset,
+                                      'friendly_name': friendly_name,
+                                      'tag': tag,
+                                      'model_dataset': model_dataset,
                                       'test_path': test_name}
             return return_data
                    
@@ -787,108 +798,74 @@ def gather_test_info(root):
     table = tabulate.tabulate(rows, headers=headers, tablefmt="fancy_grid", colalign = ("center", "left")+("center",)*len(test_columns_index), showindex=True)
     log(f"\nGrouped Tests Summary:\n{table}\n", bcolors.OKCYAN)
 
-    # Ordered in a more compact way
-    table_info = {}
-    all_columns = set()
+    # ---- Two matrices, split by MODEL dataset (where the model was TRAINED) -----------------------
+    # Columns = fusion methods. Rows = (eq, test_dataset, condition) = what each model was validated WITH.
+    # A row whose test dataset != the model's dataset is a CROSS row (marked "(cross)").
+    # In-domain cells: npzfix (corrected re-val) predominates over the original train-time val.
+    # cell[model_ds][(eq, test_ds, cond)][fusion][tag] = count
+    cell = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int))))
+    methods_seen = set()
     for test_name, conditions in sub_folder_tests_by_name.items():
         for eq_condition, test_info in conditions.items():
-            # `test_info` is a dict with keys 'count' and 'content'
             content = test_info.get('content', {})
             fusion = content.get('fusion', 'unknown_fusion')
             eq_type = content.get('equalization_type', 'unknown_equalization')
-            dataset = content.get('dataset', '')
+            test_ds = content.get('dataset', '')
             condition = content.get('condition', '')
+            tag = content.get('tag', 'train')
+            model_ds = content.get('model_dataset', 'unknown')
             count = test_info.get('count', 0)
+            cell[model_ds][(eq_type, test_ds, condition)][fusion][tag] += count
+            methods_seen.add(fusion)
 
-            if fusion not in table_info:
-                table_info[fusion] = {}
-            if eq_type not in table_info[fusion]:
-                table_info[fusion][eq_type] = {}
+    def _indomain(tc):
+        # npzfix is the corrected re-val of the SAME trained models -> predominates over train.
+        for t in ('npzfix', 'train', 'val'):
+            if tc.get(t):
+                return tc[t]
+        return 0
 
-            key = f"{condition}_{dataset}"
-            previous_count = table_info[fusion][eq_type].get(key, 0)
-            table_info[fusion][eq_type][key] = previous_count + count
-            header = f"{eq_type}\n{dataset}\n{condition}"
-            all_columns.add(header)
+    def _cross(tc):
+        return tc.get('cross_kaist', 0) + tc.get('cross_llvip', 0)
 
-    # Sort columns by eq_type, dataset, condition for a stable, human-friendly order
-    parsed_cols = []
-    for h in all_columns:
-        parts = h.split("\n")
-        if len(parts) == 3:
-            eq_type, dataset, condition = parts
-        else:
-            eq_type = parts[0] if parts else ""
-            dataset = parts[1] if len(parts) > 1 else ""
-            condition = parts[2] if len(parts) > 2 else ""
-        parsed_cols.append((eq_type, dataset, condition, h))
-    parsed_cols.sort(key=lambda x: (x[0], x[1], x[2]))
-    all_columns = [t[3] for t in parsed_cols]
-
-    rows = []
-    for fusion, eq_types in table_info.items():
-        row = [fusion]  # primera columna
-        for header in all_columns:
-            eq_type, dataset, condition = header.split("\n")
-            col_key = f"{condition}_{dataset}"
-            value = eq_types.get(eq_type, {}).get(col_key, "")
-            if isinstance(value, int) and value < 5:
-                value = f"{bcolors.ERROR}{value}{bcolors.ENDC}{bcolors.OKCYAN}"
-            row.append(value)
-        rows.append(row)
-
-    # Export a machine-readable matrix to audit missing/extra counts.
-    for fusion, eq_types in table_info.items():
-        for header in all_columns:
-            eq_type, dataset, condition = header.split("\n")
-            col_key = f"{condition}_{dataset}"
-            count = eq_types.get(eq_type, {}).get(col_key, 0)
-            detailed_rows_numeric.append([fusion, eq_type, dataset, condition, count])
+    methods = sorted(methods_seen)
+    empty_cell = f"{bcolors.ERROR}-{bcolors.ENDC}{bcolors.OKCYAN}"
+    for model_ds in sorted(cell.keys()):
+        rows = []
+        for rk in sorted(cell[model_ds].keys()):
+            eq_type, test_ds, condition = rk
+            is_cross = not str(test_ds).startswith(model_ds)
+            valfn = _cross if is_cross else _indomain
+            cells = [valfn(cell[model_ds][rk].get(m, {})) for m in methods]
+            ds_line = ("(cross) " if is_cross else "") + str(test_ds)
+            label = f"{eq_type}\n{ds_line}\n{condition}"
+            row = [label]
+            for v in cells:
+                if isinstance(v, int) and 0 < v < 5:
+                    row.append(f"{bcolors.ERROR}{v}{bcolors.ENDC}{bcolors.OKCYAN}")
+                elif v == 0:
+                    row.append(empty_cell)
+                else:
+                    row.append(v)
+            rows.append(row)
+            kind = 'cross' if is_cross else 'in_domain'
+            for m, v in zip(methods, cells):
+                detailed_rows_numeric.append([model_ds, kind, eq_type, test_ds, condition, m, v])
+        headers = [f"model={model_ds}\n(eq / test / cond)"] + methods
+        n_cols = len(headers)
+        colalign = ("center", "left") + ("center",) * (n_cols - 1)
+        table = tabulate.tabulate(rows, headers=headers, tablefmt="fancy_grid", colalign=colalign, showindex=True)
+        log(f"\nMatrix — modelos entrenados en {str(model_ds).upper()} "
+            f"(fila = validado con; '(cross)' = dataset contrario; in-domain: npzfix>train):\n{table}\n",
+            bcolors.OKCYAN)
 
     detailed_csv_path = root_path / DETAILED_COUNTS_CSV
     with open(detailed_csv_path, 'w', newline='', encoding='utf-8') as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["fusion", "equalization_type", "dataset", "condition", "count"])
-        for row in sorted(detailed_rows_numeric, key=lambda x: (x[0], x[1], x[2], x[3])):
+        writer.writerow(["model_dataset", "kind", "equalization_type", "test_dataset", "condition", "fusion", "count"])
+        for row in sorted(detailed_rows_numeric, key=lambda x: (x[0], x[1], x[2], x[3], x[4], x[5])):
             writer.writerow(row)
     log(f"Detailed count report written: {detailed_csv_path}", bcolors.OKGREEN)
-
-    # replace empty cells with a red '-' for visibility
-    empty_cell = f"{bcolors.ERROR}-{bcolors.ENDC}{bcolors.OKCYAN}"
-    for r in rows:
-        for i in range(1, len(r)):
-            if not r[i]:
-                r[i] = empty_cell
-
-    headers = ["fusion"] + list(all_columns)
-
-    # If the table is very wide, rotate (transpose) it so rows become columns.
-    ROTATE_IF_WIDER_THAN = 8
-    if len(headers) > ROTATE_IF_WIDER_THAN and len(rows) > 0:
-        # new headers: first is the original first header, then one column per existing row (fusion names)
-        fusion_names = [r[0] for r in rows]
-        new_headers = [headers[0]] + fusion_names
-        new_rows = []
-        # for each original column (except the first/fusion column), create a new row
-        for col_idx in range(1, len(headers)):
-            label = headers[col_idx]
-            new_row = [label]
-            for r in rows:
-                # protect against ragged rows
-                new_row.append(r[col_idx] if col_idx < len(r) else "")
-            new_rows.append(new_row)
-        headers, rows = new_headers, new_rows
-
-    n_cols = len(headers)
-    # set colalign: for rotated table typically left for first column, center for the rest
-    # Row numbering centered :)
-    if n_cols >= 2:
-        colalign = ("center",) + ("left",) + ("center",) * (n_cols - 1)
-    else:
-        colalign = ("center",) + ("center",) * n_cols
-
-    table = tabulate.tabulate(rows, headers=headers, tablefmt="fancy_grid", colalign=colalign, showindex=True)
-    log(f"\nDetailed Tests Summary:\n{table}\n", bcolors.OKCYAN)
 
 if __name__ == "__main__":
     # Collect all directories to process

@@ -52,7 +52,7 @@ def process_image(yolo_dataset_path, folder, combine_method, option_path, datase
     total_time = end_time - start_time
     return image_combined, total_time
 
-def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none', yolo_version_dataset_path = kaist_yolo_dataset_path):
+def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal_eq = 'none', yolo_version_dataset_path = kaist_yolo_dataset_path, only_test = False):
     if option not in dataset_options:
         log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
@@ -66,7 +66,9 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
     for folder in os.listdir(yolo_version_dataset_path):
         if not os.path.isdir(os.path.join(yolo_version_dataset_path,folder)):
              continue
-        
+        if only_test and not folder.startswith('test'):
+            continue  # only_test: fuse only the test split(s), skip train-*
+
         # Images as new dataset option to new path with its labels
         option_path = os.path.join(yolo_version_dataset_path,folder,option,images_folder_name)
         Path(option_path).mkdir(parents=True, exist_ok=True)
@@ -78,7 +80,11 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
         #                 dirs_exist_ok=True)
 
         images_list = os.listdir(os.path.join(yolo_version_dataset_path,folder,lwir_folder_name,images_folder_name))
-        images_list_create = [image for image in images_list if image not in processed_images]
+        ext = dataset_options[option]['extension']
+        # Incremental: skip images whose fused output already exists (fills only the missing part)
+        images_list_create = [image for image in images_list
+                              if image not in processed_images
+                              and not os.path.exists(os.path.join(option_path, os.path.splitext(image)[0] + ext))]
         images_list_symlink = [image for image in images_list if image in processed_images]
         
         # Only N images to be faster during testing. They are displayed and computed one by one
@@ -130,7 +136,11 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
 
         # checkImageLabelPairs(os.path.join(yolo_version_dataset_path,folder,option))
     log(f"[RGBThermalMix::make_dataset] Created {symlink_created} symlinks instead of repeating images.")
-    log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {stdev(execution_time_all)}) on each image (for {dataset_format}).")
+    if execution_time_all:
+        std = stdev(execution_time_all) if len(execution_time_all) > 1 else 0.0
+        log(f"[RGBThermalMix::make_dataset] Fussion method for option {option} took on average {mean(execution_time_all)}s (std: {std}) on each image (for {dataset_format}).")
+    else:
+        log(f"[RGBThermalMix::make_dataset] Option {option} already materialized for the requested scope; nothing re-fused (for {dataset_format}).")
 
 
 if __name__ == '__main__':

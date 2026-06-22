@@ -92,7 +92,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
     args['save_json'] = True
     # args['save_hybrid'] = True
 
-    args['save_txt'] = True
+    args['save_txt'] = False  ## EEHA disk: detected-label .txt are redundant with predictions.json; skip writing+compressing them
     args['verbose'] = True
     args['save_conf'] = True
     args['iou'] = 0.5
@@ -111,7 +111,7 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
 
     args['pretrained'] = opts.pretrained
     args['resume'] = opts.resume
-    yaml_data['seed'] = random.randint(0, 300) #42
+    yaml_data['seed'] = random.SystemRandom().randint(0, 2**31 - 1)  # unique per run, OS entropy (was random.randint(0,300): tiny range + global-state reuse caused seed collisions)
     args['seed'] = set_seed(yaml_data['seed'])
                 
     yaml_data['pretrained'] = opts.pretrained
@@ -132,7 +132,10 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
     trainer = yolo_detc.DetectionTrainer(overrides=args)
     try:
         trainer.train()
-        dumpYaml(Path(trainer.save_dir) / f'results.yaml', yaml_data, 'a')
+        results_path = Path(trainer.save_dir) / f'results.yaml'
+        existing = parseYaml(results_path) or {}
+        existing.update(yaml_data)
+        dumpYaml(results_path, existing)
         run_opts_data = _opts_to_plain_dict(opts)
         dumpYaml(Path(trainer.save_dir) / f'run_opts.yaml', run_opts_data, 'w')
 
