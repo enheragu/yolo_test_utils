@@ -149,6 +149,22 @@ def checkDataset(options = [], dataset_format = 'kaist_coco', rgb_eq = 'none', t
         if type(options) is not type(list()):
             options = [options]
 
+        # Expand meta-options (e.g. 'split_late_4ch') that declare their atomic fusions via
+        # 'expands_to'. Each atomic option then generates normally (own folder/fingerprint/cache).
+        # No-op for ordinary options; keeps the split's data definition in one place (constants.py).
+        expanded = []
+        for o in options:
+            sub = dataset_options.get(o, {}).get('expands_to')
+            if sub:
+                for s in sub:
+                    if s not in expanded:
+                        expanded.append(s)
+            elif o not in expanded:
+                expanded.append(o)
+        if expanded != options:
+            log(f"[UpdateDataset::checkDataset] Expanding meta-options {options} -> {expanded}.")
+        options = expanded
+
         # Check if kaist dataset is already in the system
         if 'kaist' in dataset_format:
             if not os.path.exists(f"{dataset_path}/images"):

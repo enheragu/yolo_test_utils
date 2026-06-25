@@ -56,6 +56,11 @@ def make_dataset(option, dataset_format = 'kaist_coco', rgb_eq = 'none', thermal
     if option not in dataset_options:
         log(f"[RGBThermalMix::make_dataset] Option {option} not found in dataset generation options. Not generating.", bcolors.WARNING)
         return
+    if 'merge' not in dataset_options[option]:
+        # Meta-options (e.g. 'split_late_4ch' with 'expands_to') have no merge fn of their own;
+        # they are expanded into atomic options upstream in checkDataset. Never generate them directly.
+        log(f"[RGBThermalMix::make_dataset] Option {option} has no 'merge' fn (meta/expands_to option). Skipping direct generation.", bcolors.WARNING)
+        return
     
     symlink_created = 0
     processed_images = {}

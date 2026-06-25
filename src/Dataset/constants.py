@@ -117,7 +117,9 @@ dataset_options = {
                     'early_4ch': {'merge': combine_4ch, 'extension': '.npz' },
                     'middle_4ch': {'merge': combine_4ch, 'extension': '.npz' },
                     'late_4ch': {'merge': combine_4ch, 'extension': '.npz' },
-                    'split_late_4ch': {'merge': combine_4ch, 'extension': '.npz' }
+                    # 'split_late_4ch': {'merge': combine_4ch, 'extension': '.npz' }
+                    'split_late_4ch': {'expands_to': ['4ch', '4ch_visible', '4ch_lwir'], 'extension': '.npz'},
+
                   }
 
 fa_pca_options = {'pca' : {'merge': combine_rgbt_pca_to3ch, 'extension': '.npz' },
@@ -173,7 +175,8 @@ class_data = {'coco': {  'person': 0,  'bicycle': 1,  'car': 2,  'motorcycle': 3
               'kaist_70_30': default_kaist,
               'kaist_debug': default_kaist,
               'llvip_80_20': default_kaist,
-              'llvip_4ch_latesplit_80_20': default_kaist
+              'llvip_4ch_latesplit_80_20': default_kaist,
+              'kaist_4ch_latesplit_80_20': default_kaist
              }
 
 ## Templates for TMP YOLO dataset configuration
@@ -189,7 +192,8 @@ templates_cfg = {'coco': {'template': f"{dataset_config_path}/coco.yaml"},
                  'kaist_70_30': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': '70_30'}}, # Extra arguments that can be provided to the template
                  'kaist_debug': {'template': f"{dataset_config_path}/dataset_kaist_percent_option.j2", 'extra': {'percent': 'debug'}}, # Extra arguments that can be provided to the template. Just for debugging training/val process
                  'llvip_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option.j2", 'extra': {'percent': '80_20'}},
-                 'llvip_4ch_latesplit_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option_4ch_latesplit.j2", 'extra': {'percent': '80_20'}}
+                 'llvip_4ch_latesplit_80_20': {'template': f"{dataset_config_path}/dataset_llvip_percent_option_4ch_latesplit.j2", 'extra': {'percent': '80_20'}},
+                 'kaist_4ch_latesplit_80_20': {'template': f"{dataset_config_path}/dataset_kaist_percent_option_4ch_latesplit.j2", 'extra': {'percent': '80_20'}}
                  }
 
 dataset_keys = list(class_data.keys())

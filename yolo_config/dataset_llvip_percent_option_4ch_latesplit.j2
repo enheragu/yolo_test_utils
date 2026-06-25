@@ -12,13 +12,13 @@ test:
   # Test data is optional
 train: 
   {% if condition == "night" -%}
-  - train-night-half1-{{percent}}/{{option}}/
-  - train-night-half2-{{percent}}/{{option}}_visible/
-  - train-night-half2-{{percent}}/{{option}}_lwir/
+  - train-night-half1-{{percent}}/4ch/
+  - train-night-half2-{{percent}}/4ch_visible/
+  - train-night-half2-{{percent}}/4ch_lwir/
   {% endif %}
 val: 
   {% if condition == "night" -%}
-  - test-night-{{percent}}/{{option}}/
+  - test-night-{{percent}}/4ch/
   {% endif %}
 
 

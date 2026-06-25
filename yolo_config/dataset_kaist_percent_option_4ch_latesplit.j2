@@ -1,0 +1,41 @@
+## File to test architecture with late fusion with branch enable/disable based on image
+## KAIST day+night variant. Mirror of dataset_llvip_percent_option_4ch_latesplit.j2 (which is night-only).
+## half1 -> full 4ch pairs (both branches). half2 -> 4ch_visible (thermal=0) + 4ch_lwir (visible=0),
+## i.e. modality-dropout for FilterInputDetach. 4ch_visible/_lwir is literal concat -> 4ch_visible/4ch_lwir.
+
+names:
+  0: person
+  1: cyclist
+  2: people
+## Not enough cyclist nor people to train or validate. Too few instances of them in the images.
+
+
+path: {{data_path}}
+test:
+  # Test data is optional
+train:
+  {% if condition == "all" -%}
+  - train-day-half1-{{percent}}/4ch/
+  - train-day-half2-{{percent}}/4ch_visible/
+  - train-day-half2-{{percent}}/4ch_lwir/
+  - train-night-half1-{{percent}}/4ch/
+  - train-night-half2-{{percent}}/4ch_visible/
+  - train-night-half2-{{percent}}/4ch_lwir/
+  {% elif condition == "day" -%}
+  - train-day-half1-{{percent}}/4ch/
+  - train-day-half2-{{percent}}/4ch_visible/
+  - train-day-half2-{{percent}}/4ch_lwir/
+  {% elif condition == "night" -%}
+  - train-night-half1-{{percent}}/4ch/
+  - train-night-half2-{{percent}}/4ch_visible/
+  - train-night-half2-{{percent}}/4ch_lwir/
+  {% endif %}
+val:
+  {% if condition == "all" -%}
+  - test-day-{{percent}}/4ch/
+  - test-night-{{percent}}/4ch/
+  {% elif condition == "day" -%}
+  - test-day-{{percent}}/4ch/
+  {% elif condition == "night" -%}
+  - test-night-{{percent}}/4ch/
+  {% endif %}

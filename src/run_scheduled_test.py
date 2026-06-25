@@ -2,6 +2,18 @@
 # encoding: utf-8
 
 import os
+
+# --- Cap BLAS/OMP threads per process (avoid nested oversubscription) ---
+# The fusion runs Pool(cpu_count) worker processes. BLAS-heavy methods (e.g.
+# fa: sklearn PCA/FactorAnalysis + np.linalg.eigh) would otherwise each spawn
+# cpu_count BLAS threads -> cpu_count^2 threads (observed load ~131 on 16 HW
+# threads = thrashing). One BLAS thread per worker keeps the process-level
+# parallelism (Pool) without nested thread contention. Single-threaded methods
+# (curvelet, channel ops) are unaffected. setdefault respects any user override.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 import sys
 import glob
 import traceback
