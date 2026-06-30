@@ -1,0 +1,32 @@
+# Full table dump — equivalent to: "Table" (CSV Table) tab → Select All → Save Output.
+#
+# This is the dedicated CSV Table tab (CSVTablePlotter): it dumps EVERY trial as
+# its own row, with no "best" collapsing and no mode. The averaged table goes to a
+# separate file. The '*' wildcard keeps it valid as new runs are added.
+#
+#   eeha_render_preset --preset gui_presets/full_table_dump.yaml
+#   eeha_render_preset --preset gui_presets/full_table_dump.yaml --output outputs/dump/
+#
+# Produces two CSV files:
+#   <filename>.csv            — ALL data: one row per individual trial (no best, no extra rows)
+#   <filename>_averaged.csv   — mean ± std per variance group (the aggregate table)
+
+version: 1
+tab: csv_table
+
+selection:
+  # '*' (or 'all') = select every test group, exactly like the "Select All" button.
+  variance_groups: "*"
+
+export:
+  # Empty columns = export ALL columns (the full 26-column table).
+  columns: []
+
+  # CSV only.
+  table_formats: [csv]
+
+  # Single language → clean filename with no _en/_es suffix and English headers.
+  languages: [en]
+
+  # Base output path (no extension). Override with --output if desired.
+  filename: full_table_all_data

@@ -34,3 +34,6 @@ python $EEHA_SCHEDULER_SCRIPT_PATH/../src/gui_render_preset.py --preset gui_pres
 python $EEHA_SCHEDULER_SCRIPT_PATH/../src/gui_render_preset.py --preset gui_presets/advanced_early_fusion/kaist_night_focus_fusion_methods.yaml --output /home/quique/umh/latex_docs/07_Advanced_early_fusion_thermal_visible/data_and_code/results/kaist_night/ --load_from_cache
 
 python $EEHA_SCHEDULER_SCRIPT_PATH/../src/gui_render_preset.py --preset gui_presets/advanced_early_fusion/llvip_night_focus_fusion_methods.yaml --output /home/quique/umh/latex_docs/07_Advanced_early_fusion_thermal_visible/data_and_code/results/llvip_night/ --load_from_cache
+
+# CSV with all data
+python $EEHA_SCHEDULER_SCRIPT_PATH/../src/gui_render_preset.py --preset gui_presets/full_table_dump.yaml --output /home/quique/umh/latex_docs/07_Advanced_early_fusion_thermal_visible/data_and_code/results/ --load_from_cache

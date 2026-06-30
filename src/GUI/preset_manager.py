@@ -16,8 +16,8 @@ YAML schema (v1):
     mode: p90                 # or [best, p90]
     class: all
     selection:
-      datasets: [key1, key2, ...]
-      variance_groups: [group1, group2, ...]
+      datasets: [key1, key2, ...]        # list of keys, or "*"/all to select every one
+      variance_groups: [group1, group2, ...]   # list of keys, or "*"/all (the "Select All" button)
     export:
       plots:     [train_compare/PR Curve, train_compare/mAP50, ...]
                                           # tab-qualified: <tab_id>/<plot_name>
