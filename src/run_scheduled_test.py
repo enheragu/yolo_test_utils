@@ -60,6 +60,28 @@ def discover_models(group, tag):
     return out
 
 
+def _count_completed_iterations(resume_rel_path):
+    """Count fully-finished sibling iterations of a crashed run, so a power-cut resume does not
+    re-run (or duplicate) iterations that already completed. A finished iteration's results.yaml
+    carries the post-train metadata block (top-level 'fusion_metadata:') that TestTrainYolo writes
+    only AFTER trainer.train() returns; the crashed run lacks it. resume_rel_path is the crashed run
+    path relative to runs/detect. NOTE: counts every complete iteration under the same path_name base
+    -- intended, since those are iterations you already have toward the requested total."""
+    parent = os.path.dirname(os.path.join(yolo_output_path_2, resume_rel_path))
+    count = 0
+    for sub in glob.glob(os.path.join(parent, '*', '')):
+        results_yaml = os.path.join(sub, 'results.yaml')
+        if not os.path.exists(results_yaml):
+            continue
+        try:
+            with open(results_yaml) as fh:
+                if any(line.startswith('fusion_metadata:') for line in fh):
+                    count += 1
+        except OSError:
+            continue
+    return count
+
+
 def ask_yes_no(question):
     while True:
         print(f"{question} (y/n): ")
@@ -187,9 +209,22 @@ if __name__ == '__main__':
         try:
             for dataset, condition, option in dataset_config_list:
                 for _mi, yolo_model in enumerate(model_list):
-                    for index in range(opts.iterations):
+                    base_yolo_model = yolo_model  # preserve original spec; the resume branch reassigns yolo_model to last.pt
+                    # Power-cut resume: skip iterations that already finished so a crash mid-campaign
+                    # neither re-runs nor duplicates completed runs. Only narrows on the resumed model
+                    # (resume_path is consumed at index 0); fresh runs keep the full requested count.
+                    if resume_path is not None:
+                        completed = _count_completed_iterations(resume_path)
+                        iterations_to_run = max(1, opts.iterations - completed)
+                        log(f"[resume] {completed} completed iteration(s) under "
+                            f"{os.path.dirname(resume_path)}; running {iterations_to_run} more "
+                            f"(1 resumed + {iterations_to_run - 1} new) to reach {opts.iterations}.",
+                            bcolors.WARNING)
+                    else:
+                        iterations_to_run = opts.iterations
+                    for index in range(iterations_to_run):
                         log("--------------------------------------------------------------------------")
-                        log(f"Start iteration {index+1}/{opts.iterations}")
+                        log(f"Start iteration {index+1}/{iterations_to_run}")
                         iter_start = datetime.now()
                         ret, init_time = isTimetableActive()
                         if not ret:
@@ -200,6 +235,7 @@ if __name__ == '__main__':
                         id = getGPUTestID()
                         
                         if resume_path is None:
+                            yolo_model = base_yolo_model  # fresh iteration -> original model spec (a prior resume mutated yolo_model to last.pt)
                             opts.resume = False
                             if opts.test_name is None:
                                 test_name = dataset.split("/")[-1].replace(".yaml","").replace("dataset_","") + id
@@ -216,11 +252,16 @@ if __name__ == '__main__':
                                 path_name = pn_base + "/" + test_name
                             path_name = path_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
                         else:
-                            opts.resume = False
-                            path_name = resume_path 
+                            path_name = resume_path
                             resume_path = None # Reset :)
                             yolo_model = f'{yolo_output_path_2}/{path_name}/weights/last.pt'
-                            log(f"Load previously executing test to continue in {path_name}")
+                            # Explicit last.pt path (not True/False): ultralytics check_resume() then
+                            # restores optimizer/EMA/LR schedule + start_epoch AND the original save_dir,
+                            # so training continues IN-PLACE (same folder, no duplicate) from the saved
+                            # epoch. resume=False restarts from epoch 0; resume=True would glob the
+                            # globally-newest last.pt (wrong run if anything trained since the crash).
+                            opts.resume = yolo_model
+                            log(f"Resume in-place from checkpoint {yolo_model}")
 
                         test_queue.updateCurrentExecutingPath(path_name)
                         for mode in opts.run_mode:
@@ -261,7 +302,7 @@ if __name__ == '__main__':
                             progress = f"model {_mi+1}/{len(model_list)}"
                             model_disp = os.path.basename(os.path.dirname(os.path.dirname(yolo_model)))  # <rep> dir
                         else:
-                            progress = f"it {index+1}/{opts.iterations}"
+                            progress = f"it {index+1}/{iterations_to_run}"
                             model_disp = str(model_list)
                         log(f"Options executed ({progress}) in {getGPUTestIDTag()} were:\n\t· {dataset = }\n\t· model: {model_disp};\n\t· run mode: {opts.run_mode} [{run_type}]; took {iter_dur}")
                         theq_msg = f"; with thermal_eq" if opts.thermal_eq != 'none' else ""

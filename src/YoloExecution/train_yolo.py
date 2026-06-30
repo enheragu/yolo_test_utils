@@ -111,8 +111,11 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
 
     args['pretrained'] = opts.pretrained
     args['resume'] = opts.resume
-    yaml_data['seed'] = random.SystemRandom().randint(0, 2**31 - 1)  # unique per run, OS entropy (was random.randint(0,300): tiny range + global-state reuse caused seed collisions)
-    args['seed'] = set_seed(yaml_data['seed'])
+    requested_seed = random.SystemRandom().randint(0, 2**31 - 1)  # unique per run, OS entropy (was random.randint(0,300): tiny range + global-state reuse caused seed collisions)
+    args['seed'] = set_seed(requested_seed)
+    # yaml_data['seed'] is recorded AFTER the trainer is built (see below). On a resume, check_resume()
+    # replaces trainer.args with the checkpoint's args, so the ORIGINAL seed must be logged, not this
+    # fresh one. set_seed above still runs; the trainer re-seeds from its own (restored) seed.
                 
     yaml_data['pretrained'] = opts.pretrained
     yaml_data['dataset_tag'] = opts.dformat
@@ -130,8 +133,15 @@ def TestTrainYolo(dataset, yolo_model, path_name, opts, log_file_path, option):
     yaml_data['output_log_file'] = log_file_path
     
     trainer = yolo_detc.DetectionTrainer(overrides=args)
+    # Seed actually used by training: on resume, check_resume() restored trainer.args from the
+    # checkpoint, so this is the ORIGINAL seed; on a normal run it equals requested_seed above.
+    yaml_data['seed'] = getattr(trainer.args, 'seed', requested_seed)
+    # Explicit, greppable marker for crash-resumed runs (opts.resume is the last.pt path on resume,
+    # False otherwise). The 'resume' field above keeps the exact checkpoint path for provenance.
+    yaml_data['resumed'] = bool(opts.resume)
     try:
         trainer.train()
+        yaml_data['resumed_from_epoch'] = getattr(trainer, 'start_epoch', 0)  # 0 = fresh run; >0 = continued from that epoch
         results_path = Path(trainer.save_dir) / f'results.yaml'
         existing = parseYaml(results_path) or {}
         existing.update(yaml_data)
