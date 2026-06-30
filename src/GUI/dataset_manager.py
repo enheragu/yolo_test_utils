@@ -145,7 +145,30 @@ def getResultsYamlData(dataset):
         log(f"[{inspect.currentframe().f_code.co_name}] Empty data in {dataset['key']}).", bcolors.ERROR)
         return {}
 
+    # If a corrected-validation re-run (npzfix) exists for this rep, overlay ONLY its validation
+    # blocks (pr_data_*/validation_* + the pr/val epoch counters) on top of the original training
+    # data. train_data, results.csv, args, dataset_info, etc. stay the original ones. The npzfix
+    # results.yaml is val-only (no train_data), so a field-level merge is required, not a swap.
+    override = dataset.get('val_override_path')
+    if override and os.path.exists(override):
+        npz = parseYaml(override)
+        if npz:
+            val_keys = [k for k in npz if k.startswith('pr_data_') or k.startswith('validation_')]
+            has_pr = any(k.startswith('pr_data_') for k in val_keys)
+            has_val = any(k.startswith('validation_') for k in val_keys)
+            if has_pr and has_val:
+                for k in val_keys:
+                    data[k] = npz[k]
+                for k in ('pr_epoch', 'val_epoch'):
+                    if k in npz:
+                        data[k] = npz[k]
+                data['npz_shape_fixed'] = True
+            else:
+                log(f"[{inspect.currentframe().f_code.co_name}] npzfix override {override} lacks pr_data_/validation_ blocks; using original validation for {dataset['key']}.", bcolors.WARNING)
+
     data_filtered = compute_plot_data(data, dataset)
+    if data.get('npz_shape_fixed'):
+        data_filtered['npz_shape_fixed'] = True
     return data_filtered
                         
 
@@ -234,6 +257,7 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
     global test_key_clean
 
     dataset_info = {}
+    npzfix_overrides = {}  # parent_rep_dir -> latest <rep>/npzfix/<run>/results.yaml
     for search_path in search_path_list:
         log(f"Search all {file_name} files in {search_path}")
         for root, dirs, files in os.walk(search_path):
@@ -257,7 +281,19 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                 name = abs_path.split("/")[-2]
                 title = abs_path.split("/")[-2]
                 model = abs_path.split("/")[-3]
-                
+
+                # Corrected-validation re-runs live in a 'npzfix' subfolder of their training rep
+                # (<rep>/npzfix/<run>/results.yaml). Fold them into the parent rep instead of listing
+                # a separate 'npzfix' model: remember the latest re-run so its validation metrics can
+                # be overlaid onto the parent below (training data stays the original). The cross_*
+                # re-runs are intentionally left as their own separate entries.
+                if model == "npzfix":
+                    parent_rep_dir = os.path.dirname(os.path.dirname(os.path.dirname(abs_path)))
+                    prev = npzfix_overrides.get(parent_rep_dir)
+                    if prev is None or abs_path > prev:  # timestamped run-dir names sort chronologically
+                        npzfix_overrides[parent_rep_dir] = abs_path
+                    continue
+
                 for clear_pattern in test_key_clean:
                     # model = model.replace(clear_tag, "")
                     model = re.sub(clear_pattern, "", model)
@@ -267,7 +303,15 @@ def find_results_file(search_path_list = [yolo_output_path], file_name = data_fi
                 # ax_label = f"{dataset.title()} {method.upper()}".strip() + f" ({model.replace('_sameseed','')})"
                 ## Plot by dataset, so its not needed in label
                 ax_label = f"{method.upper()}".strip() + f" ({model.replace('_sameseed','')})"
-                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path}
+                dataset_info[key] = {'name': name, 'path': abs_path, 'model': model, 'key': key, 'title': f"{title}", 'label': f'{ax_label}', 'group_path': group_path, '_rep_dir': os.path.dirname(abs_path)}
+
+    # Fold npzfix corrected-validation re-runs into their parent training rep: the rep keeps its
+    # training data (results.csv, train_data, args) and only its validation metrics are overlaid
+    # from the npzfix re-run at load time (see getResultsYamlData). RAW files are never modified.
+    for info in dataset_info.values():
+        override = npzfix_overrides.get(info.pop('_rep_dir', None))
+        if override:
+            info['val_override_path'] = override
 
     ## Order dataset by name
     myKeys = list(dataset_info.keys())
@@ -340,7 +384,7 @@ class DataSetHandler:
     PRIORITY_NORMAL = 10 # Background generation
     
     def __init__(self, update_cache=True, search_path_list=[yolo_output_path, yolo_output_path_2],
-                 load_from_cache=False, lazy_load=True, start_background=True):
+                 load_from_cache=False, lazy_load=True, start_background=True, max_workers=None):
         self.update_cache = update_cache
         self.load_from_cache = load_from_cache
         self.lazy_load = lazy_load
@@ -371,9 +415,10 @@ class DataSetHandler:
         
         # For lazy loading use ThreadPoolExecutor (avoids fork+Qt deadlock)
         # For blocking mode use ProcessPoolExecutor (better for CPU-intensive parsing)
-        max_workers = min(4, os.cpu_count() or 2)
+        # Default cap stays conservative (4) so a rebuild won't starve a running test
+        # campaign; callers can override max_workers when the box is idle / few runs remain.
         self._executor = None  # Created lazily based on mode
-        self._max_workers = max_workers
+        self._max_workers = max_workers if max_workers else min(4, os.cpu_count() or 2)
         
         # Track incomplete datasets
         self.incomplete_dataset = {}
